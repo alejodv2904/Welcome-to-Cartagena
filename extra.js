@@ -329,7 +329,7 @@ function hitAt(x,z){let hit=false;for(const p of C.ALLP){if(!p.vis||p.down>0)con
 
 /* entrar / salir del carro: caminar a la puerta, abrirla, (sacar al conductor), sentarse y cerrar */
 const DOORS=[],doorMats={};const GLASSM=new THREE.MeshPhongMaterial({color:0x0d151a,shininess:120,specular:0xbbbbbb,transparent:true,opacity:.6,depthWrite:false});
-const hasDoors=v=>!v.rig.moto&&!v.bus&&v.type!=='coche';
+const hasDoors=v=>!v.rig.moto&&!v.rig.open&&!v.bus&&v.type!=='coche';
 function doorFor(v,side,rear){const key=(side>0?'L':'R')+(rear?'r':'f');v.rig.doors=v.rig.doors||{};if(v.rig.doors[key])return v.rig.doors[key];
   const s=v.rig.seat,w=v.rig.wid/2;const g=new THREE.Group();g.position.set(side*(w+.012),0,(rear?s.z-.95:s.z)+.55);
   const pm=doorMats[v.col]||(doorMats[v.col]=new THREE.MeshPhongMaterial({color:v.col||'#cccccc',shininess:60,specular:0x444444}));

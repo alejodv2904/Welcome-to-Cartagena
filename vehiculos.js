@@ -164,6 +164,48 @@ SPEC.moto=(col)=>{const A=B();const dark='#1c1c1e',chrome='#b9bcc1';
   const head=[new THREE.CylinderGeometry(.08,.07,.06,12).applyMatrix4(mx(0,.9,.62,Math.PI/2,0,0))],tail=[new THREE.BoxGeometry(.12,.05,.03).applyMatrix4(mx(0,.66,-.89))];
   const plates=[new THREE.PlaneGeometry(.2,.1).applyMatrix4(mx(0,.56,-.9,-.3,Math.PI,0))];
   return{A,glass:[],head,tail,plates,wheels:[{x:0,z:.68,r:.3,w:.11,front:true,spokes:6,style:'black'},{x:0,z:-.66,r:.3,w:.13,front:false,spokes:6,style:'black'}],seat:{x:0,y:.82,z:-.25},len:2,wid:.7,roof:1.2,moto:true}};
+// cargo truck: square cab, chassis and either a closed box (furgón) or a wooden stake bed (estacas) loaded with sacks
+function truck(col,kind){const A=B();const L=7.2,W=1.15,dark='#1e1f21',gl='#1f2b33',cz=L/2-1.0;
+  addGeo(A,new THREE.BoxGeometry(W*2-.25,.28,L-.4),dark,mx(0,.72,0));
+  addGeo(A,new THREE.BoxGeometry(W*2,1.45,1.8),col,mx(0,1.62,cz));addGeo(A,new THREE.BoxGeometry(W*2-.06,.5,.5),col,mx(0,1.05,L/2-.15));
+  addGeo(A,new THREE.BoxGeometry(W*2-.25,.58,.02),gl,mx(0,1.98,cz+.91));for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.02,.55,.85),gl,mx(sd*(W+.005),1.98,cz+.3));
+  addGeo(A,new THREE.BoxGeometry(W*1.3,.34,.03),'#9a9da2',mx(0,1.05,L/2+.11));addGeo(A,new THREE.BoxGeometry(W*2+.04,.22,.18),'#2a2a2a',mx(0,.72,L/2+.05));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.08,.3,.06),dark,mx(sd*(W+.12),2.0,cz+.75));
+  const z0=-L/2+.05,z1=cz-.95,BL=z1-z0,zc=(z0+z1)/2;
+  if(kind==='box'){addGeo(A,new THREE.BoxGeometry(W*2+.05,2.4,BL),'#f2f0ea',mx(0,2.07,zc));for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.02,.28,BL-.2),col,mx(sd*(W+.04),1.2,zc))}
+  else{const wood='#8a5a36',wood2='#a8774a';addGeo(A,new THREE.BoxGeometry(W*2+.05,.12,BL),wood,mx(0,.92,zc));
+    for(const sd of [-1,1]){for(let k=0;k<=6;k++)addGeo(A,new THREE.BoxGeometry(.07,1.25,.08),wood2,mx(sd*(W+.0),1.6,z0+k*BL/6));for(const y of [1.25,1.65,2.1])addGeo(A,new THREE.BoxGeometry(.04,.12,BL),wood,mx(sd*(W+.02),y,zc))}
+    for(let k=0;k<=4;k++)addGeo(A,new THREE.BoxGeometry(.07,1.25,.08),wood2,mx(-W+k*W/2,1.6,z0));
+    for(let k=0;k<14;k++){const sx=-.7+(k%3)*.7,sz=z0+.6+Math.floor(k/3)*BL/5.3;addGeo(A,new THREE.SphereGeometry(.38,8,5),k%4?'#d8c79c':'#b5a07a',mx(sx,1.25+(k%2)*.12,sz,0,0,0,1,.6,1.3))}}
+  const head=[],tail=[];for(const s of [-1,1]){head.push(new THREE.BoxGeometry(.3,.16,.05).applyMatrix4(mx(s*(W-.3),1.05,L/2+.11)));tail.push(new THREE.BoxGeometry(.18,.24,.05).applyMatrix4(mx(s*(W-.2),.9,-L/2-.02)))}
+  const plates=[new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.8,L/2+.15)),new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.8,-L/2-.03,0,Math.PI,0))];
+  const wz=[cz-.15,-L/2+1.55];
+  return{A,glass:[],head,tail,plates,wheels:wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.15),z,r:.5,w:.3,front:i===0,spokes:8,style:'steel'}))).flat(),seat:{x:-.5,y:1.3,z:cz-.05},len:L,wid:W*2,roof:kind==='box'?3.3:2.4}}
+SPEC.camion=(col)=>truck(col,'box');
+SPEC.estacas=(col)=>truck(col,'stake');
+// pickup (camioneta de platón): sedan cabin up front, open bed with side walls behind it
+SPEC.pickup=(col)=>{const s=sedan(col,{L:5.2,W:1.86,roof:1.86,hood:1.12,deck:1.1,zr:-.45,zf:1.45,wz:[1.65,-1.7],wr:.38,spokes:6,rim:'steel',bumper:'#2a2a2a'});
+  const W=1.86/2,z0=-5.2/2+.06,z1=-.5,BL=z1-z0,zc=(z0+z1)/2;addGeo(s.A,new THREE.BoxGeometry(W*2-.18,.02,BL),'#26282b',mx(0,1.11,zc));
+  for(const sd of [-1,1])addGeo(s.A,new THREE.BoxGeometry(.07,.42,BL),col,mx(sd*(W-.05),1.3,zc));addGeo(s.A,new THREE.BoxGeometry(W*2-.04,.42,.07),col,mx(0,1.3,z0));
+  for(const sd of [-1,1])addGeo(s.A,new THREE.BoxGeometry(.05,.05,.9),'#9a9da2',mx(sd*(W-.05),1.55,-.95));return s};
+// motocarro: three-wheeler with a canopy, front cowl and a bench for passengers or cargo
+SPEC.motocarro=(col)=>{const A=B();const dark='#1c1c1e';
+  addGeo(A,new THREE.BoxGeometry(1.25,.14,2.25),dark,mx(0,.38,-.15));addGeo(A,new THREE.BoxGeometry(1.2,.35,.9),col,mx(0,.62,-.7));
+  addGeo(A,new THREE.BoxGeometry(.8,.95,.25),col,mx(0,.85,.98));addGeo(A,new THREE.BoxGeometry(.78,.45,.03),'#26343e',mx(0,1.55,.98));
+  addGeo(A,new THREE.BoxGeometry(1.32,.06,2.3),col,mx(0,1.86,-.1));for(const sx of [-.6,.6])for(const sz of [.95,-1.15])addGeo(A,new THREE.BoxGeometry(.04,1.3,.04),dark,mx(sx,1.2,sz));
+  addGeo(A,new THREE.BoxGeometry(.45,.12,.4),'#151515',mx(0,.92,.3));addGeo(A,new THREE.BoxGeometry(1.1,.14,.45),'#151515',mx(0,.92,-.75));addGeo(A,new THREE.BoxGeometry(1.1,.45,.06),'#151515',mx(0,1.15,-1.0));
+  addGeo(A,new THREE.BoxGeometry(.6,.03,.03),'#b9bcc1',mx(0,1.2,.75));
+  const head=[new THREE.CylinderGeometry(.08,.07,.05,12).applyMatrix4(mx(0,1.2,1.12,Math.PI/2,0,0))],tail=[];for(const s of [-1,1])tail.push(new THREE.BoxGeometry(.1,.08,.03).applyMatrix4(mx(s*.5,.6,-1.27)));
+  const plates=[new THREE.PlaneGeometry(.26,.13).applyMatrix4(mx(0,.6,-1.29,0,Math.PI,0))];
+  return{A,glass:[],head,tail,plates,wheels:[{x:0,z:.98,r:.25,w:.12,front:true,spokes:5,style:'black'},{x:-.55,z:-.75,r:.25,w:.12,front:false,spokes:5,style:'black'},{x:.55,z:-.75,r:.25,w:.12,front:false,spokes:5,style:'black'}],
+    seat:{x:0,y:.98,z:.25},len:2.7,wid:1.32,roof:1.9,open:true}};
+// bicycle: thin frame, handlebar and saddle; the rider sits on it like a motorcycle
+SPEC.bici=(col)=>{const A=B();const dark='#1c1c1e',r=.34;const tube=(x0,y0,z0,x1,y1,z1,t,c)=>{const dx=x1-x0,dy=y1-y0,dz=z1-z0,l=Math.hypot(dx,dy,dz);const g=new THREE.CylinderGeometry(t,t,l,6);
+    const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(dx/l,dy/l,dz/l));g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3((x0+x1)/2,(y0+y1)/2,(z0+z1)/2),q,new THREE.Vector3(1,1,1)));addGeo(A,g,c)};
+  const rear=[0,r,-.52],front=[0,r,.55],bb=[0,.33,-.02],seatT=[0,.88,-.22],head=[0,.92,.4];
+  tube(...rear,...bb,.018,col);tube(...bb,...seatT,.022,col);tube(...seatT,...head,.022,col);tube(...bb,...head,.025,col);tube(...rear,...seatT,.015,col);tube(...head,...front,.018,'#9a9da2');
+  addGeo(A,new THREE.BoxGeometry(.12,.05,.26),dark,mx(0,.93,-.24));addGeo(A,new THREE.BoxGeometry(.5,.025,.025),dark,mx(0,1.0,.36));addGeo(A,new THREE.CylinderGeometry(.08,.08,.03,10),'#b9bcc1',mx(.06,.33,-.02,0,0,Math.PI/2));
+  return{A,glass:[],head:[],tail:[],plates:[],wheels:[{x:0,z:.55,r,w:.04,front:true,spokes:12,style:'black'},{x:0,z:-.52,r,w:.04,front:false,spokes:12,style:'black'}],seat:{x:0,y:.86,z:-.2},len:1.75,wid:.5,roof:1.2,moto:true}};
 // horse-drawn carriage of the walled city (horse is an animated model added by the game)
 SPEC.coche=(col)=>{const A=B();const wood='#3a2617',gold='#c9a54a',red='#7a1414';
   const body=loft([{z:-1.5,pts:[[0,.75],[.7,.75],[.74,1.2],[.66,1.5],[0,1.5]]},{z:-1.4,pts:[[0,.72],[.74,.72],[.78,1.2],[.7,1.55],[0,1.55]]},{z:-.15,pts:[[0,.72],[.74,.72],[.78,1.2],[.7,1.55],[0,1.55]]},{z:-.05,pts:[[0,.8],[.7,.8],[.72,1.15],[.66,1.4],[0,1.4]]}]);
@@ -202,7 +244,7 @@ function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.G
   const wheels=d.wheels.map((w,i)=>{const piv=new THREE.Group();piv.position.set(w.x,w.r,w.z);const m=new THREE.Mesh(d.wgeo[i],M.wheel);m.castShadow=false;if(w.x<0&&w.style!=='wood')m.rotation.y=Math.PI;piv.add(m);near.add(piv);return{piv,m,r:w.r,front:w.front,flip:w.x<0&&w.style!=='wood'}});
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(d.wid+.7,d.len+.8),M.shadow);sh.rotation.x=-Math.PI/2;sh.position.y=.04;sh.renderOrder=1;root.add(sh);
   const lod=new THREE.Mesh(d.lodGeo,M.lod);lod.visible=false;lod.castShadow=true;root.add(lod);
-  return{root,near,body,paint,wheels,lod,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
+  return{root,near,body,paint,wheels,lod,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
 // per-frame animation: wheel spin & steering, suspension pitch/roll, brake lights
 function animateRig(R,speed,yawRate,dt,opt){opt=opt||{};const near=!R.lod.visible;
   R.spin+=speed*dt;const acc=(speed-R.lastSpeed)/Math.max(dt,1e-3);R.lastSpeed=speed;
