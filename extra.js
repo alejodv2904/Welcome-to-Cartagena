@@ -431,11 +431,11 @@ function updateDoors(dt){for(const d of DOORS){if(d.tgt===0&&d.cur===0){if(d.g.v
 function closeDoorLater(d,ms){setTimeout(()=>{d.tgt=0},ms)}
 // local (car space) → world
 function wpt(v,lx,lz){const c=Math.cos(v.yaw),s=Math.sin(v.yaw);return{x:v.x+lx*c+lz*s,z:v.z-lx*s+lz*c}}
-function seatLocal(v,ch,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;return V3(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12),rear?s.z-.95:s.z)}
+function seatLocal(v,ch,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;return V3(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12)+(rear&&v.rig.moto?.04:0),rear?s.z-(v.rig.moto?.42:.95):s.z)}
 function seatWorld(v,ch,rear){v.rig.root.updateMatrixWorld(true);return v.rig.body.localToWorld(seatLocal(v,ch,rear))}
 const SITB=[['LeftUpLeg',.12,-.12,1],['RightUpLeg',-.12,-.12,1],['LeftLeg',.02,-1,.25],['RightLeg',-.02,-1,.25],['LeftArm',.22,-.55,.8],['RightArm',-.22,-.55,.8],['LeftForeArm',-.25,.15,1],['RightForeArm',.25,.15,1]];
 function sitBlend(ch,k){if(k<=.01)return;for(const b of SITB)aim(ch,b[0],b[1],b[2],b[3],Math.min(1,k))}
-function doorSpot(v,side,rear){const s=v.rig.seat,w=v.rig.wid/2;return{lx:side*(w+(v.rig.moto?.5:v.bus?.9:.62)),lz:(rear?s.z-.95:s.z)+(v.rig.moto?.1:-.05)}}
+function doorSpot(v,side,rear){const s=v.rig.seat,w=v.rig.wid/2;return{lx:side*(w+(v.rig.moto?.5:v.bus?.9:.62)),lz:(rear?s.z-(v.rig.moto?.42:.95):s.z)+(v.rig.moto?.1:-.05)}}
 let ENT=null;
 function enterCar(v,done,opts){opts=opts||{};const side=opts.rear?-1:1;const sp=doorSpot(v,side,opts.rear);ENT={kind:'in',v,done,opts,side,lx:sp.lx,lz:sp.lz,phase:'walk',t:0,victim:opts.victim||null}}
 function exitCar(v,opts,done){opts=opts||{};let side=opts.rear?-1:1;let sp=doorSpot(v,side,opts.rear),tp=wpt(v,sp.lx,sp.lz);
