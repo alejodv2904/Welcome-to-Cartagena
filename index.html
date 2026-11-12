@@ -560,6 +560,26 @@ MAP.landmarks.forEach(l=>{const [name,x,z,mis]=l;if(name==='Cerro de La Popa'){c
   const top=name==='Torre del Reloj'?32:name.startsWith('Castillo')?50:ck?CHURCH_NAMES[ck][2]+4:14;
   const s=snap(lx,lz);LM.push({name,x:lx,z:lz,mx:s[0],mz:s[1],sprite:label(name,lx,ground(lx,lz)+Math.max(14,top),lz),mission:!!mis})});
 LM.byName=n=>LM.find(l=>l.name===n);
+/* Monumento a la India Catalina: stepped stone pedestal on a small plaza and a stylised bronze figure (crown of feathers, arms forward) */
+const INDIA=(function(){const l=LM.byName('India Catalina');if(!l)return null;let x=l.x,z=l.z;if(solidAt(x,z)){x=l.mx;z=l.mz}
+  const r=nearestRoad(x,z,60,s=>!s.walk);if(r&&r.d<9){const dx=x-r.x,dz=z-r.z,d=Math.hypot(dx,dz)||1;x=r.x+dx/d*9;z=r.z+dz/d*9}
+  const y=ground(x,z),grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
+  const stone=mat('#d9cdb4'),dark=mat('#b9ab90');
+  const bronze=new THREE.MeshPhongMaterial({color:'#7a5a2e',specular:0x6b5a3a,shininess:40});
+  const add=(g,m,px,py,pz,rx,ry,rz)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
+  add(new THREE.CylinderGeometry(7,7.4,.4,32),dark,0,.2,0);add(new THREE.CylinderGeometry(4.2,4.6,.6,24),stone,0,.7,0);
+  add(new THREE.BoxGeometry(2.6,3.6,2.6),stone,0,2.8,0);add(new THREE.BoxGeometry(3,.35,3),dark,0,4.75,0);add(new THREE.BoxGeometry(3,.35,3),dark,0,1.15,0);
+  // figure (about 4 m tall): legs, skirt, torso, arms forward, head, feather crown
+  for(const s of [-1,1])add(new THREE.CylinderGeometry(.16,.12,1.5,10),bronze,s*.22,5.7,0,0,0,s*.05);
+  add(new THREE.CylinderGeometry(.42,.62,.9,14),bronze,0,6.75,0);
+  add(new THREE.CylinderGeometry(.36,.42,1.25,14),bronze,0,7.8,0);
+  add(new THREE.SphereGeometry(.3,12,8),bronze,0,8.75,0);
+  for(const s of [-1,1]){add(new THREE.CylinderGeometry(.09,.08,1.1,8),bronze,s*.45,8.05,.38,-1.05,0,s*.25);add(new THREE.SphereGeometry(.1,8,6),bronze,s*.55,7.85,.9)}
+  for(let k=0;k<9;k++){const a=(k-4)*.3;add(new THREE.BoxGeometry(.08,.62,.02),bronze,Math.sin(a)*.24,9.1+Math.cos(a)*.08,-Math.cos(a)*.08-.06,-.25,a,0)}
+  addSolidPoly([x-2.5,z-2.5,x+2.5,z-2.5,x+2.5,z+2.5,x-2.5,z+2.5]);l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+14,z);
+  // the player starts on the plaza looking at the monument
+  let px=x,pz=z+8;for(let a=0;a<TAU;a+=TAU/12){const qx=x+Math.sin(a)*8,qz=z+Math.cos(a)*8;if(onLand(qx,qz)&&!solidAt(qx,qz)){px=qx;pz=qz;break}}
+  return{x,z,px,pz,yaw:Math.atan2(x-px,z-pz)}})();
 
 /* ---------- palms and trees (instanced) ---------- */
 const PALMS=[],TREES=[];
@@ -702,7 +722,7 @@ function archetype(kind){const sp={sex:rand()<.5?'F':'M',skin:pick(SKINS.slice(0
   if(sp.sex==='M'&&rand()<.15)sp.sleeveless=true;if(sp.sex==='M'){sp.beard=rand()<.35;if(!sp.hat&&rand()<.45){sp.hat='cap';sp.hatC=pick(T_COL)}}return sp}
 const startL=LM.byName('Plaza de los Coches')||LM[0];
 const HERO_SPEC={sex:'M',skin:'#a86f48',hairC:'#1b1310',hairStyle:'short',top:'#ffffff',topReg:'guaya',bottom:'#c8b89a',shoes:'#6b4a2b',hat:'vueltiao',scale:1.02};const hero=buildCharacter(HERO_SPEC);
-const player={x:startL.mx,z:startL.mz,yaw:0,mesh:hero.mesh,ch:hero,car:null,walk:0,cy:0,cp:.38,spd:0};
+const player={x:INDIA?INDIA.px:startL.mx,z:INDIA?INDIA.pz:startL.mz,yaw:INDIA?INDIA.yaw:0,mesh:hero.mesh,ch:hero,car:null,walk:0,cy:INDIA?INDIA.yaw:0,cp:.38,spd:0};
 scene.add(player.mesh);
 
 // pedestrians walk along the sidewalks of the street graph (both directions), others stand in plazas
@@ -936,7 +956,7 @@ for(let i=0;i<4;i++)spawnAI(i<2,'coche');for(let i=0;i<2;i++)spawnAI(true,'chiva
 for(let i=0;i<QL.alta.patrol;i++)spawnAI(i<3,'police');
 // the player's taxi, parked on the nearest street to the start
 let taxi;(function(){const r=nearestRoad(player.x,player.z,200,s=>!s.walk);let x=player.x+4,z=player.z,yaw=0;if(r){const dx=r.s.bx-r.s.ax,dz=r.s.bz-r.s.az,l=Math.hypot(dx,dz)||1;x=r.x-dz/l*1.9;z=r.z+dx/l*1.9;yaw=Math.atan2(dx,dz)}
-  taxi=newVehicle(x,z,yaw,'taxi');player.x=x+Math.cos(yaw)*3;player.z=z-Math.sin(yaw)*3;if(solidAt(player.x,player.z)||!onLand(player.x,player.z)){player.x=x-Math.cos(yaw)*3;player.z=z+Math.sin(yaw)*3}player.cy=yaw})();
+  taxi=newVehicle(x,z,yaw,'taxi');if(INDIA)return;player.x=x+Math.cos(yaw)*3;player.z=z-Math.sin(yaw)*3;if(solidAt(player.x,player.z)||!onLand(player.x,player.z)){player.x=x-Math.cos(yaw)*3;player.z=z+Math.sin(yaw)*3}player.cy=yaw})();
 
 /* ---------- taxi & buseta service: hail one (T), it drives to you, pick a destination and ride ---------- */
 const EGR=new Map(),EG=50;

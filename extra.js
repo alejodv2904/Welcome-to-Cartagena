@@ -240,7 +240,7 @@ let inside=false,menuOpen=null;
 function enter(shop){const def=CACHE[shop.mall?shop.name:shop.type]||(CACHE[shop.mall?shop.name:shop.type]=shop.mall?buildMall(shop.name):buildShop(shop.type));
   // update the poster with this shop's name
   CUR.def=def;CUR.shop=shop;IS.add(def.grp);inside=true;
-  C.scene.remove(player.mesh);IS.add(player.mesh);player.ix=def.exit.x;player.iz=def.exit.z-1.2;player.yaw=Math.PI;player.cy=Math.PI;player.cp=.35;player.spd=0;
+  C.scene.remove(player.mesh);IS.add(player.mesh);player.ix=def.exit.x;player.iz=def.exit.z-1.2;freeSpot(def);player.yaw=Math.PI;player.cy=Math.PI;player.cp=.35;player.spd=0;
   // people
   const pool=poolPeople();IN.length=0;let k=0;const nC=def.mall?15:Math.min(4,def.spots.length);
   const clerk=pool[k++];IS.add(clerk.mesh);clerk.mesh.position.set(def.clerk.x,0,def.clerk.z);clerk.mesh.rotation.y=0;IN.push({ch:clerk,kind:'clerk',x:def.clerk.x,z:def.clerk.z,yaw:0});
@@ -251,12 +251,16 @@ function enter(shop){const def=CACHE[shop.mall?shop.name:shop.type]||(CACHE[shop
   C.toast(shop.name,1800);C.chime&&0}
 function leave(){const def=CUR.def,shop=CUR.shop;closeMenu();IS.remove(def.grp);for(const p of IN)IS.remove(p.ch.mesh);IN.length=0;IS.remove(player.mesh);C.scene.add(player.mesh);inside=false;
   player.x=shop.x+shop.nx*.8;player.z=shop.z+shop.nz*.8;player.yaw=shop.yaw;player.cy=shop.yaw;player.mesh.position.set(player.x,C.ground(player.x,player.z),player.z);player.mesh.rotation.set(0,player.yaw,0)}
+// never leave the player standing inside furniture: step toward the nearest free spot
+function freeSpot(def){if(!blocked(def,player.ix,player.iz,.36))return;for(let rad=.3;rad<6;rad+=.3)for(let a=0;a<TAU;a+=TAU/16){const x=player.ix+Math.sin(a)*rad,z=player.iz+Math.cos(a)*rad;if(!blocked(def,x,z,.36)){player.ix=x;player.iz=z;return}}}
 function blocked(def,x,z,r){const R=def.R;if(x<-R.w/2+r||x>R.w/2-r||z<-R.d/2+r||z>R.d/2-r)return true;for(const b of def.col)if(x>b.x0-r&&x<b.x1+r&&z>b.z0-r&&z<b.z1+r)return true;return false}
 function nearMenu(){const def=CUR.def;let best=null,bd=1.6;for(const m of def.menus){const d=Math.hypot(m.at.x-player.ix,m.at.z-player.iz);if(d<bd){bd=d;best=m}}return best}
 function updateInside(dt,inp){const def=CUR.def;const now=performance.now()/1000;
   if(!menuOpen){const f=[Math.sin(player.cy),Math.cos(player.cy)],r=[-f[1],f[0]];let mx=f[0]*inp.iz+r[0]*inp.ix,mz=f[1]*inp.iz+r[1]*inp.ix;const m=Math.hypot(mx,mz);let sp=0;
     if(m>.08){sp=(inp.run&&canSprint()?4.6:2.2)*Math.min(1,m);mx/=m;mz/=m;const nx=player.ix+mx*sp*dt,nz=player.iz+mz*sp*dt;
-      if(!blocked(def,nx,player.iz,.35))player.ix=nx;if(!blocked(def,player.ix,nz,.35))player.iz=nz;player.yaw=angLerp(player.yaw,Math.atan2(mx,mz),Math.min(1,dt*12))}
+      // if already overlapping something, let any step through so the player can always walk free
+      const stuck=blocked(def,player.ix,player.iz,.35);if(stuck||!blocked(def,nx,player.iz,.35))player.ix=nx;if(stuck||!blocked(def,player.ix,nz,.35))player.iz=nz;
+      const R0=def.R;player.ix=clamp(player.ix,-R0.w/2+.36,R0.w/2-.36);player.iz=clamp(player.iz,-R0.d/2+.36,R0.d/2-.2);player.yaw=angLerp(player.yaw,Math.atan2(mx,mz),Math.min(1,dt*12))}
     player.spd=lerp(player.spd,sp,Math.min(1,dt*8))}else player.spd=lerp(player.spd,0,Math.min(1,dt*8));
   C.animate(player.ch,player.spd,dt,'');player.mesh.position.set(player.ix,0,player.iz);player.mesh.rotation.y=player.yaw;
   if(player.iz>def.R.d/2-.45&&Math.abs(player.ix-def.exit.x)<1.6&&!menuOpen&&!FADE.busy){fade('',()=>{leave();ENT={kind:'step',t:0}})}
