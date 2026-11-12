@@ -319,14 +319,15 @@ function nearestRoad(x,z,maxD,filter){let best=null,bd=maxD*maxD;const ci=Math.f
     const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const qx=s.ax+ex*t,qz=s.az+ez*t,d=(x-qx)**2+(z-qz)**2;if(d<bd){bd=d;best={s,x:qx,z:qz,d:Math.sqrt(d)}}}}
   return best}
 // height of what you actually stand on: road surfaces and raised sidewalks sit above the terrain (cached on a 0.5 m grid)
-const SLC=new Map();
+const SLC=new Map(),TC_ST=[];
 function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get(k);if(v!==undefined)return v;v=0;let walk=0;
   const ci=Math.floor(x/RS),cj=Math.floor(z/RS);
   for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=roadSegs.get(rkey(i,j));if(!a)continue;for(const s of a){
     const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const d=Math.hypot(x-s.ax-ex*t,z-s.az-ez*t),hw=s.w/2;
     if(d<=hw+.05){v=Math.max(v,RLIFT[s.ty]);continue}
     if(s.ty>=1&&s.ty<=4&&d<=hw+2.45){const L=Math.sqrt(l2),at=t*L,tr=s.w*.7;if((at<tr&&isJunction(s.ax,s.az))||(L-at<tr&&isJunction(s.bx,s.bz)))continue;walk=Math.max(walk,RLIFT[s.ty]+.17)}}}
-  if(!v&&walk)v=walk;if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
+  if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;if(Math.abs(dx*st.tx+dz*st.tz)<st.hl&&Math.abs(-dx*st.tz+dz*st.tx)<st.hw)v=Math.max(v,st.top)}
+  if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
 const standY=(x,z)=>ground(x,z)+surfLift(x,z);
 const colObj=c=>new THREE.Color(c);
 // expand a polyline into points, subdividing on the hill so ribbons follow the terrain
@@ -361,7 +362,8 @@ function dashed(pts,w,lift,col,on,offL){const P=densify(pts);let acc=0,run=[];co
   for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);let s=0;
     while(s<L){const phase=acc%(on*2),inOn=phase<on,step=Math.min(L-s,(inOn?on:on*2)-phase);const x0=a[0]+(b[0]-a[0])*s/L,z0=a[1]+(b[1]-a[1])*s/L,x1=a[0]+(b[0]-a[0])*(s+step)/L,z1=a[1]+(b[1]-a[1])*(s+step)/L;
       if(inOn)ribbonP([[x0,z0],[x1,z1]],w,lift,'paint',col,offL);s+=step;acc+=step}}}
-MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=RW[ty]+(lanes>=4?3:0);const P=densify(pts);
+const TC_ROAD='Avenida Pedro de Heredia';
+MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=name===TC_ROAD&&ow===1&&ty===0?clamp(3.3*Math.max(2,lanes)+1.2,7.8,12):RW[ty]+(lanes>=4?3:0);const P=densify(pts);
   ribbonP(P,w,RLIFT[ty],RMAT[ty],colObj(RTINT[ty]),0,0,true);
   if(ty<=4){// markings, kept clear of junctions
     for(const run of trimRuns(pts,w*.7)){
@@ -375,6 +377,35 @@ MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=RW[ty]+(lanes>=4
   if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w});
   else for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,walk:true});
   if(ty<=4){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name);if(ow<=0)gedge(b,a,ty,two,name)}}});
+/* ---------- Transcaribe: exclusive two-way busway down the middle of Avenida Pedro de Heredia, with raised stations ---------- */
+const TCW={path:null,S:null,L:0,stations:[]};
+(function(){const segs=MAP.roads.filter(r=>r[4]===TC_ROAD&&r[0]===0&&r[1]===1);if(segs.length<4)return;
+  const chain=list=>{const pl=list.map(r=>r[5].slice());const out=pl.shift();while(pl.length){const ex=out[out.length-2],ez=out[out.length-1];let bi=-1,bd=60;pl.forEach((p,i)=>{const d=Math.hypot(p[0]-ex,p[1]-ez);if(d<bd){bd=d;bi=i}});if(bi<0)break;out.push(...pl.splice(bi,1)[0].slice(2))}return out};
+  const E=chain(segs.filter(r=>r[5][r[5].length-2]>r[5][0]).sort((a,b)=>a[5][0]-b[5][0])),Wc=chain(segs.filter(r=>r[5][r[5].length-2]<r[5][0]).sort((a,b)=>b[5][0]-a[5][0]));
+  const near=(x,z)=>{let bd=1e18,bx=x,bz=z;for(let i=0;i<Wc.length-2;i+=2){const ax=Wc[i],az=Wc[i+1],ex=Wc[i+2]-ax,ez=Wc[i+3]-az,l2=ex*ex+ez*ez;let t=l2?((x-ax)*ex+(z-az)*ez)/l2:0;t=clamp(t,0,1);const qx=ax+ex*t,qz=az+ez*t,d=(x-qx)**2+(z-qz)**2;if(d<bd){bd=d;bx=qx;bz=qz}}return[bx,bz,Math.sqrt(bd)]};
+  // midpoints between the two carriageways, every 8 m, while they run side by side
+  const raw=[];for(let i=0;i<E.length-2;i+=2){const ax=E[i],az=E[i+1],bx=E[i+2],bz=E[i+3],L=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(L/8));
+    for(let k=0;k<n;k++){const x=ax+(bx-ax)*k/n,z=az+(bz-az)*k/n;const [wx,wz,d]=near(x,z);if(d>40){if(raw.length>20){i=E.length;break}continue}raw.push([(x+wx)/2,(z+wz)/2])}}
+  if(raw.length<30)return;
+  const P=raw.map((q,i)=>{let sx=0,sz=0,n=0;for(let k=-3;k<=3;k++){const r=raw[clamp(i+k,0,raw.length-1)];sx+=r[0];sz+=r[1];n++}return[sx/n,sz/n]});
+  const S=[0];for(let i=1;i<P.length;i++)S.push(S[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));Object.assign(TCW,{path:P,S,L:S[S.length-1]});
+  const LIFT=RLIFT[0]+.03;
+  ribbonP(P,9.8,LIFT,'paint',colObj('#c9c0b0'),0,0,false);ribbonP(P,2.2,LIFT+.01,'paint',colObj('#6f8a5c'),0,0,false);
+  for(const o of [-4.75,4.75,-1.15,1.15])ribbonP(P,.22,LIFT+.012,'paint',YEL,o,0,false);
+  for(const o of [-3.05,3.05])dashed(P.flat(),.14,LIFT+.012,WHT,2.5,o);
+  for(let i=0;i<P.length-1;i++)addRoadSeg({ax:P[i][0],az:P[i][1],bx:P[i+1][0],bz:P[i+1][1],ty:0,name:'Carril exclusivo de Transcaribe',w:9.8,walk:true,bw:true});
+  // stations on the median: raised platform, teal roof on pillars, glass back panels and the name at both ends
+  const NAMES=['Chambacú','La Popa','El Prado','Bazurto','Delicias','España','María Auxiliadora','Las Gaviotas'];let k=0;
+  const roofM=new THREE.MeshLambertMaterial({color:'#1f9aa6'}),platM=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#d8d2c4'}),pilM=mat('#e9e6dc'),glassM=new THREE.MeshPhongMaterial({color:'#cfe8f0',transparent:true,opacity:.3,shininess:90,depthWrite:false,side:THREE.DoubleSide});
+  for(let sAt=160;sAt<TCW.L-140&&k<NAMES.length;sAt+=470){let i=0;while(i<S.length-2&&S[i+1]<sAt)i++;const a=P[i],b=P[i+1],tl=Math.hypot(b[0]-a[0],b[1]-a[1])||1,tx=(b[0]-a[0])/tl,tz=(b[1]-a[1])/tl,f=(sAt-S[i])/tl,x=a[0]+(b[0]-a[0])*f,z=a[1]+(b[1]-a[1])*f;
+    const y=ground(x,z)+LIFT,yaw=Math.atan2(tx,tz),g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=yaw;scene.add(g);const H=.42;
+    const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
+    add(new THREE.BoxGeometry(2.6,H,34),platM,0,H/2,0);add(new THREE.BoxGeometry(2.62,.06,34.02),mat('#f0b429'),0,H-.02,0);
+    for(let zz=-15;zz<=15;zz+=6)add(new THREE.BoxGeometry(.16,2.9,.16),pilM,0,H+1.45,zz);add(new THREE.BoxGeometry(3.4,.18,35),roofM,0,H+2.95,0);
+    for(const e of [-1,1])add(new THREE.PlaneGeometry(30,1.6),glassM,0,H+1.05,0).rotation.y=Math.PI/2*e;
+    const nm='Estación '+NAMES[k];const sg=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.8),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const q=c.getContext('2d');q.fillStyle='#1f9aa6';q.fillRect(0,0,512,128);q.fillStyle='#f0b429';q.fillRect(0,96,512,32);q.fillStyle='#fff';q.font='bold 34px sans-serif';q.textAlign='center';q.fillText('Transcaribe',256,42);q.font='bold 30px sans-serif';q.fillText(nm.replace('Estación ',''),256,84);return new THREE.CanvasTexture(c)})()}));
+    for(const e of [-1,1]){const m=sg.clone();m.position.set(0,H+3.5,e*17.6);m.rotation.y=e>0?0:Math.PI;g.add(m)}
+    TCW.stations.push({name:nm,s:sAt,x,z,tx,tz,yaw,y:y+H});TC_ST.push({x,z,tx,tz,hl:17,hw:1.3,top:LIFT+H});k++}})();
 /* ---------- buildings ---------- */
 // real Cartagena palette: colonial ochres, yellows, terracottas, blues; Bocagrande white towers
 const colA=['#e9b949','#f2c14e','#e07a4f','#d9643a','#f4d58d','#7fb7be','#5f9ea0','#e8a0a8','#c96a83','#f1e3c2','#9ec5d8','#f0a35e','#b8d8a8','#f7e7a1','#d4553f','#3e7cb1'];
@@ -878,10 +909,10 @@ function updatePeds(dt){lodT-=dt;if(lodT<=0){lodT=.25;relod()}updatePeds.budget=
     d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
     p.ang=angLerp(p.yawS===undefined?p.ang:p.yawS,p.ang,Math.min(1,dt*6));p.yawS=p.ang;
     showPed(p,dt,p.spd,p.kind==='vendor'?'cooler':p.kind==='palenquera'&&p.look.phase<3?'bowl':'',d)}
-  for(const p of STAY){const d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
+  for(const p of STAY){const d=dist2(p.x,p.z,player.x,player.z);p.vis=!p.gone&&d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
     // face the player when close, like they are offering something
-    if(d<9&&p.pose!=='talk')p.ang=angLerp(p.ang,Math.atan2(player.x-p.x,player.z-p.z),Math.min(1,dt*3));
-    showPed(p,dt,0,p.pose,d)}
+    if(d<9&&p.pose!=='talk'&&!p.noFace)p.ang=angLerp(p.ang,Math.atan2(player.x-p.x,player.z-p.z),Math.min(1,dt*3));
+    showPed(p,dt,p.mv||0,p.mv?'':p.pose,d)}
   CROWD.end()}
 
 /* ---------- vehicles: detailed rigs (vehiculos.js) with wheels, steering, suspension, LOD and seated drivers ---------- */
@@ -903,7 +934,7 @@ function newVehicle(x,z,yaw,type,color){type=type||'car';const col=color||(type=
   const design=type==='mototaxi'?'moto':type==='car'?pick(['car','car','hatch','hatch','suv']):type==='camion'?pick(['camion','estacas']):type==='camioneta'?pick(['pickup','pickup','suv']):type;const alt=type==='buseta'?[pick(['#e4572e','#1f9aa6','#f0b429','#2e7d32']),pick(['#d32f2f','#1565c0','#7b1fa2','#f57c00'])]:null;
   const rig=VK.build(design,col,alt);if(rig.horse)addHorse(rig);scene.add(rig.root);const S=VSPEC[type];
   const v={mesh:rig.root,rig,x,z,yaw,py:yaw,speed:0,ai:false,r:S.r,len:S.len,type,taxi:type==='taxi',bus:type==='bus'||type==='buseta'||type==='chiva'||type==='camion',hp:100,spec:S,col};vehicles.push(v);syncCar(v);return v}
-const vehY=v=>v.ai&&v.e>=0&&GRAPH.edges[v.e]&&!v.chase?ground(v.x,v.z)+RLIFT[GRAPH.edges[v.e].ty]:standY(v.x,v.z);
+const vehY=v=>v.tc?ground(v.x,v.z)+RLIFT[0]+.03:v.ai&&v.e>=0&&GRAPH.edges[v.e]&&!v.chase?ground(v.x,v.z)+RLIFT[GRAPH.edges[v.e].ty]:standY(v.x,v.z);
 function syncCar(v){v.mesh.position.set(v.x,vehY(v),v.z);v.mesh.rotation.y=v.yaw}
 const CRUISE={0:15,1:13,2:12,3:10.5,4:8};
 const aiEdges=GRAPH.edges.map((e,i)=>i);
@@ -926,7 +957,7 @@ function chooseNext(v){if(v.route&&v.route.length)return v.route.shift();const e
   outs.sort((p,q)=>(GRAPH.edges[q].dx*e.dx+GRAPH.edges[q].dz*e.dz)-(GRAPH.edges[p].dx*e.dx+GRAPH.edges[p].dz*e.dz));
   return rand()<.65?outs[0]:pick(outs)}
 // traffic mix of Cartagena: lots of taxis and motorcycles, busetas, trucks, pickups, motocarros and bicycles
-function aiType(){const r=rand();return r<.3?'taxi':r<.42?'mototaxi':r<.52?'moto':r<.59?'buseta':r<.61?'bus':r<.625?'chiva':r<.67?'camion':r<.74?'camioneta':r<.78?'motocarro':r<.82?'bici':'car'}
+function aiType(){const r=rand();return r<.3?'taxi':r<.42?'mototaxi':r<.52?'moto':r<.61?'buseta':r<.625?'chiva':r<.67?'camion':r<.74?'camioneta':r<.78?'motocarro':r<.82?'bici':'car'}
 function spawnAI(near,type){type=type||aiType();const v=newVehicle(0,0,0,type);v.ai=true;if(!placeAI(v,near)){v.ai=false;scene.remove(v.mesh);vehicles.pop();return null}return v}
 
 /* ---------- traffic lights at the big junctions ---------- */
@@ -988,7 +1019,7 @@ function unseat(ch){if(ch.mesh.parent)ch.mesh.parent.remove(ch.mesh);ch.mesh.vis
 for(let i=0;i<QL.alta.drivers;i++){const ch=buildCharacter(archetype(i<3?'police':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop:i<3})}
 let drvT=0;
 function updateDrivers(dt){drvT-=dt;if(drvT<=0){drvT=.3;const pd=v=>(v.hail?-1e5:0)+dist2(v.x,v.z,player.x,player.z);
-    const cand=vehicles.filter(v=>v.mesh.visible&&v.rig.near.visible&&v!==player.car&&(v.ai||v.chase||v.hail)).sort((a,b)=>pd(a)-pd(b)).slice(0,Q.drivers);
+    const cand=vehicles.filter(v=>v.mesh.visible&&v.rig.near.visible&&v!==player.car&&(v.ai||v.chase||v.hail||v.tc)).sort((a,b)=>pd(a)-pd(b)).slice(0,Q.drivers);
     for(const d of DRV)if(d.v&&!d.busy&&!cand.includes(d.v)){unseat(d.ch);d.v=null}
     for(const v of cand){if(DRV.some(d=>d.v===v))continue;const pol=v.type==='police';const d=DRV.find(d=>!d.v&&!d.busy&&d.cop===pol)||DRV.find(d=>!d.v&&!d.busy&&!d.cop);if(!d)continue;d.v=v;seatIn(d.ch,v)}}
   for(const d of DRV)if(d.v&&!d.busy&&d.ch.mesh.visible)animate(d.ch,0,dt,'sit')}
@@ -1028,7 +1059,7 @@ function hail(){if(!started||player.car||player.ride||EX.inside||EX.entering||EX
   const v=best.v;Object.assign(SV,{v,state:'coming',t:0,dest:null});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;
   toast((v.type==='taxi'?'¡Taxiii!':v.type==='mototaxi'?'¡Mototaxi!':'¡Buseta!')+' Ya viene a recogerte',1900);horn()}
 function releaseService(){const v=SV.v;if(v){v.hail=null;v.route=null;v.pullT=0;v.next=-1;if(!v.ai&&v!==player.car){v.ai=true}}Object.assign(SV,{v:null,state:'',dest:null});svMark.visible=false}
-function onHailArrive(v){if(v!==SV.v){v.hail=null;return}
+function onHailArrive(v){if(v.hail&&v.hail.npc){if(!v.hail.boarding){v.hail.boarding=true;paxBoard(v)}return}if(v!==SV.v){v.hail=null;return}
   if(SV.state==='coming'){SV.state='waiting';SV.t=0;horn();toast('¡Llegó tu '+SNAME(v)+'! Acércate y presiona '+(isTouch()?'Entrar':'F'),2200)}
   else if(SV.state==='riding')finishRide()}
 function boardService(){const v=SV.v;SV.state='boarding';v.hail.hold=true;v.speed=0;
@@ -1112,11 +1143,82 @@ function readInput(){let ix=0,iz=0;
   ix+=stick.x;iz-=stick.y;const m=Math.hypot(ix,iz);if(m>1){ix/=m;iz/=m}
   return{ix,iz,run:!!(keys.ShiftLeft||keys.ShiftRight||runHeld)}}
 
+/* ---------- Transcaribe buses: run the busway both ways, dock at every station, and the player can ride them ---------- */
+const TC={buses:[],ride:null,board:null},TC_FARE=2950;
+function tcAt(sv){const S=TCW.S,P=TCW.path;sv=clamp(sv,0,TCW.L);let lo=0,hi=S.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(S[m]<=sv)lo=m;else hi=m}const a=P[lo],b=P[hi],l=(S[hi]-S[lo])||1,f=(sv-S[lo])/l;return{x:a[0]+(b[0]-a[0])*f,z:a[1]+(b[1]-a[1])*f,tx:(b[0]-a[0])/l,tz:(b[1]-a[1])/l}}
+function tcPlace(v){const T=v.tc,p=tcAt(T.s),off=3.05*T.dir;const yaw=Math.atan2(p.tx*T.dir,p.tz*T.dir);v.x=p.x-p.tz*off;v.z=p.z+p.tx*off;v.yaw=angLerp(v.yaw,yaw,.35);syncCar(v)}
+// next station in the bus's direction (null = the terminal at the end of the line)
+function tcNext(T){const st=TCW.stations;if(T.dir>0){for(const q of st)if(q.s>T.s+.5)return q}else{for(let i=st.length-1;i>=0;i--)if(st[i].s<T.s-.5)return st[i]}return null}
+// door of a docked bus: on the median side (its local +x), towards the front
+function tcDoor(v){const sy=Math.sin(v.yaw),cy=Math.cos(v.yaw),w=v.rig.wid/2+.35,f=v.len/2-1.6;return{x:v.x+cy*w+sy*f,z:v.z-sy*w+cy*f}}
+if(TCW.path){for(let i=0;i<8;i++){const dir=i%2?-1:1,sv=TCW.L*(i+.5)/8;const v=newVehicle(0,0,0,'bus');v.tc={s:sv,dir,st:'run',dw:0};v.ai=false;v.speed=8;const p0=tcAt(sv);v.yaw=Math.atan2(p0.tx*dir,p0.tz*dir);tcPlace(v);TC.buses.push(v)}
+  // people waiting on every platform
+  for(const st of TCW.stations){st.ppl=[];for(let i=0;i<6;i++){const q=makePed(rand()<.3?'tourist':'local',0,0);q.static=true;q.noFace=true;q.pose=rand()<.5?'hips':'';
+      const a=tcAt(st.s+rr(-12,12));q.x=a.x+st.tz*rr(-.5,.5);q.z=a.z-st.tx*rr(-.5,.5);q.ang=st.yaw+(rand()<.5?Math.PI/2:-Math.PI/2);STAY.push(q);ALLP.push(q);st.ppl.push(q)}}}
+function onDock(v,st){// some waiting people get on, some passengers get off and walk away
+  const door=tcDoor(v);let on=0;for(const p of st.ppl){if(p.gone||p.task)continue;if(rand()<.45&&on<3){on++;p.task={k:'on',x:door.x,z:door.z,t:0}}}
+  const off=Math.floor(rand()*3);let k=0;for(const p of st.ppl){if(k>=off)break;if(p.gone&&!p.task){k++;p.gone=false;p.x=door.x;p.z=door.z;const q=tcAt(st.s+(rand()<.5?-14:14));p.task={k:'off',x:q.x,z:q.z,t:0}}}}
+function tcUpdatePeople(dt){for(const st of TCW.stations)for(const p of st.ppl){const T=p.task;
+    if(!T){if(p.gone&&rand()<dt*.03){p.gone=false;const q=tcAt(st.s+(rand()<.5?-15:15)),b=tcAt(st.s+rr(-10,10));p.x=q.x;p.z=q.z;p.task={k:'in',x:b.x+st.tz*rr(-.5,.5),z:b.z-st.tx*rr(-.5,.5),t:0}}continue}
+    T.t+=dt;const dx=T.x-p.x,dz=T.z-p.z,d=Math.hypot(dx,dz);if(d>.25&&T.t<12){const sp=1.3;p.x+=dx/d*Math.min(d,sp*dt);p.z+=dz/d*Math.min(d,sp*dt);p.ang=Math.atan2(dx,dz);p.mv=sp}
+    else{p.mv=0;p.task=null;if(T.k==='on'||T.k==='off')p.gone=true;else p.ang=st.yaw+(rand()<.5?Math.PI/2:-Math.PI/2)}}}
+function updateTC(dt){if(!TCW.path)return;
+  for(const v of TC.buses){const T=v.tc;if(!T)continue;if(v===player.car){v.tc=null;continue}
+    if(T.st==='dwell'){v.speed=0;T.dw-=dt;if(T.dw<=0&&!(TC.board&&TC.board.v===v)){T.st='run';if(T.term){T.dir=-T.dir;T.term=false}}}
+    else{const nx=tcNext(T);const goal=nx?nx.s:(T.dir>0?TCW.L-6:6);const rem=(goal-T.s)*T.dir;let want=Math.min(13,Math.sqrt(2*1.5*Math.max(0,rem-.3)));
+      for(const o of TC.buses){if(o===v||!o.tc||o.tc.dir!==T.dir)continue;const gap=(o.tc.s-T.s)*T.dir;if(gap>0&&gap<40)want=Math.min(want,Math.max(0,(gap-15)*.6))}
+      v.speed=lerp(v.speed,want,Math.min(1,dt*(want<v.speed?2.2:.7)));T.s+=v.speed*dt*T.dir;
+      if(rem<.8&&v.speed<.6){T.st='dwell';v.speed=0;if(nx){T.dw=rr(7,10);onDock(v,nx);if(TC.ride&&TC.ride.v===v&&TC.ride.dest===nx)tcAlight()}else{T.dw=6;T.term=true}}}
+    tcPlace(v)}
+  tcUpdatePeople(dt);
+  if(TC.board){const B=TC.board;B.t+=dt;const d=tcDoor(B.v),dx=d.x-player.x,dz=d.z-player.z,dd=Math.hypot(dx,dz);
+    if(dd>.3&&B.t<4){const sp=1.6;player.x+=dx/dd*Math.min(dd,sp*dt);player.z+=dz/dd*Math.min(dd,sp*dt);player.yaw=Math.atan2(dx,dz);player.mesh.position.set(player.x,standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;animate(player.ch,sp,dt,'')}
+    else{TC.board=null;scene.remove(player.mesh);player.mesh.visible=false;player.ride=B.v;TC.ride={v:B.v,dest:null};openTcMenu()}}
+  if(TC.ride){const v=TC.ride.v;player.x=v.x;player.z=v.z}}
+function tcNear(){if(TC.ride||TC.board||player.car||player.ride)return null;for(const v of TC.buses){if(!v.tc||v.tc.st!=='dwell'||v.tc.term)continue;const d=tcDoor(v);if(dist2(d.x,d.z,player.x,player.z)<4.5)return v}return null}
+function tcBoard(){const v=tcNear();if(!v)return false;if(money<TC_FARE){toast('El pasaje cuesta '+fmt(TC_FARE)+' y no te alcanza',1600);return true}
+  money-=TC_FARE;$('money').textContent=fmt(money);chime();toast('Pasaste la tarjeta: '+fmt(TC_FARE),1300);v.tc.dw=Math.max(v.tc.dw,3);TC.board={v,t:0};return true}
+function tcAlight(){const v=TC.ride.v,d=tcDoor(v),st=TC.ride.dest;TC.ride=null;closeTcMenu();player.ride=null;player.x=d.x;player.z=d.z;scene.add(player.mesh);player.mesh.visible=true;
+  player.yaw=Math.atan2(st.x-d.x,st.z-d.z);player.mesh.rotation.y=player.yaw;player.cy=player.yaw;v.tc.dw=Math.max(v.tc.dw,3);toast('Llegaste a '+st.name,1800)}
+function tcAct(){const R=TC.ride;if(!R.dest){openTcMenu();return}
+  // skip the trip: fade and dock at the chosen station
+  if(EX.busy)return;EX.fade('Llegando a '+R.dest.name+'…',()=>{const T=R.v.tc;T.s=R.dest.s-T.dir*.6;T.st='run';R.v.speed=0;tcPlace(R.v)})}
+const tcEl=document.createElement('div');tcEl.id='tcUI';tcEl.innerHTML='<div class="sbox"><h3>Transcaribe · ¿en qué estación se baja?</h3><p class="sub">Ya pagaste el pasaje. El bus para en todas las estaciones.</p><div class="items"></div></div>';document.body.appendChild(tcEl);
+{const st=document.createElement('style');st.textContent='#tcUI{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;background:rgba(10,8,6,.35)}#tcUI.on{display:flex}#tcUI .sbox{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;background:rgba(23,19,15,.93);border:1px solid rgba(31,154,166,.7);border-radius:10px;padding:16px;color:#f5ead7;font:15px var(--body)}#tcUI h3{margin:0 0 4px;font:400 22px var(--display);color:#3fc6d3}#tcUI .sub{margin:0 0 10px;opacity:.8}#tcUI .items{display:flex;flex-direction:column;gap:6px}#tcUI .it{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:inherit;font:inherit;text-align:left;cursor:pointer}#tcUI .it:hover,#tcUI .it:focus{background:rgba(31,154,166,.25);outline:none}';document.head.appendChild(st)}
+let tcOpts=[];
+function openTcMenu(){const R=TC.ride;if(!R)return;const T=R.v.tc;const st=TCW.stations;tcOpts=T.dir>0?st.filter(q=>q.s>T.s+2):st.filter(q=>q.s<T.s-2).reverse();
+  if(!tcOpts.length){toast('Este bus va para el patio: espera a que regrese',1500);return}
+  const box=tcEl.querySelector('.items');box.innerHTML='';tcOpts.forEach((q,i)=>{const b=document.createElement('button');b.className='it';b.innerHTML=`<span>${i<9?(i+1)+'. ':''}${q.name}</span><small>${(Math.abs(q.s-T.s)/1000).toFixed(1)} km</small>`;b.addEventListener('click',()=>tcPick(i));box.appendChild(b)});
+  tcEl.classList.add('on')}
+function closeTcMenu(){tcEl.classList.remove('on')}
+const tcOpen=()=>tcEl.classList.contains('on');
+function tcPick(i){const q=tcOpts[i];if(!q||!TC.ride)return;TC.ride.dest=q;closeTcMenu();toast('Te bajas en '+q.name,1500)}
+window.addEventListener('keydown',e=>{if(!tcOpen())return;if(e.code==='Escape'){closeTcMenu();return}const n=parseInt(e.key,10);if(n>=1&&n<=9)tcPick(n-1)});
+
+/* ---------- busetas pick people up on the street: someone at the kerb raises a hand, the buseta pulls over, they get on ---------- */
+const HAILERS=[];for(let i=0;i<8;i++){const p=makePed('local',0,0);p.static=true;p.gone=true;p.noFace=true;p.pose='wave';STAY.push(p);ALLP.push(p);HAILERS.push(p)}
+let paxT=0;
+function updatePax(dt){paxT-=dt;
+  for(const h of HAILERS){const T=h.task;if(!T)continue;T.t+=dt;
+    if(T.k==='hail'){h.mv=0;h.pose='wave';const v=T.v;if(T.t>30||!vehicles.includes(v)||!v.ai||v.hail!==T.H){h.gone=true;h.task=null;if(v.hail===T.H)v.hail=null}continue}
+    const dx=T.x-h.x,dz=T.z-h.z,d=Math.hypot(dx,dz);if(d>.25&&T.t<8){h.x+=dx/d*Math.min(d,1.4*dt);h.z+=dz/d*Math.min(d,1.4*dt);h.ang=Math.atan2(dx,dz);h.mv=1.4}
+    else{h.mv=0;h.gone=true;h.task=null;if(T.k==='on'&&T.v.hail===T.H)T.H.relT=1.2}}
+  for(const v of vehicles){const H=v.hail;if(H&&H.npc&&H.relT!==undefined){H.relT-=dt;if(H.relT<=0){v.hail=null;v.pullT=0}}}
+  if(paxT>0)return;paxT=.6;
+  for(const v of vehicles){if(!v.ai||v.type!=='buseta'||v.hail||v.off||v===SV.v)continue;v.paxCD=(v.paxCD===undefined?rr(2,12):v.paxCD)-.6;if(v.paxCD>0)continue;v.paxCD=rr(18,45);
+    if(dist2(v.x,v.z,player.x,player.z)>230)continue;const h=HAILERS.find(q=>q.gone&&!q.task);if(!h)break;const e=GRAPH.edges[v.e];const room=e.len-6-v.t;if(room<14){v.paxCD=1;continue}const t=v.t+Math.min(room,rr(14,40));
+    const A=GRAPH.nodes[e.a],o=RW[e.ty]/2+.7,x=A.x+e.dx*t-e.dz*o,z=A.z+e.dz*t+e.dx*o;if(!onLand(x,z)||solidAt(x,z)){v.paxCD=1;continue}
+    const H={stop:{e:v.e,t},npc:h};v.hail=H;h.x=x;h.z=z;h.ang=Math.atan2(e.dz,-e.dx);h.gone=false;h.pose='wave';h.task={k:'hail',v,H,t:0}}}
+// the buseta stopped for a waving person: they walk to the door and get on; sometimes someone gets off
+function paxBoard(v){const H=v.hail,h=H.npc,e=GRAPH.edges[v.e];const w=v.rig.wid/2+.3,f=v.len/2-1.4;const dx=v.x-e.dz*w+e.dx*f,dz=v.z+e.dx*w+e.dz*f;
+  h.task={k:'on',x:dx,z:dz,t:0,v,H};h.pose='';
+  if(rand()<.5){const o=HAILERS.find(q=>q.gone&&!q.task);if(o){o.gone=false;o.x=dx;o.z=dz;o.pose='';const A=GRAPH.nodes[e.a],ow=RW[e.ty]/2+1.6,t2=v.t+rr(-6,6);o.task={k:'off',x:A.x+e.dx*t2-e.dz*ow,z:A.z+e.dz*t2+e.dx*ow,t:0}}}}
 /* ---------- player / driving ---------- */
 const VNAME={car:'Carro',taxi:'Taxi',police:'Patrulla',buseta:'Buseta',bus:'Bus de Transcaribe',moto:'Moto',mototaxi:'Mototaxi',coche:'Coche de caballos',chiva:'Chiva rumbera',camion:'Camión',camioneta:'Camioneta',motocarro:'Motocarro',bici:'Bicicleta'};
-function nearestVehicle(maxD){let b=null,bd=maxD;for(const v of vehicles){const d=dist2(v.x,v.z,player.x,player.z)-(v.bus?2.5:0);if(d<bd){bd=d;b=v}}return b}
-function act(){if(!started||rideOpen())return;if(player.ride){rideAct();return}if(EX.act())return;if(EX.entering||EX.busy)return;
+function nearestVehicle(maxD){let b=null,bd=maxD;for(const v of vehicles){if(v.tc)continue;const d=dist2(v.x,v.z,player.x,player.z)-(v.bus?2.5:0);if(d<bd){bd=d;b=v}}return b}
+function act(){if(!started||rideOpen()||tcOpen())return;if(TC.ride){tcAct();return}if(player.ride){rideAct();return}if(EX.act())return;if(EX.entering||EX.busy)return;
   if(!player.car){
+    if(tcBoard())return;
     // the taxi / buseta you called is waiting: get in the back
     if(SV.v&&(SV.state==='waiting'||SV.state==='coming'&&Math.abs(SV.v.speed)<2.5)&&dist2(SV.v.x,SV.v.z,player.x,player.z)<6.5){boardService();return}
     const v=nearestVehicle(4.6);if(!v)return;
@@ -1218,9 +1320,10 @@ function updateHud(dt){hudT-=dt;if(hudT<=0){hudT=.25;const z=zoneName(player.x,p
     updateTiles(player.x,player.z)}
   let msg='';
   const F=isTouch()?'Toca Entrar':'F';
-  if(player.ride){speedo.style.display='none';actBtn.textContent='Parar';bRun.textContent='Llegar ya';msg=SV.state==='riding'&&SV.dest?'Rumbo a '+SV.dest.name+' · '+(isTouch()?'Parar · Llegar ya':'F parar · Espacio llegar ya'):SV.state==='menu'?(isTouch()?'Toca Parar para elegir destino':'F · elegir destino'):''}
+  if(TC.ride){speedo.style.display='none';actBtn.textContent='Llegar ya';msg=TC.ride.dest?'Transcaribe rumbo a '+TC.ride.dest.name+' · '+(isTouch()?'Llegar ya':'F llegar ya'):''}
+  else if(player.ride){speedo.style.display='none';actBtn.textContent='Parar';bRun.textContent='Llegar ya';msg=SV.state==='riding'&&SV.dest?'Rumbo a '+SV.dest.name+' · '+(isTouch()?'Parar · Llegar ya':'F parar · Espacio llegar ya'):SV.state==='menu'?(isTouch()?'Toca Parar para elegir destino':'F · elegir destino'):''}
   else if(EX.entering){msg=''}
-  else if(!player.car){const v=nearestVehicle(4.6);msg=EX.outPrompt();
+  else if(!player.car){const v=nearestVehicle(4.6);msg=EX.outPrompt();const tb=tcNear();if(!msg&&tb)msg=F+' · subir al Transcaribe ('+fmt(TC_FARE)+')';
     if(!msg&&SV.v&&(SV.state==='waiting'||SV.state==='coming')&&dist2(SV.v.x,SV.v.z,player.x,player.z)<6.5)msg=F+' · subir al '+SNAME(SV.v)+' (pasajero)';
     else if(v&&!msg)msg=F+' · '+((v.ai||v.chase)&&DRV.some(d=>d.v===v)?'robar: sacar al conductor del '+(VNAME[v.type]||'vehículo').toLowerCase():'subir: '+(VNAME[v.type]||'vehículo').toLowerCase());
     if(!msg&&SV.v&&SV.state==='coming')msg='Tu '+SNAME(SV.v)+' viene en camino · '+Math.round(dist2(SV.v.x,SV.v.z,player.x,player.z))+' m';
@@ -1382,11 +1485,11 @@ function step(dt,now){
   updateDay(started?dt:0);placeSun(player.x,player.z);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
   window.__water.offset.x+=dt*.004;window.__water.offset.y+=dt*.0025;
   if(started&&EX.inside){EX.updateInside(dt,EX.menu?{ix:0,iz:0,run:false}:readInput());updateDay(0);EX.update(dt,now/1000)}
-  else if(started){const lock=EX.menu||EX.busy||rideOpen();const inp=lock?{ix:0,iz:0,run:false}:readInput();
-    if(player.car)updateDriven(player.car,dt,inp);else if(EX.tween(dt)){}else if(player.ride){player.x=player.ride.x;player.z=player.ride.z}else updateFoot(dt,inp);EX.update(dt,now/1000);
+  else if(started){const lock=EX.menu||EX.busy||rideOpen()||tcOpen()||!!TC.board;const inp=lock?{ix:0,iz:0,run:false}:readInput();
+    if(player.car)updateDriven(player.car,dt,inp);else if(TC.board){}else if(EX.tween(dt)){}else if(player.ride){player.x=player.ride.x;player.z=player.ride.z}else updateFoot(dt,inp);EX.update(dt,now/1000);
     buildVG();let aiN=0,vi=0;for(const v of vehicles){vi++;if(v===player.car)continue;if(v.ai){if(!v.hail&&v.type!=='police'&&aiN++>=Q.cars){v.off=true;continue}v.off=false;
       if(!v.hail&&!v.chase&&Math.abs(v.x-player.x)+Math.abs(v.z-player.z)>360){if((vi+frameNo)%3)continue;updateAI(v,Math.min(.15,dt*3));continue}updateAI(v,dt)}else updateParked(v,dt)}
-    trafficUpkeep(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
+    trafficUpkeep(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
   else{orbit+=dt*.08;const gy=standY(player.x,player.z);player.mesh.position.set(player.x,gy,player.z);animate(player.ch,0,dt,'');camera.position.set(player.x+Math.sin(orbit)*60,gy+38,player.z+Math.cos(orbit)*60);camera.lookAt(player.x,gy+6,player.z);
     buildVG();for(const v of vehicles)if(v.ai)updateAI(v,dt);updatePeds(dt);hudT-=dt;if(hudT<=0){hudT=.5;updateTiles(player.x,player.z);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,player.x,player.z)<420}}
   for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<Q.view*.6;
@@ -1406,7 +1509,7 @@ applyQuality(qLevel);
 if(GPU.soft)$('go').addEventListener('click',()=>setTimeout(()=>toast('Tu navegador no está usando la tarjeta gráfica: activa la aceleración por hardware en su configuración y reinícialo',9000),2600));
 $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;startMission(true);toast('Bienvenido a Cartagena',2200)});
-window.__dbg={setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__tcDoor=tcDoor;window.__dbg={setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>

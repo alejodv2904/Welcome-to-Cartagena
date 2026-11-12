@@ -115,8 +115,8 @@ function busBody(col,o){const L=o.L,W=o.W/2,A=B();const H=o.H;
   addGeo(A,new THREE.BoxGeometry(W*2,.28,.12),'#1e1f21',mx(0,.55,L/2+.02));addGeo(A,new THREE.BoxGeometry(W*2,.28,.12),'#1e1f21',mx(0,.55,-L/2-.02));
   // window pillars
   const nwin=o.nwin;for(let k=0;k<=nwin;k++){const z=-L/2+.5+k*(L-1.6)/nwin;for(const s of [-1,1])addGeo(A,new THREE.BoxGeometry(.03,H-.32-o.win0,.1),col,mx(s*(W+.004),(H-.32+o.win0)/2,z))}
-  // door on the right side
-  addGeo(A,new THREE.BoxGeometry(.03,H-.6,.9),'#2b3a44',mx(W+.006,(H-.2)/2+.15,L/2-1.2));
+  // doors on both sides
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.03,H-.6,.9),'#2b3a44',mx(sd*(W+.006),(H-.2)/2+.15,L/2-1.2));
   for(const s of [-1,1])addGeo(A,new THREE.BoxGeometry(.18,.12,.12),'#1e1f21',mx(s*(W+.08),H-.5,L/2-.15));
   const plates=[new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.55,L/2+.09)),new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.62,-L/2-.09,0,Math.PI,0))];
   for(const z of o.wz)for(const s of [-1,1]){const arch=new THREE.CylinderGeometry(o.wr+.08,o.wr+.08,.24,14,1,true,0,Math.PI);arch.rotateZ(Math.PI/2);addGeo(A,arch,'#121212',mx(s*(W-.11),o.wr+.03,z))}
