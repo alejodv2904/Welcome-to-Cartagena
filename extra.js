@@ -456,7 +456,13 @@ function updateVictims(dt){for(let i=VICT.length-1;i>=0;i--){const q=VICT[i],ch=
       q.x=nx;q.z=nz;ch.mesh.rotation.set(0,angLerp(ch.mesh.rotation.y,Math.atan2(q.dir[0],q.dir[1]),Math.min(1,dt*8)),0);ch.mesh.position.set(q.x,C.ground(q.x,q.z),q.z);anim(ch,sp,dt,'')}
     else{C.scene.remove(ch.mesh);VICT.splice(i,1);q.done&&q.done()}}}
 function tween(dt){if(!ENT)return false;const e=ENT,v=e.v,ch=player.ch;e.t+=dt;
-  if(e.kind==='shop'){const s=e.shop;const dx=s.wx-player.x,dz=s.wz-player.z,d=Math.hypot(dx,dz);if(d>.5){player.x+=dx/d*2*dt;player.z+=dz/d*2*dt;player.yaw=angLerp(player.yaw,Math.atan2(dx,dz),Math.min(1,dt*12))}C.animate(ch,d>.5?2:0,dt,'');
+  if(e.kind==='shop'){const s=e.shop;const inYaw=Math.atan2(-s.nx,-s.nz);
+    if(e.ph==='walk'){const tx=s.wx+s.nx*.85,tz=s.wz+s.nz*.85,dx=tx-player.x,dz=tz-player.z,d=Math.hypot(dx,dz);
+      if(d>.12&&e.t<2.6){const sp=Math.min(1.7,d*3+.4);player.x+=dx/d*Math.min(d,sp*dt);player.z+=dz/d*Math.min(d,sp*dt);player.yaw=angLerp(player.yaw,Math.atan2(dx,dz),Math.min(1,dt*10));C.animate(ch,sp,dt,'')}
+      else{e.ph='push';e.t=0}}
+    if(e.ph==='push'){player.yaw=angLerp(player.yaw,inYaw,Math.min(1,dt*12));C.animate(ch,0,dt,'');const k=Math.min(1,e.t/.3);aim(ch,'RightArm',-.1,.2,1,k);aim(ch,'RightForeArm',0,.1,1,k);C.tone&&e.t<dt*1.5&&C.tone(180,.05,'triangle',.03);
+      if(e.t>.42){e.ph='in';e.t=0;fade(s.name,()=>{ENT=null;enter(s)})}}
+    if(e.ph==='in'){player.yaw=inYaw;player.x-=s.nx*1.1*dt;player.z-=s.nz*1.1*dt;C.animate(ch,1.1,dt,'')}
     player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
   if(e.kind==='step'){const sp=e.t<.55?1.8:0;player.x+=Math.sin(player.yaw)*sp*dt;player.z+=Math.cos(player.yaw)*sp*dt;C.animate(ch,sp,dt,'');player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;if(e.t>.6)ENT=null;return true}
   if(e.kind==='out'){const delay=e.quick?0:.28,dur=e.quick?.3:.55;let k=clamp((e.t-delay)/dur,0,1);const s=k*k*(3-2*k);
@@ -474,8 +480,9 @@ function tween(dt){if(!ENT)return false;const e=ENT,v=e.v,ch=player.ch;e.t+=dt;
       if(e.t>(hasDoors(v)?.34:.12)){if(e.victim){e.phase='pull';e.t=0;startVictim(e)}else{e.phase='in';e.t=0;e.from={x:player.x,y:C.standY(player.x,player.z),z:player.z}}}}
     else{const k=Math.sin(Math.min(1,e.t/.6)*Math.PI);aim(ch,'LeftArm',.15,-.1,1,.9);aim(ch,'RightArm',-.15,-.1,1,.9);aim(ch,'LeftForeArm',-.1,-.3,1,k);aim(ch,'RightForeArm',.1,-.3,1,k);aim(ch,'Spine',0,1,-.35*k,.6);
       if(e.t>.7){e.phase='in';e.t=0;e.from={x:player.x,y:C.standY(player.x,player.z),z:player.z}}}}
-  if(e.phase==='in'){const dur=v.rig.moto?.4:.55;const k=Math.min(1,e.t/dur),s=k*k*(3-2*k);const sw=seatWorld(v,ch,e.opts.rear);
-    player.x=lerp(e.from.x,sw.x,s);player.z=lerp(e.from.z,sw.z,s);const y=lerp(e.from.y,sw.y,s)+(v.rig.moto?Math.sin(k*Math.PI)*.25:0);
+  if(e.phase==='in'){const dur=v.rig.moto?.75:v.bus?.95:.55;const k=Math.min(1,e.t/dur),s=k*k*(3-2*k);const sw=seatWorld(v,ch,e.opts.rear);
+    player.x=lerp(e.from.x,sw.x,s);player.z=lerp(e.from.z,sw.z,s);const y=lerp(e.from.y,sw.y,s)+(v.rig.moto?Math.sin(k*Math.PI)*.38:v.bus?Math.min(1,k*2.5)*.42*(1-s):0);
+    if(v.rig.moto){aim(ch,'Spine',0,1,-.25*Math.sin(k*Math.PI),.7);aim(ch,'RightArm',-.3,-.2,.9,Math.sin(k*Math.PI)*.8)}
     player.yaw=angLerp(player.yaw,v.yaw,Math.min(1,dt*(k>.35?14:4)));C.animate(ch,0,dt,'');sitBlend(ch,s);player.mesh.position.set(player.x,y,player.z);player.mesh.rotation.set(0,player.yaw,0);
     if(k>=1){ENT=null;if(hasDoors(v))closeDoorLater(doorFor(v,e.side,e.opts.rear),120);e.done()}return true}
   player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
@@ -623,7 +630,7 @@ function mini(mg,s){mg.font=`bold ${14/s}px sans-serif`;mg.textAlign='center';mg
   for(const sh of SHOPS){if(Math.abs(sh.x-player.x)>320||Math.abs(sh.z-player.z)>320)continue;const r=(sh.mall?8:4.5)/s;mg.fillStyle=sh.mall?'#f0b429':TYPES[sh.type].bg;mg.strokeStyle='#17130f';mg.lineWidth=2/s;mg.beginPath();mg.arc(sh.x,sh.z,r,0,TAU);mg.fill();mg.stroke()}}
 function act(){if(menuOpen){closeMenu();return true}
   if(inside){const pk=nearPick();if(pk){take(pk);return true}if(nearCaja()&&P.cart.length){pay();return true}const m=nearMenu();if(m)openMenu(m);return true}
-  if(!player.car&&!player.ride&&nearShop&&!FADE.busy){const s=nearShop;ENT={kind:'shop',shop:s,t:0};fade(s.name,()=>{ENT=null;enter(s)});return true}return false}
+  if(!player.car&&!player.ride&&nearShop&&!FADE.busy){const s=nearShop;ENT={kind:'shop',shop:s,t:0,ph:'walk'};return true}return false}
 
 return{
   get inside(){return inside},get shopDef(){return CUR.def},IS,SHOPS,
