@@ -320,7 +320,7 @@ function enter(shop){const def=CACHE[shop.mall?shop.name:shop.type]||(CACHE[shop
   C.toast(shop.name,1800);C.chime&&0}
 function leave(){const def=CUR.def,shop=CUR.shop;closeMenu();
   if(P.cart.length){const it=P.cart.slice();P.cart=[];deliver(it,true);setTimeout(()=>C.crime(1,'¡Te fuiste sin pagar! La policía te busca'),400)}IS.remove(def.grp);for(const p of IN)IS.remove(p.ch.mesh);IN.length=0;IS.remove(player.mesh);C.scene.add(player.mesh);inside=false;
-  player.x=shop.x+shop.nx*.8;player.z=shop.z+shop.nz*.8;player.yaw=shop.yaw;player.cy=shop.yaw;player.mesh.position.set(player.x,C.ground(player.x,player.z),player.z);player.mesh.rotation.set(0,player.yaw,0)}
+  player.x=shop.x+shop.nx*.8;player.z=shop.z+shop.nz*.8;player.yaw=shop.yaw;player.cy=shop.yaw;player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.set(0,player.yaw,0)}
 // never leave the player standing inside furniture: step toward the nearest free spot
 function freeSpot(def){if(!blocked(def,player.ix,player.iz,.36))return;for(let rad=.3;rad<6;rad+=.3)for(let a=0;a<TAU;a+=TAU/16){const x=player.ix+Math.sin(a)*rad,z=player.iz+Math.cos(a)*rad;if(!blocked(def,x,z,.36)){player.ix=x;player.iz=z;return}}}
 function blocked(def,x,z,r){const R=def.R;if(x<-R.w/2+r||x>R.w/2-r||z<-R.d/2+r||z>R.d/2-r)return true;for(const b of def.col)if(x>b.x0-r&&x<b.x1+r&&z>b.z0-r&&z<b.z1+r)return true;return false}
@@ -457,8 +457,8 @@ function updateVictims(dt){for(let i=VICT.length-1;i>=0;i--){const q=VICT[i],ch=
     else{C.scene.remove(ch.mesh);VICT.splice(i,1);q.done&&q.done()}}}
 function tween(dt){if(!ENT)return false;const e=ENT,v=e.v,ch=player.ch;e.t+=dt;
   if(e.kind==='shop'){const s=e.shop;const dx=s.wx-player.x,dz=s.wz-player.z,d=Math.hypot(dx,dz);if(d>.5){player.x+=dx/d*2*dt;player.z+=dz/d*2*dt;player.yaw=angLerp(player.yaw,Math.atan2(dx,dz),Math.min(1,dt*12))}C.animate(ch,d>.5?2:0,dt,'');
-    player.mesh.position.set(player.x,C.ground(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
-  if(e.kind==='step'){const sp=e.t<.55?1.8:0;player.x+=Math.sin(player.yaw)*sp*dt;player.z+=Math.cos(player.yaw)*sp*dt;C.animate(ch,sp,dt,'');player.mesh.position.set(player.x,C.ground(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;if(e.t>.6)ENT=null;return true}
+    player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
+  if(e.kind==='step'){const sp=e.t<.55?1.8:0;player.x+=Math.sin(player.yaw)*sp*dt;player.z+=Math.cos(player.yaw)*sp*dt;C.animate(ch,sp,dt,'');player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;if(e.t>.6)ENT=null;return true}
   if(e.kind==='out'){const delay=e.quick?0:.28,dur=e.quick?.3:.55;let k=clamp((e.t-delay)/dur,0,1);const s=k*k*(3-2*k);
     const sw=seatWorld(v,ch,e.opts.rear);const fx=e.t<delay?sw.x:lerp(e.from.x,e.to.x,s),fz=e.t<delay?sw.z:lerp(e.from.z,e.to.z,s),fy=lerp(e.t<delay?sw.y:e.from.y,C.ground(e.to.x,e.to.z),s);
     if(e.t<delay){e.from={x:sw.x,y:sw.y,z:sw.z}}
@@ -471,14 +471,14 @@ function tween(dt){if(!ENT)return false;const e=ENT,v=e.v,ch=player.ch;e.t+=dt;
     else{e.phase='open';e.t=0;if(hasDoors(v))doorFor(v,e.side,e.opts.rear).tgt=1;C.tone&&C.tone(260,.04,'square',.025)}}
   if(e.phase==='open'||e.phase==='pull'){player.yaw=angLerp(player.yaw,v.yaw-e.side*Math.PI/2,Math.min(1,dt*12));C.animate(ch,0,dt,'');const tp=wpt(v,e.lx,e.lz);player.x=lerp(player.x,tp.x,Math.min(1,dt*8));player.z=lerp(player.z,tp.z,Math.min(1,dt*8));
     if(e.phase==='open'){const k=Math.min(1,e.t/.3);aim(ch,'RightArm',-.45,-.05,.9,k);aim(ch,'RightForeArm',-.2,.15,1,k);
-      if(e.t>(hasDoors(v)?.34:.12)){if(e.victim){e.phase='pull';e.t=0;startVictim(e)}else{e.phase='in';e.t=0;e.from={x:player.x,y:C.ground(player.x,player.z),z:player.z}}}}
+      if(e.t>(hasDoors(v)?.34:.12)){if(e.victim){e.phase='pull';e.t=0;startVictim(e)}else{e.phase='in';e.t=0;e.from={x:player.x,y:C.standY(player.x,player.z),z:player.z}}}}
     else{const k=Math.sin(Math.min(1,e.t/.6)*Math.PI);aim(ch,'LeftArm',.15,-.1,1,.9);aim(ch,'RightArm',-.15,-.1,1,.9);aim(ch,'LeftForeArm',-.1,-.3,1,k);aim(ch,'RightForeArm',.1,-.3,1,k);aim(ch,'Spine',0,1,-.35*k,.6);
-      if(e.t>.7){e.phase='in';e.t=0;e.from={x:player.x,y:C.ground(player.x,player.z),z:player.z}}}}
+      if(e.t>.7){e.phase='in';e.t=0;e.from={x:player.x,y:C.standY(player.x,player.z),z:player.z}}}}
   if(e.phase==='in'){const dur=v.rig.moto?.4:.55;const k=Math.min(1,e.t/dur),s=k*k*(3-2*k);const sw=seatWorld(v,ch,e.opts.rear);
     player.x=lerp(e.from.x,sw.x,s);player.z=lerp(e.from.z,sw.z,s);const y=lerp(e.from.y,sw.y,s)+(v.rig.moto?Math.sin(k*Math.PI)*.25:0);
     player.yaw=angLerp(player.yaw,v.yaw,Math.min(1,dt*(k>.35?14:4)));C.animate(ch,0,dt,'');sitBlend(ch,s);player.mesh.position.set(player.x,y,player.z);player.mesh.rotation.set(0,player.yaw,0);
     if(k>=1){ENT=null;if(hasDoors(v))closeDoorLater(doorFor(v,e.side,e.opts.rear),120);e.done()}return true}
-  player.mesh.position.set(player.x,C.ground(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
+  player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;return true}
 /* fundido a negro (entrar a locales, saltar un viaje) */
 const fadeEl=document.createElement('div');fadeEl.id='fade';fadeEl.innerHTML='<span></span>';document.body.appendChild(fadeEl);
 {const s2=document.createElement('style');s2.textContent='#fade{position:fixed;inset:0;background:#0d0a07;opacity:0;pointer-events:none;transition:opacity .28s ease;z-index:25;display:flex;align-items:center;justify-content:center}#fade span{font:400 clamp(22px,4.5vw,36px) var(--display,Georgia);color:#f0b429;text-align:center;padding:0 16px}';document.head.appendChild(s2)}
