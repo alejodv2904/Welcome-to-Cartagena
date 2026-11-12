@@ -992,7 +992,6 @@ for(let i=0;i<110;i++)spawnAI(i<70);
 for(let i=0;i<4;i++)spawnAI(i<2,'coche');for(let i=0;i<2;i++)spawnAI(true,'chiva');
 // police patrols roam the city with the normal traffic
 for(let i=0;i<QL.alta.patrol;i++)spawnAI(i<3,'police');
-  taxi=newVehicle(x,z,yaw,'taxi');if(INDIA)return;player.x=x+Math.cos(yaw)*3;player.z=z-Math.sin(yaw)*3;if(solidAt(player.x,player.z)||!onLand(player.x,player.z)){player.x=x-Math.cos(yaw)*3;player.z=z+Math.sin(yaw)*3}player.cy=yaw})();
 
 /* ---------- taxi & buseta service: hail one (T), it drives to you, pick a destination and ride ---------- */
 const EGR=new Map(),EG=50;
