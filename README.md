@@ -4,4 +4,4 @@ Juego 3D de mundo abierto ambientado en Cartagena, hecho con three.js. Funciona 
 
 **Jugar:** https://alejodv2904.github.io/welcome-to-cartagena/
 
-Controles: WASD para moverse, E para entrar o salir de vehículos, T para pedir taxi o buseta.
+Controles: WASD para moverse, F para entrar o salir de vehículos, Q y E para girar la cámara, T para pedir taxi o buseta.
