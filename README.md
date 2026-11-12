@@ -5,3 +5,5 @@ Juego 3D de mundo abierto ambientado en Cartagena, hecho con three.js. Funciona 
 **Jugar:** https://alejodv2904.github.io/welcome-to-cartagena/
 
 Controles: WASD para moverse, F para entrar o salir de vehículos, Q y E para girar la cámara, T para pedir taxi o buseta.
+
+En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presiona F para echarlo a la canasta; paga con F en la caja. Lo que compras de comer o tomar queda en la mochila: presiona B para tomártelo. X devuelve la canasta. Si sales sin pagar, es robo y te busca la policía.
