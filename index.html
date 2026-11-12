@@ -130,20 +130,29 @@ const onLand=(x,z)=>inBox(x,z)&&!isWater(x,z);
 /* ---------- renderer / scene ---------- */
 const LOWEND=window.matchMedia('(pointer:coarse)').matches||(navigator.hardwareConcurrency||8)<=4;
 // quality presets: draw distance, shadows, resolution and crowd size; 'auto' moves between them by measured frame time
+// grp: how far the sitting / chatting street groups (full animated people) are drawn
 // peds: people walking around the player; skin: how many of the closest are drawn as full skinned models (the rest are cheap instanced figures)
 // maxPix caps the drawing-buffer size so big / high-DPI screens don't render millions of extra pixels
-const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:250,skin:24,nearD:45,crowdD:190,cars:40,patrol:6,drivers:16,treeShadow:true,fog:[320,880]},
-  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:190,skin:16,nearD:36,crowdD:160,cars:32,patrol:5,drivers:12,treeShadow:false,fog:[220,630]},
-  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:130,skin:10,nearD:28,crowdD:130,cars:24,patrol:4,drivers:8,treeShadow:false,fog:[170,500]}};
-const prFor=q=>Math.max(.5,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
-const QORDER=['baja','media','alta'];
+const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:250,skin:24,nearD:45,crowdD:190,cars:40,patrol:6,drivers:16,treeShadow:true,grp:95,fog:[320,880]},
+  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:190,skin:16,nearD:36,crowdD:160,cars:32,patrol:5,drivers:12,treeShadow:false,grp:75,fog:[220,630]},
+  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:130,skin:10,nearD:28,crowdD:130,cars:24,patrol:4,drivers:8,treeShadow:false,grp:55,fog:[170,500]},
+  // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
+  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:80,skin:4,nearD:20,crowdD:100,cars:16,patrol:3,drivers:3,treeShadow:false,grp:35,fog:[120,370]}};
+const prFor=q=>Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
+const QORDER=['minima','baja','media','alta'];
+const QNAME={minima:'mínima',baja:'baja',media:'media',alta:'alta'};
 let qMode='auto';try{qMode=localStorage.getItem('cl_quality')||'auto'}catch(e){}
-let qLevel=qMode!=='auto'?qMode:(LOWEND?'baja':'media');let Q=QL[qLevel];
+if(qMode!=='auto'&&!QL[qMode])qMode='auto';
+// auto mode starts where it settled last time, so a weak computer doesn't spend the first seconds at a level it can't handle
+let autoStart=null;try{autoStart=localStorage.getItem('cl_auto_level')}catch(e){}
+const autoFirst=()=>QL[autoStart]?autoStart:(LOWEND?'baja':'media');
+let qLevel=qMode!=='auto'?qMode:autoFirst();let Q=QL[qLevel];
 // warm Caribbean colour grade applied at the end of every material (saturation, contrast, warm highlights)
 THREE.ShaderChunk.fog_fragment+=`
 {vec3 gc=gl_FragColor.rgb;float gl=dot(gc,vec3(.299,.587,.114));gc=mix(vec3(gl),gc,1.2);gc=(gc-.5)*1.1+.5;
  gc*=mix(vec3(.94,.97,1.06),vec3(1.06,1.0,.9),smoothstep(.15,.8,gl));gl_FragColor.rgb=max(gc,0.0);}`;
-const renderer=new THREE.WebGLRenderer({canvas:$('gl'),antialias:!LOWEND,powerPreference:'high-performance'});
+// edge smoothing (MSAA) costs a lot on weak graphics, so it's off when the game is (or last settled) at the low levels
+const renderer=new THREE.WebGLRenderer({canvas:$('gl'),antialias:!LOWEND&&qLevel!=='baja'&&qLevel!=='minima',powerPreference:'high-performance'});
 renderer.setPixelRatio(prFor(Q));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
 const scene=new THREE.Scene();
@@ -1290,7 +1299,7 @@ function downPose(p,dt){p.down-=dt;const k=p.down>1?Math.min(1,(5-p.down)*5):Mat
 const NIGHTMATS=[];
 const EX=window.EXTRA({THREE,scene,camera,renderer,player,PPL,buildCharacter,archetype,animate,ground,onLand,solidAt,inPoly,signedArea,nearestRoad,GRAPH,RW,MAP,LM,zoneName,inCentro,isBoca,
   toast,fmt,chime,crash,tone,crime,policeNear,isTouch,rand,pick,rr,hash,dist2,clamp,lerp,angLerp,instChunks,place,tiles,TILE,ALLP,LOWEND,heroSpec:HERO_SPEC,nightMats:NIGHTMATS,
-  get NIGHT(){return NIGHT},getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getAC:()=>AC,isMuted:()=>muted});
+  get NIGHT(){return NIGHT},get Q(){return Q},getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getAC:()=>AC,isMuted:()=>muted});
 EX.init();money=60000;$('money').textContent=fmt(money);
 /* ---------- main loop ---------- */
 let last=performance.now(),orbit=0;
@@ -1298,9 +1307,10 @@ let frameNo=0,ftAcc=0,ftN=0,ftT=0,goodWin=0;
 function applyQuality(level){qLevel=level;Q=QL[level];resize();
   scene.fog.near=Q.fog[0];scene.fog.far=Q.fog[1];camera.far=Q.view+200;camera.updateProjectionMatrix();
   sun.castShadow=Q.shadow;if(sun.shadow.mapSize.x!==Q.smap){sun.shadow.mapSize.set(Q.smap,Q.smap);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}renderer.shadowMap.needsUpdate=true;
-  updateTiles(player.x,player.z);qBtn.textContent='Calidad: '+(qMode==='auto'?'Auto ('+level+')':level)}
+  updateTiles(player.x,player.z);qBtn.textContent='Calidad: '+(qMode==='auto'?'Auto ('+QNAME[level]+')':QNAME[level]);
+  if(qMode==='auto')try{localStorage.setItem('cl_auto_level',level)}catch(e){}}
 function adaptQuality(dt){ftAcc+=dt;ftN++;ftT+=dt;if(ftT<2.5)return;const avg=ftAcc/ftN*1000;ftAcc=ftN=ftT=0;showPerf(avg);if(qMode!=='auto'||!started)return;const i=QORDER.indexOf(qLevel);
-  if(avg>24&&i>0){applyQuality(QORDER[i-1]);goodWin=0}else if(avg<12.5&&i<2){if(++goodWin>=4){applyQuality(QORDER[i+1]);goodWin=0}}else goodWin=0}
+  if(avg>24&&i>0){applyQuality(QORDER[i-1]);goodWin=0}else if(avg<12.5&&i<QORDER.length-1){if(++goodWin>=4){applyQuality(QORDER[i+1]);goodWin=0}}else goodWin=0}
 function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;const dt=Math.max(0,Math.min(.05,rawDt));last=now;frameNo++;adaptQuality(Math.min(rawDt,.2));step(dt,now);
   {const r=camera.far*.92;skyDome.scale.set(-r,r,r);skyDome.position.copy(camera.position)}
   renderer.render(EX.inside?EX.IS:scene,camera)}
@@ -1324,8 +1334,11 @@ const gpuEl=document.createElement('div');gpuEl.id='gpuInfo';$('topR').appendChi
 const GPU=(function(){let n='';try{const gl=renderer.getContext(),x=gl.getExtension('WEBGL_debug_renderer_info');n=x?gl.getParameter(x.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)}catch(e){}
   const soft=/swiftshader|llvmpipe|software|basic render/i.test(n);n=n.replace(/\(R\)|\(TM\)/g,'');const m=n.match(/ANGLE \([^,]*,\s*([^,]+?)\s*(\(0x|Direct3D|,|\)|$)/);return{name:(m?m[1]:n).replace(/\s*\(TM\)|\(R\)/g,'').slice(0,48)||'desconocida',soft}})();
 function showPerf(avg){const fps=Math.round(1000/Math.max(1,avg));gpuEl.textContent=(GPU.soft?'⚠ Sin tarjeta gráfica (software) · ':'GPU: '+GPU.name+' · ')+fps+' FPS';gpuEl.classList.toggle('bad',GPU.soft||fps<25)}
-const qBtn=$('qBtn');qBtn.addEventListener('click',()=>{const order=['auto','alta','media','baja'];qMode=order[(order.indexOf(qMode)+1)%4];try{localStorage.setItem('cl_quality',qMode)}catch(e){}applyQuality(qMode==='auto'?(LOWEND?'baja':'media'):qMode);toast(qBtn.textContent,1200)});
+const qBtn=$('qBtn');qBtn.addEventListener('click',()=>{const order=['auto','alta','media','baja','minima'];qMode=order[(order.indexOf(qMode)+1)%order.length];try{localStorage.setItem('cl_quality',qMode)}catch(e){}applyQuality(qMode==='auto'?autoFirst():qMode);toast(qBtn.textContent,1200)});
+// no graphics card in use (hardware acceleration off or blocked): start at the lowest level and say how to fix it
+if(GPU.soft&&qMode==='auto')qLevel='minima';
 applyQuality(qLevel);
+if(GPU.soft)$('go').addEventListener('click',()=>setTimeout(()=>toast('Tu navegador no está usando la tarjeta gráfica: activa la aceleración por hardware en su configuración y reinícialo',9000),2600));
 $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;startMission(true);toast('Bienvenido a Cartagena',2200)});
 window.__dbg={setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,DRV,EX,SV,hail,act,cops,get W(){return W}};

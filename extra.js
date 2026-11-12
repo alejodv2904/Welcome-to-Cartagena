@@ -408,8 +408,9 @@ function makeGroups(){gPool=[];const n=C.LOWEND?10:18;for(let i=0;i<n;i++)gPool.
       for(let q=0;q<10;q++){const d=new THREE.Mesh(new THREE.BoxGeometry(.05,.012,.1),lm('#fafafa'));d.position.set(rr(-.3,.3),.77,rr(-.3,.3));d.rotation.y=rr(0,TAU);g.grp.add(d)}}
     for(let i=0;i<need;i++)if(kind!=='chat'){const c=plasticChair();g.grp.add(c);g.people[i].chair=c}
     C.scene.add(g.grp);for(const p of g.people)C.scene.add(p.ch.mesh);GROUPS.push(g)}}
-function placeGroup(g){const cand=edgesNear(player.x,player.z,110);if(!cand.length)return false;for(let t=0;t<40;t++){const ei=pick(cand),e=C.GRAPH.edges[ei],A=C.GRAPH.nodes[e.a],B=C.GRAPH.nodes[e.b];const s=rand();const x0=lerp(A.x,B.x,s),z0=lerp(A.z,B.z,s);
-    const d=dist2(x0,z0,player.x,player.z);if(d<35||d>110)continue;const L=Math.hypot(B.x-A.x,B.z-A.z)||1;const dx=(B.x-A.x)/L,dz=(B.z-A.z)/L;const side=rand()<.5?1:-1;const o=side*(C.RW[e.ty]/2+rr(2.4,3.6));
+const grpD=()=>(C.Q&&C.Q.grp)||95;
+function placeGroup(g){const gD=grpD();const cand=edgesNear(player.x,player.z,gD+15);if(!cand.length)return false;for(let t=0;t<40;t++){const ei=pick(cand),e=C.GRAPH.edges[ei],A=C.GRAPH.nodes[e.a],B=C.GRAPH.nodes[e.b];const s=rand();const x0=lerp(A.x,B.x,s),z0=lerp(A.z,B.z,s);
+    const d=dist2(x0,z0,player.x,player.z);if(d<Math.min(35,gD*.45)||d>gD+15)continue;const L=Math.hypot(B.x-A.x,B.z-A.z)||1;const dx=(B.x-A.x)/L,dz=(B.z-A.z)/L;const side=rand()<.5?1:-1;const o=side*(C.RW[e.ty]/2+rr(2.4,3.6));
     const x=x0-dz*o,z=z0+dx*o;if(!C.onLand(x,z)||C.solidAt(x,z)||GROUPS.some(q=>q!==g&&q.placed&&dist2(q.x,q.z,x,z)<12))continue;
     const face=Math.atan2(-dz*-side,dx*-side);// facing the street
     const pts=[];if(g.kind==='domino')for(let i=0;i<4;i++){const a=i/4*TAU+.4;pts.push([x+Math.sin(a)*.75,z+Math.cos(a)*.75,a+Math.PI,'domino'])}
@@ -421,8 +422,8 @@ function placeGroup(g){const cand=edgesNear(player.x,player.z,110);if(!cand.leng
       if(p.chair){if(g.kind==='domino'){p.chair.position.set(q[0]-x,0,q[1]-z)}else{g.grp.position.set(0,gy,0);p.chair.position.set(q[0],0,q[1])}p.chair.rotation.y=p.yaw}
       p.ch.mesh.position.set(p.x,gy+(p.pose==='talk'?0:seatY(p.ch)),p.z)});return true}g.placed=false;return false}
 let gT=0;
-function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of GROUPS){if(!g.placed||dist2(g.x,g.z,player.x,player.z)>150)placeGroup(g)}}
-  for(const g of GROUPS){const d=dist2(g.x,g.z,player.x,player.z);const vis=g.placed&&d<95;g.grp.visible=vis;for(const p of g.people)p.ch.mesh.visible=vis;if(!vis)continue;const far=d>60;if(far&&(g.fr=(g.fr||0)+1)%4)continue;const gdt=far?dt*4:dt;
+function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of GROUPS){if(!g.placed||dist2(g.x,g.z,player.x,player.z)>grpD()+55)placeGroup(g)}}
+  for(const g of GROUPS){const d=dist2(g.x,g.z,player.x,player.z);const gD=grpD();const vis=g.placed&&d<gD;g.grp.visible=vis;for(const p of g.people)p.ch.mesh.visible=vis;if(!vis)continue;const far=d>gD*.63;if(far&&(g.fr=(g.fr||0)+1)%4)continue;const gdt=far?dt*4:dt;
     for(const p of g.people){if(p.down>0){p.down-=dt;const k=p.down>1?Math.min(1,(5-p.down)*5):Math.max(0,p.down);p.ch.mesh.rotation.x=-Math.PI/2*k;if(p.down<=0)p.ch.mesh.rotation.x=0;continue}
       anim(p.ch,0,gdt,p.pose)}
     // keep the player out of the furniture
