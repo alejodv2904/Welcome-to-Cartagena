@@ -18,7 +18,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 #zone small,#mission small{display:block;font-size:12px;letter-spacing:.16em;color:var(--ochre);font-weight:700}
 #zoneName{font-family:var(--display);font-size:20px;line-height:1.1;font-weight:400}
 #street{font-size:15px;opacity:.85;margin-top:2px;min-height:1em}
-#clock{font:400 16px var(--display);color:var(--ochre);margin-top:4px}
+#clockR{font:400 22px var(--display);color:var(--ochre);font-variant-numeric:tabular-nums;line-height:1.25}
 #stars{font-size:26px;letter-spacing:2px;color:#ffd23f;text-shadow:0 2px 0 rgba(0,0,0,.6);display:none}#stars.on{display:block}
 #hp{width:120px;height:8px;background:rgba(23,19,15,.7);border:1px solid var(--line);border-radius:4px;margin:4px 0 0 auto;overflow:hidden}#hpbar{display:block;height:100%;width:100%;background:#8ac926}
 #mTitle{font-weight:700;font-size:18px;line-height:1.15}
@@ -68,11 +68,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <canvas id="gl"></canvas><div id="vig" style="position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 58%,rgba(20,10,0,.32) 100%)"></div>
 <div id="hud" hidden>
   <div id="topL">
-    <div id="zone" class="card"><small>ZONA</small><div id="zoneName">Centro Histórico</div><div id="street"></div><div id="clock">10:20</div></div>
+    <div id="zone" class="card"><small>ZONA</small><div id="zoneName">Centro Histórico</div><div id="street"></div></div>
     <div id="mission" class="card"><small>ENCARGO</small><div id="mTitle"></div><div id="mText"></div><div id="mTime"></div></div>
   </div>
-  <div id="topR"><div class="row"><button id="qBtn" class="qb">Calidad: Auto</button><div id="money">$ 0</div><button id="btnSnd" aria-label="Sonido">♪</button></div><div id="stars">☆☆☆☆☆</div><div id="attr">Mapa © colaboradores de OpenStreetMap</div></div>
-  <canvas id="mini" width="280" height="280"></canvas>
+  <div id="topR"><div class="row"><div id="clockR" class="card" style="padding:6px 12px"></div><button id="qBtn" class="qb">Calidad: Auto</button><div id="money">$ 0</div><button id="btnSnd" aria-label="Sonido">♪</button></div><div id="stars">☆☆☆☆☆</div><div id="attr">Mapa © colaboradores de OpenStreetMap</div></div>
+  <canvas id="mini" width="280" height="280"></canvas><div id="miniTag" style="left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(6px + env(safe-area-inset-bottom,0px));width:146px;text-align:center;font:700 12px var(--body);color:var(--sand);text-shadow:0 1px 2px #000;z-index:3">M · mapa de Cartagena</div>
   <div id="toast"></div>
   <div id="prompt"></div>
   <div id="speedo"><b id="kmh">0</b><small>km/h</small><div id="hp"><i id="hpbar"></i></div></div>
@@ -1066,7 +1066,7 @@ function boardService(){const v=SV.v;SV.state='boarding';v.hail.hold=true;v.spee
   EX.enterCar(v,()=>{player.ride=v;seatIn(player.ch,v,true);SV.state='menu';openRideMenu()},{rear:true})}
 // destinations: the current errand first, then landmarks and malls by distance
 function destList(){const out=[];const seen=new Set();
-  if(M.stage<2&&M.from){const tg=M.stage===0?M.from:M.to;out.push({name:tg.name,x:tg.mx,z:tg.mz,tag:'Encargo'});seen.add(tg.name)}
+  if((M.stage===0||M.stage===1)&&M.from){const tg=M.stage===0?M.from:M.to;out.push({name:tg.name,x:tg.mx,z:tg.mz,tag:'Encargo'});seen.add(tg.name)}
   const all=LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz})).concat(EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'})));
   all.filter(l=>!seen.has(l.name)&&dist2(l.x,l.z,player.x,player.z)>140).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).forEach(l=>{if(out.length<40&&!seen.has(l.name)){seen.add(l.name);out.push(l)}});return out}
 // taxi and mototaxi charge by the distance of the trip (mototaxi is cheaper); busetas charge a flat fare
@@ -1216,7 +1216,7 @@ function paxBoard(v){const H=v.hail,h=H.npc,e=GRAPH.edges[v.e];const w=v.rig.wid
 /* ---------- player / driving ---------- */
 const VNAME={car:'Carro',taxi:'Taxi',police:'Patrulla',buseta:'Buseta',bus:'Bus de Transcaribe',moto:'Moto',mototaxi:'Mototaxi',coche:'Coche de caballos',chiva:'Chiva rumbera',camion:'Camión',camioneta:'Camioneta',motocarro:'Motocarro',bici:'Bicicleta'};
 function nearestVehicle(maxD){let b=null,bd=maxD;for(const v of vehicles){if(v.tc)continue;const d=dist2(v.x,v.z,player.x,player.z)-(v.bus?2.5:0);if(d<bd){bd=d;b=v}}return b}
-function act(){if(!started||rideOpen()||tcOpen())return;if(TC.ride){tcAct();return}if(player.ride){rideAct();return}if(EX.act())return;if(EX.entering||EX.busy)return;
+function act(){if(!started||rideOpen()||tcOpen()||PAUSE.open||BIG.open)return;if(TC.ride){tcAct();return}if(!player.ride&&!EX.inside&&!EX.entering){const of=offerNear();if(of){acceptOffer(of);return}}if(player.ride){rideAct();return}if(EX.act())return;if(EX.entering||EX.busy)return;
   if(!player.car){
     if(tcBoard())return;
     // the taxi / buseta you called is waiting: get in the back
@@ -1277,7 +1277,7 @@ function updateCamera(dt){const car=player.car||player.ride;const tx=player.x,tz
 
 /* ---------- mission ---------- */
 const POOL=LM.filter(l=>l.mission);
-const M={stage:0,from:null,to:null,t:0,limit:0,reward:0,wait:0,type:'deliv',pax:null,nag:0};let money=0;
+const M={stage:-1,from:null,to:null,t:0,limit:0,reward:0,wait:0,type:'deliv',pax:null,nag:0};let money=0;
 const beacon=new THREE.Group();
 const bMat=new THREE.MeshBasicMaterial({color:0xf0b429,transparent:true,opacity:.35,depthWrite:false});
 const bCol=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,90,16,1,true),bMat);bCol.position.y=45;beacon.add(bCol);
@@ -1291,14 +1291,15 @@ function startMission(first){let a,b,tries=0;
   if(M.pax){unseat(M.pax);scene.remove(M.pax.mesh);M.pax=null}
   if(fare){const ch=buildCharacter(archetype(rand()<.6?'tourist':'local'));ch.mesh.position.set(a.mx,ground(a.mx,a.mz),a.mz);scene.add(ch.mesh);M.pax=ch}
   bMat.color.set(0xf0b429);renderMission()}
-function renderMission(){
+function renderMission(){$('mission').style.display=M.stage===1?'':'none';
   const fare=M.type==='fare';
   if(M.stage===0){$('mTitle').textContent=fare?'Pasajero esperando':'Recoge el pedido';$('mText').textContent=fare?'Recógelo en taxi en '+M.from.name+'. Tarifa '+fmt(M.reward)+' más propina.':'Ve a '+M.from.name+'. Ganas '+fmt(M.reward)+' al entregarlo.';$('mTime').textContent=''}
   else if(M.stage===1){$('mTitle').textContent=fare?'Lleva al pasajero':'Entrega el pedido';$('mText').textContent=(fare?'Destino: ':'Llévalo a ')+M.to.name+'.';}
   else{$('mTitle').textContent='Siguiente encargo…';$('mText').textContent='';$('mTime').textContent=''}}
 let toastT=0;function toast(t,ms){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),ms||1800)}
-function updateMission(dt){
-  if(M.stage===2){M.wait-=dt;if(M.wait<=0)startMission(false);beacon.visible=false;return}
+function updateMission(dt){updateOffers(dt);
+  if(M.stage<0){beacon.visible=false;return}
+  if(M.stage===2){M.wait-=dt;if(M.wait<=0){M.stage=-1;renderMission()}beacon.visible=false;return}
   beacon.visible=true;const tg=M.stage===0?M.from:M.to;beacon.position.set(tg.mx,ground(tg.mx,tg.mz),tg.mz);
   const s=1+Math.sin(performance.now()/260)*.12;bRing.scale.set(s,s,s);
   if(M.stage===1){M.t+=dt;const left=Math.max(0,M.limit-M.t);$('mTime').textContent=Math.floor(left/60)+':'+String(Math.floor(left%60)).padStart(2,'0');
@@ -1330,6 +1331,7 @@ function updateHud(dt){hudT-=dt;if(hudT<=0){hudT=.25;const z=zoneName(player.x,p
     else if(!msg&&SV.v&&SV.state==='waiting')msg='Tu '+SNAME(SV.v)+' te espera (marca amarilla)';
     actBtn.textContent='Entrar';bRun.textContent='Correr';speedo.style.display='none'}
   else{actBtn.textContent='Bajar';bRun.textContent='Freno';speedo.style.display='block';{const k=Math.round(Math.abs(player.car.speed)*3.6);if(kmh.textContent!=k)kmh.textContent=k}if(Math.abs(player.car.speed)<5)msg=(isTouch()?'Toca Bajar':'F')+' · bajar del vehículo'}
+  if(!player.ride&&!TC.ride&&!EX.inside&&!EX.entering){const of=offerNear();if(of)msg=F+' · aceptar encargo: '+offerLabel(of)}
   if(promptEl.textContent!==msg){promptEl.textContent=msg;promptEl.classList.toggle('on',!!msg)}
   {const show=!player.car&&!player.ride&&!EX.inside?'':'none';if(bTaxi.style.display!==show)bTaxi.style.display=show}
   if(eng){const t=player.car&&!muted?clamp(Math.abs(player.car.speed)/36,0,1):0;eng.g.gain.value=player.car&&!muted?.03+.05*t:0;eng.o.frequency.value=46+t*95}}
@@ -1351,14 +1353,113 @@ const mc=$('mini'),mg=mc.getContext('2d'),MR=260;
 function drawMini(){const w=mc.width,s=w/2/MR;mg.save();mg.clearRect(0,0,w,w);mg.fillStyle='#2aa7b0';mg.fillRect(0,0,w,w);
   mg.translate(w/2,w/2);const heading=player.car?player.car.yaw:player.cy;mg.rotate(heading-Math.PI);mg.scale(s,s);mg.translate(-player.x,-player.z);
   mg.drawImage(mapC,BOX[0],BOX[1],mapC.width*MPX,mapC.height*MPX);
-  if(M.stage<2&&beacon.visible){const tg=M.stage===0?M.from:M.to;let dx=tg.mx-player.x,dz=tg.mz-player.z;const d=Math.hypot(dx,dz),lim=MR*.9;if(d>lim){dx*=lim/d;dz*=lim/d}
+  if(M.stage>=0&&M.stage<2&&beacon.visible){const tg=M.stage===0?M.from:M.to;let dx=tg.mx-player.x,dz=tg.mz-player.z;const d=Math.hypot(dx,dz),lim=MR*.9;if(d>lim){dx*=lim/d;dz*=lim/d}
     mg.fillStyle=M.stage===0?'#f0b429':'#e4572e';mg.strokeStyle='#17130f';mg.lineWidth=3/s;mg.beginPath();mg.arc(player.x+dx,player.z+dz,9/s,0,TAU);mg.fill();mg.stroke()}
   for(const v of vehicles){if(v!==player.car&&Math.abs(v.x-player.x)<MR&&Math.abs(v.z-player.z)<MR){mg.fillStyle=v.type==='police'?'#2b6cb0':v.taxi?'#f2c01e':'#6b645a';mg.fillRect(v.x-3,v.z-3,6,6)}}
   if(SV.v&&SV.v!==player.ride){let dx=SV.v.x-player.x,dz=SV.v.z-player.z;const d=Math.hypot(dx,dz),lim=MR*.9;if(d>lim){dx*=lim/d;dz*=lim/d}mg.fillStyle='#ffd23f';mg.strokeStyle='#17130f';mg.lineWidth=3/s;mg.beginPath();mg.arc(player.x+dx,player.z+dz,8/s,0,TAU);mg.fill();mg.stroke()}
+  for(const o of OFFERS){if(Math.abs(o.at.mx-player.x)<MR&&Math.abs(o.at.mz-player.z)<MR){mg.fillStyle=o.type==='fare'?'#1f9aa6':'#f0b429';mg.strokeStyle='#17130f';mg.lineWidth=3/s;mg.beginPath();mg.arc(o.at.mx,o.at.mz,8/s,0,TAU);mg.fill();mg.stroke()}}
   EX.mini(mg,s);
   mg.restore();
   mg.save();mg.translate(w/2,w/2);mg.fillStyle='#fff';mg.strokeStyle='#17130f';mg.lineWidth=2.5;mg.beginPath();mg.moveTo(0,-13);mg.lineTo(9,10);mg.lineTo(0,5);mg.lineTo(-9,10);mg.closePath();mg.fill();mg.stroke();mg.restore()}
 
+/* ---------- encargos repartidos por el mapa: ofertas con marcador; te acercas y aceptas con F ---------- */
+const OFFERS=[];const OFFER_N=9;
+const offerIcon=(()=>{const mk=(bg,ch)=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle=bg;g.beginPath();g.arc(64,64,56,0,TAU);g.fill();g.lineWidth=8;g.strokeStyle='#17130f';g.stroke();g.fillStyle='#fff';g.font='bold 70px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(ch,64,68);return new THREE.CanvasTexture(c)};return{deliv:mk('#f0b429','$'),fare:mk('#1f9aa6','T')}})();
+function offerSpot(){const shops=EX.SHOPS.filter(s=>!s.mall&&(s.type==='fritos'||s.type==='restaurante'||s.type==='panaderia'||s.type==='tienda'||s.type==='drogueria'));
+  for(let t=0;t<80;t++){let a;if(rand()<.5&&shops.length){const s=pick(shops);a={name:s.name,mx:s.x+s.nx*2.5,mz:s.z+s.nz*2.5}}else a=pick(POOL);
+    if(OFFERS.some(o=>dist2(o.at.mx,o.at.mz,a.mx,a.mz)<180))continue;if(dist2(a.mx,a.mz,player.x,player.z)<40)continue;return a}return pick(POOL)}
+function newOffer(){const at=offerSpot();let to,tries=0;do{to=pick(POOL);tries++}while(tries<60&&(to.name===at.name||dist2(at.mx,at.mz,to.mx,to.mz)<450||dist2(at.mx,at.mz,to.mx,to.mz)>3000));
+  const type=rand()<.62?'deliv':'fare',d=dist2(at.mx,at.mz,to.mx,to.mz);const reward=Math.round((d*(type==='fare'?38:45)+(type==='fare'?6000:10000))/1000)*1000;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:offerIcon[type],depthTest:false,fog:false,transparent:true}));sp.scale.set(3.2,3.2,1);sp.renderOrder=5;
+  const col=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,6,20,1,true),new THREE.MeshBasicMaterial({color:type==='fare'?0x1f9aa6:0xf0b429,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+  const g=new THREE.Group();g.add(sp,col);sp.position.y=7.5;col.position.y=3;g.position.set(at.mx,standY(at.mx,at.mz),at.mz);scene.add(g);
+  const o={at,to,type,reward,g,title:type==='fare'?'Carrera en taxi':at.name.startsWith('Tienda')||at.name.startsWith('Fritos')||/Restaurante|Panader|Droguer|Comedor|Pescader|Arepas|Carima|Fritanga/.test(at.name)?'Domicilio':'Mensajería'};OFFERS.push(o);return o}
+function initOffers(){while(OFFERS.length<OFFER_N)newOffer();M.stage=-1;renderMission()}
+function offerNear(){if(M.stage>=0)return null;let b=null,bd=7;for(const o of OFFERS){const d=dist2(o.at.mx,o.at.mz,player.x,player.z);if(d<bd){bd=d;b=o}}return b}
+function offerLabel(o){return o.title+' a '+o.to.name+' ('+fmt(o.reward)+')'}
+function acceptOffer(o){if(o.type==='fare'&&!(player.car&&player.car.taxi)){toast('Para esta carrera necesitas manejar un taxi',1800);return}
+  if(player.car&&Math.abs(player.car.speed)>3){toast('Frena para aceptar el encargo',1200);return}
+  scene.remove(o.g);OFFERS.splice(OFFERS.indexOf(o),1);const d=dist2(o.at.mx,o.at.mz,o.to.mx,o.to.mz);
+  if(M.pax){unseat(M.pax);scene.remove(M.pax.mesh);M.pax=null}
+  Object.assign(M,{stage:1,from:o.at,to:o.to,t:0,limit:Math.round(d*1.35/9+60),reward:o.reward,wait:0,type:o.type,nag:0});
+  if(o.type==='fare'){const ch=buildCharacter(archetype(rand()<.6?'tourist':'local'));seatIn(ch,player.car,true);ch.riding=true;M.pax=ch}
+  bMat.color.set(0xe4572e);chime();toast(o.type==='fare'?'Pasajero a bordo: va para '+o.to.name:(o.title==='Domicilio'?'Recogiste el domicilio':'Recogiste el paquete')+': llévalo a '+o.to.name,2200);renderMission();newOffer()}
+function updateOffers(dt){const t=performance.now()/1000;for(const o of OFFERS){const d=Math.abs(o.at.mx-player.x)+Math.abs(o.at.mz-player.z);o.g.visible=d<900;if(o.g.visible){o.g.children[0].position.y=7.5+Math.sin(t*2+o.at.mx)*.3}}}
+
+/* ---------- cámara con el mouse (sin hacer clic): el puntero queda dentro del juego; ESC lo suelta y abre el menú ---------- */
+const PL={intent:false};
+const canLock=()=>!isTouch()&&!!cvs.requestPointerLock;
+function anyUI(){return rideOpen()||tcOpen()||EX.menu||PAUSE.open||BIG.open}
+function lockMouse(){if(started&&canLock()&&!anyUI()&&document.pointerLockElement!==cvs){try{const r=cvs.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement!==cvs)return;player.cy-=e.movementX*.0026;player.cp=clamp(player.cp+e.movementY*.002,.1,1.25);lastDrag=performance.now()});
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===cvs){PL.intent=false;return}if(started&&!PL.intent&&!anyUI())openPause();PL.intent=false});
+cvs.addEventListener('click',()=>lockMouse());
+function syncLock(){if(document.pointerLockElement===cvs&&anyUI()){PL.intent=true;document.exitPointerLock()}}
+
+/* ---------- menú de pausa (ESC) y partida guardada ---------- */
+const SAVE_KEY='cl_save_v1';
+const PAUSE={open:false,at:0};
+const pauseEl=document.createElement('div');pauseEl.id='pause';pauseEl.innerHTML='<div class="pbox"><h2>Pausa</h2><div class="pbtns"></div><p class="pinfo"></p><div class="pkeys"></div></div>';document.body.appendChild(pauseEl);
+{const st=document.createElement('style');st.textContent=`#pause{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:40;background:rgba(10,8,6,.62)}#pause.on{display:flex}
+#pause .pbox{width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;background:rgba(23,19,15,.95);border:1px solid rgba(240,180,41,.5);border-radius:10px;padding:18px;color:#f5ead7;font:16px var(--body)}
+#pause h2{margin:0 0 12px;font:400 30px var(--display);color:#f0b429}#pause .pbtns{display:flex;flex-direction:column;gap:8px}
+#pause button{font:600 17px var(--body);color:#f5ead7;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:11px 14px;text-align:left;cursor:pointer}
+#pause button:hover,#pause button:focus-visible{background:rgba(240,180,41,.2);outline:none}#pause button.main{background:#e4572e;border-color:#e4572e;color:#fff}
+#pause .pinfo{font-size:14px;opacity:.75;margin:12px 0 0;min-height:1em}#pause .pkeys{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:14px;margin-top:10px;opacity:.85}#pause .pkeys b{color:#f0b429}`;document.head.appendChild(st)}
+function savedInfo(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY));if(!d)return null;return d}catch(e){return null}}
+const when=t=>{const d=new Date(t);return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})};
+function renderPause(){const box=pauseEl.querySelector('.pbtns');box.innerHTML='';const sv=savedInfo();
+  const add=(t,fn,cls)=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.addEventListener('click',fn);box.appendChild(b);return b};
+  add('Continuar',closePause,'main');add('Guardar partida',()=>{saveGame();renderPause()});
+  if(sv)add('Cargar partida guardada ('+when(sv.t)+')',()=>{if(loadGame()){closePause()}});
+  add('Ver mapa de Cartagena (M)',()=>{closePause(true);openBig()});
+  add(qBtn.textContent,()=>{qBtn.click();renderPause()});add('Sonido: '+(muted?'apagado':'encendido'),()=>{$('btnSnd').click();renderPause()});
+  pauseEl.querySelector('.pinfo').textContent=sv?'Última partida guardada: '+when(sv.t)+' · '+fmt(sv.money):'Todavía no has guardado esta partida.';
+  pauseEl.querySelector('.pkeys').innerHTML='<b>Mouse</b><span>mover la cámara (clic en el juego para capturarlo)</span><b>W A S D</b><span>caminar o manejar</span><b>F</b><span>entrar, subir, aceptar encargos, comprar</span><b>T</b><span>pedir taxi, mototaxi o buseta</span><b>M</b><span>mapa de Cartagena</span><b>B · X</b><span>tomar de la mochila · devolver la canasta</span><b>ESC</b><span>este menú</span>'}
+function openPause(){if(!started||PAUSE.open)return;PAUSE.open=true;PAUSE.at=performance.now();renderPause();pauseEl.classList.add('on');syncLock();for(const k in keys)keys[k]=false}
+function closePause(noLock){if(!PAUSE.open)return;PAUSE.open=false;pauseEl.classList.remove('on');if(!noLock)lockMouse()}
+function saveGame(){const P=EX.P;const d={v:1,t:Date.now(),x:player.x,z:player.z,yaw:player.yaw,money,h:gameH,en:P.en,max:P.max,inv:P.inv,spec:P.spec};
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(d));toast('Partida guardada',1500);return true}catch(e){toast('No se pudo guardar: el navegador no permite guardar datos',2600);return false}}
+function loadGame(){const d=savedInfo();if(!d){toast('No hay partida guardada',1400);return false}
+  if(player.car||player.ride||TC.ride||EX.inside){toast('Bájate del vehículo o sal del local para cargar la partida',2000);return false}
+  let x=d.x,z=d.z;if(solidAt(x,z)||!onLand(x,z)){const r=nearestRoad(x,z,200,s=>!s.walk);if(r){x=r.x;z=r.z}}
+  player.x=x;player.z=z;player.yaw=player.cy=d.yaw||0;money=d.money|0;$('money').textContent=fmt(money);gameH=d.h||10;
+  const P=EX.P;P.en=d.en||100;P.max=d.max||100;P.inv=Array.isArray(d.inv)?d.inv:[];if(d.spec)EX.setSpec(d.spec);
+  W=0;renderStars();player.mesh.position.set(x,standY(x,z),z);updateTiles(x,z);camFrom=null;toast('Partida cargada',1500);return true}
+window.addEventListener('keydown',e=>{PAUSE.ui=anyUI()&&!PAUSE.open},true);
+window.addEventListener('keydown',e=>{if(!started||e.repeat)return;
+  if(e.code==='Escape'){if(BIG.open){closeBig();return}if(PAUSE.open){if(performance.now()-PAUSE.at>300)closePause();return}if(!PAUSE.ui)openPause();return}
+  if(e.code==='KeyM'&&!PAUSE.open&&!PAUSE.ui){BIG.open?closeBig():openBig()}});
+
+/* ---------- mapa grande de Cartagena (clic en el minimapa o M): arrastrar para mover, rueda para acercar ---------- */
+const BIG={open:false,cx:0,cz:0,sc:1};
+const bigEl=document.createElement('div');bigEl.id='bigmap';bigEl.innerHTML='<canvas></canvas><div class="bmhead"><b>Cartagena</b><span>Arrastra para mover · rueda o botones para acercar</span><button class="zin" aria-label="Acercar">+</button><button class="zout" aria-label="Alejar">−</button><button class="bclose">Cerrar</button></div><div class="bmleg"><i style="background:#fff"></i>Tú <i style="background:#f0b429"></i>Domicilio <i style="background:#1f9aa6"></i>Carrera en taxi <i style="background:#e4572e"></i>Destino <i style="background:#3fc6d3;border-radius:2px"></i>Transcaribe</div>';document.body.appendChild(bigEl);
+{const st=document.createElement('style');st.textContent=`#bigmap{position:fixed;inset:0;display:none;z-index:35;background:#1b5f66}#bigmap.on{display:block}#bigmap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+#bigmap .bmhead{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#f5ead7;font:15px var(--body)}#bigmap .bmhead b{font:400 24px var(--display);color:#f0b429;text-shadow:0 2px 0 #000}
+#bigmap .bmhead span{background:rgba(23,19,15,.7);padding:4px 8px;border-radius:5px}#bigmap button{font:700 16px var(--body);color:#f5ead7;background:rgba(23,19,15,.85);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:7px 12px;cursor:pointer}#bigmap .bclose{margin-left:auto;background:#e4572e;border-color:#e4572e}
+#bigmap .bmleg{position:absolute;left:12px;bottom:12px;background:rgba(23,19,15,.8);color:#f5ead7;font:14px var(--body);padding:6px 10px;border-radius:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px)}#bigmap .bmleg i{display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid #17130f;margin-left:6px}
+#mini{pointer-events:auto!important;cursor:pointer}`;document.head.appendChild(st)}
+const bigC=bigEl.querySelector('canvas'),bg=bigC.getContext('2d');
+function openBig(){if(BIG.open)return;BIG.open=true;BIG.cx=player.x;BIG.cz=player.z;const w=window.innerWidth,h=window.innerHeight;BIG.sc=Math.min(w/(BOX[2]-BOX[0]),h/(BOX[3]-BOX[1]))*2.2;bigEl.classList.add('on');syncLock();drawBig()}
+function closeBig(){BIG.open=false;bigEl.classList.remove('on');lockMouse()}
+function drawBig(){if(!BIG.open)return;const dpr=Math.min(2,window.devicePixelRatio||1),w=window.innerWidth,h=window.innerHeight;if(bigC.width!==w*dpr){bigC.width=w*dpr;bigC.height=h*dpr}
+  const g=bg;g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#2aa7b0';g.fillRect(0,0,w,h);g.save();g.translate(w/2,h/2);g.scale(BIG.sc,BIG.sc);g.translate(-BIG.cx,-BIG.cz);
+  g.imageSmoothingEnabled=true;g.drawImage(mapC,BOX[0],BOX[1],mapC.width*MPX,mapC.height*MPX);const u=1/BIG.sc;
+  if(TCW.path){g.strokeStyle='#3fc6d3';g.lineWidth=Math.max(6,4*u);g.beginPath();TCW.path.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.stroke();
+    for(const st of TCW.stations){g.fillStyle='#1f9aa6';g.strokeStyle='#fff';g.lineWidth=2*u;g.fillRect(st.x-5*u,st.z-5*u,10*u,10*u);g.strokeRect(st.x-5*u,st.z-5*u,10*u,10*u)}}
+  const dot=(x,z,r,f)=>{g.fillStyle=f;g.strokeStyle='#17130f';g.lineWidth=2.5*u;g.beginPath();g.arc(x,z,r*u,0,TAU);g.fill();g.stroke()};
+  for(const o of OFFERS)dot(o.at.mx,o.at.mz,8,o.type==='fare'?'#1f9aa6':'#f0b429');
+  if(M.stage===1&&M.to)dot(M.to.mx,M.to.mz,10,'#e4572e');
+  g.font=`700 ${13*u}px Barlow Condensed, sans-serif`;g.textAlign='center';g.lineWidth=3*u;g.strokeStyle='rgba(23,19,15,.9)';g.fillStyle='#fff6d8';
+  if(BIG.sc>.35)for(const l of LM){g.strokeText(l.name,l.x,l.z-10*u);g.fillText(l.name,l.x,l.z-10*u)}
+  g.restore();
+  // player arrow (screen space, so it stays a readable size)
+  const px=w/2+(player.x-BIG.cx)*BIG.sc,pz=h/2+(player.z-BIG.cz)*BIG.sc,hd=player.car?player.car.yaw:player.yaw;g.save();g.translate(px,pz);g.rotate(Math.PI-hd);g.fillStyle='#fff';g.strokeStyle='#17130f';g.lineWidth=2.5;g.beginPath();g.moveTo(0,-13);g.lineTo(9,10);g.lineTo(0,5);g.lineTo(-9,10);g.closePath();g.fill();g.stroke();g.restore()}
+{let dg=null;bigC.addEventListener('pointerdown',e=>{dg={x:e.clientX,y:e.clientY};bigC.setPointerCapture(e.pointerId)});bigC.addEventListener('pointermove',e=>{if(!dg)return;BIG.cx-=(e.clientX-dg.x)/BIG.sc;BIG.cz-=(e.clientY-dg.y)/BIG.sc;dg={x:e.clientX,y:e.clientY};drawBig()});
+  ['pointerup','pointercancel'].forEach(n=>bigC.addEventListener(n,()=>{dg=null}));
+  const zoom=f=>{BIG.sc=clamp(BIG.sc*f,.08,4);drawBig()};bigC.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.2:1/1.2)},{passive:false});
+  bigEl.querySelector('.zin').addEventListener('click',()=>zoom(1.4));bigEl.querySelector('.zout').addEventListener('click',()=>zoom(1/1.4));bigEl.querySelector('.bclose').addEventListener('click',closeBig);
+  mc.addEventListener('click',e=>{e.stopPropagation();openBig()});window.addEventListener('resize',drawBig)}
 /* ---------- traffic upkeep ---------- */
 let upkeep=0;
 function trafficUpkeep(dt){upkeep-=dt;if(upkeep>0)return;upkeep=.5;let pol=0;
@@ -1432,7 +1533,7 @@ const smoke=(function(){const n=40,g=new THREE.BufferGeometry();g.setAttribute('
 function updateSmoke(dt){const v=player.car;const a=smoke.p.geometry.attributes.position;if(v&&v.hp<50&&rand()<dt*(v.hp<20?40:18)){const s=smoke.parts[smoke.k++%smoke.n];const f=v.len/2-.6;s.x=v.x+Math.sin(v.yaw)*f;s.z=v.z+Math.cos(v.yaw)*f;s.y=vehY(v)+1.1;s.life=1.6}
   smoke.p.material.color.setHex(v&&v.hp<20?0x222222:0x777777);smoke.parts.forEach((s,i)=>{if(s.life>0){s.life-=dt;s.y+=dt*1.6;s.x+=dt*.4}a.setXYZ(i,s.x,s.life>0?s.y:-999,s.z)});a.needsUpdate=true}
 function damage(v,n){if(n<=0||v.hp<=0)return;v.hp=Math.max(0,v.hp-n);if(v===player.car){crash(.08+n*.02);if(v.hp===0)toast('Vehículo averiado: búscate otro',2200)}}
-const starsEl=document.getElementById('stars'),clockEl=document.getElementById('clock'),hpEl=document.getElementById('hpbar');
+const starsEl=document.getElementById('stars'),clockEl=document.getElementById('clockR'),hpEl=document.getElementById('hpbar');
 function renderStars(){starsEl.textContent='★'.repeat(W)+'☆'.repeat(5-W);starsEl.classList.toggle('on',W>0)}
 function crime(n,msg){if(performance.now()-lastHit<1200)return;lastHit=performance.now();W=Math.min(5,W+n);wantedT=0;renderStars();if(msg)toast(msg,1600)}
 function policeNear(x,z,r){for(const v of vehicles)if(v.type==='police'&&dist2(v.x,v.z,x,z)<r)return true;for(const p of ALLP)if(p.kind==='police'&&p.vis&&dist2(p.x,p.z,x,z)<r)return true;return false}
@@ -1478,7 +1579,7 @@ function adaptQuality(dt){ftAcc+=dt;ftN++;ftT+=dt;if(ftT<2.5)return;const avg=ft
   if(i===0&&avg>28&&resScale>.45){resScale=Math.max(.45,resScale*.82);resize();goodWin=0;return}
   if(i===0&&resScale<1&&avg<20){resScale=Math.min(1,resScale*1.12);resize();goodWin=0;return}
   if(avg>24&&i>0){applyQuality(QORDER[i-1]);goodWin=0}else if(avg<12.5&&i<QORDER.length-1&&resScale>=1){if(++goodWin>=4){applyQuality(QORDER[i+1]);goodWin=0}}else goodWin=0}
-function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;const dt=Math.max(0,Math.min(.05,rawDt));last=now;frameNo++;adaptQuality(Math.min(rawDt,.2));step(dt,now);
+function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;const dt=Math.max(0,Math.min(.05,rawDt));last=now;frameNo++;syncLock();if(PAUSE.open||BIG.open){renderer.render(EX.inside?EX.IS:scene,camera);return}adaptQuality(Math.min(rawDt,.2));step(dt,now);
   {const r=camera.far*.92;skyDome.scale.set(-r,r,r);skyDome.position.copy(camera.position)}
   renderer.render(EX.inside?EX.IS:scene,camera)}
 function step(dt,now){
@@ -1508,8 +1609,10 @@ if(GPU.soft&&qMode==='auto')qLevel='minima';
 applyQuality(qLevel);
 if(GPU.soft)$('go').addEventListener('click',()=>setTimeout(()=>toast('Tu navegador no está usando la tarjeta gráfica: activa la aceleración por hardware en su configuración y reinícialo',9000),2600));
 $('go').disabled=false;$('go').textContent='Jugar';
-$('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;startMission(true);toast('Bienvenido a Cartagena',2200)});
-window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__tcDoor=tcDoor;window.__dbg={setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+$('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
+{const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
+  b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
+window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>

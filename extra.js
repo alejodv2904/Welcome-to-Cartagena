@@ -627,6 +627,7 @@ function act(){if(menuOpen){closeMenu();return true}
 
 return{
   get inside(){return inside},get shopDef(){return CUR.def},IS,SHOPS,
+  setSpec(spec){P.spec=Object.assign({},spec);rebuildPlayer();if(inside)IS.add(player.mesh)},
   init(){makeGroups()},
   act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,
   updateInside,outPrompt,mini,
