@@ -139,7 +139,9 @@ const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:
   baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:130,skin:10,nearD:28,crowdD:130,cars:56,patrol:4,drivers:8,treeShadow:false,grp:55,res:700,fog:[170,500]},
   // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
   minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:80,skin:4,nearD:20,crowdD:100,cars:36,patrol:3,drivers:4,treeShadow:false,grp:35,res:450,fog:[120,370]}};
-const prFor=q=>Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
+// resScale: extra resolution drop that 'auto' applies below the lowest level when the computer still can't keep up
+let resScale=1;
+const prFor=q=>resScale*Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
 const QORDER=['minima','baja','media','alta'];
 const QNAME={minima:'mínima',baja:'baja',media:'media',alta:'alta'};
 let qMode='auto';try{qMode=localStorage.getItem('cl_quality')||'auto'}catch(e){}
@@ -1349,13 +1351,16 @@ EX.init();money=60000;$('money').textContent=fmt(money);
 /* ---------- main loop ---------- */
 let last=performance.now(),orbit=0;
 let frameNo=0,ftAcc=0,ftN=0,ftT=0,goodWin=0;
-function applyQuality(level){qLevel=level;Q=QL[level];resize();
+function applyQuality(level){qLevel=level;Q=QL[level];if(level!=='minima'||qMode!=='auto')resScale=1;resize();
   scene.fog.near=Q.fog[0];scene.fog.far=Q.fog[1];camera.far=Q.view+200;camera.updateProjectionMatrix();
   sun.castShadow=Q.shadow;if(sun.shadow.mapSize.x!==Q.smap){sun.shadow.mapSize.set(Q.smap,Q.smap);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}renderer.shadowMap.needsUpdate=true;
   updateTiles(player.x,player.z);qBtn.textContent='Calidad: '+(qMode==='auto'?'Auto ('+QNAME[level]+')':QNAME[level]);
   if(qMode==='auto')try{localStorage.setItem('cl_auto_level',level)}catch(e){}}
 function adaptQuality(dt){ftAcc+=dt;ftN++;ftT+=dt;if(ftT<2.5)return;const avg=ftAcc/ftN*1000;ftAcc=ftN=ftT=0;showPerf(avg);if(qMode!=='auto'||!started)return;const i=QORDER.indexOf(qLevel);
-  if(avg>24&&i>0){applyQuality(QORDER[i-1]);goodWin=0}else if(avg<12.5&&i<QORDER.length-1){if(++goodWin>=4){applyQuality(QORDER[i+1]);goodWin=0}}else goodWin=0}
+  // already at the lowest level: lower the resolution step by step (down to 45%) until it runs at ~35 FPS, and give it back when there is room
+  if(i===0&&avg>28&&resScale>.45){resScale=Math.max(.45,resScale*.82);resize();goodWin=0;return}
+  if(i===0&&resScale<1&&avg<20){resScale=Math.min(1,resScale*1.12);resize();goodWin=0;return}
+  if(avg>24&&i>0){applyQuality(QORDER[i-1]);goodWin=0}else if(avg<12.5&&i<QORDER.length-1&&resScale>=1){if(++goodWin>=4){applyQuality(QORDER[i+1]);goodWin=0}}else goodWin=0}
 function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;const dt=Math.max(0,Math.min(.05,rawDt));last=now;frameNo++;adaptQuality(Math.min(rawDt,.2));step(dt,now);
   {const r=camera.far*.92;skyDome.scale.set(-r,r,r);skyDome.position.copy(camera.position)}
   renderer.render(EX.inside?EX.IS:scene,camera)}
