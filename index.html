@@ -142,11 +142,11 @@ const LOWEND=window.matchMedia('(pointer:coarse)').matches||(navigator.hardwareC
 // grp: how far the sitting / chatting street groups (full animated people) are drawn
 // peds: people walking around the player; skin: how many of the closest are drawn as full skinned models (the rest are cheap instanced figures)
 // maxPix caps the drawing-buffer size so big / high-DPI screens don't render millions of extra pixels
-const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:6,drivers:14,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
-  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:5,drivers:10,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
-  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:4,drivers:6,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
+const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:16,drivers:20,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
+  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:13,drivers:15,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
+  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:10,drivers:9,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
   // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
-  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:3,drivers:4,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
+  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:7,drivers:6,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
 // resScale: extra resolution drop that 'auto' applies below the lowest level when the computer still can't keep up
 let resScale=1;
 const prFor=q=>resScale*Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
@@ -1215,8 +1215,9 @@ const bigEdges=aiEdges.filter(i=>GRAPH.edges[i].ty<=2);
 const EDGE={moto:[.9,1.2],mototaxi:[.9,1.2],bici:[1.4,1.8],motocarro:[.7,1.0]};
 function laneOf(e,v){const k=v&&EDGE[v.type];return e.two?(e.ty<=2?3.2:1.9)+(k?k[0]:0):(k?k[1]:0)}
 function edgeAround(r0,r1){const a=rand()*TAU,r=Math.sqrt(rr(r0*r0,r1*r1)),x=player.x+Math.sin(a)*r,z=player.z+Math.cos(a)*r;const l=EGR.get(Math.floor(x/EG)+','+Math.floor(z/EG));return l&&l.length?pick(l):-1}
-function placeAI(v,near){for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(near?30:240,near?420:620);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
-    if(near?(d>420||d<30):(d<240||d>620))continue;v.e=ei;v.t=rr(0,e.len);v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
+// near: 30–420 m from the player (start of the game), 'mid': 170–420 m (comes back just out of sight), otherwise 240–620 m
+function placeAI(v,near){const r0=near==='mid'?170:near?30:240,r1=near?420:620;for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(r0,r1);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
+    if(d<r0||d>r1)continue;v.e=ei;v.t=rr(0,e.len);v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
 // how far a car can pull over towards the kerb (to pick up or drop off a passenger)
 function pullRoom(e,v){return Math.max(0,RW[e.ty]/2-1.05-laneOf(e,v))}
 function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull=lerp(v.pull||0,v.pullT||0,Math.min(1,dt*1.4));v.dodge=lerp(v.dodge||0,v.dodgeT||0,Math.min(1,dt*1.3))}const ln=laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*2.7;const tx=A.x+e.dx*v.t-e.dz*ln,tz=A.z+e.dz*v.t+e.dx*ln;
@@ -1228,8 +1229,8 @@ function chooseNext(v){if(v.route&&v.route.length)return v.route.shift();const e
   if(!outs.length)outs=B.out;if(!outs.length)return -1;
   outs.sort((p,q)=>(GRAPH.edges[q].dx*e.dx+GRAPH.edges[q].dz*e.dz)-(GRAPH.edges[p].dx*e.dx+GRAPH.edges[p].dz*e.dz));
   return rand()<.65?outs[0]:pick(outs)}
-// traffic mix of Cartagena: lots of taxis and motorcycles, busetas, trucks, pickups, motocarros and bicycles
-function aiType(){const r=rand();return r<.3?'taxi':r<.42?'mototaxi':r<.52?'moto':r<.61?'buseta':r<.625?'chiva':r<.67?'camion':r<.74?'camioneta':r<.78?'motocarro':r<.82?'bici':'car'}
+// traffic mix of Cartagena: mototaxis everywhere (about one in four), lots of taxis and motorcycles, busetas, trucks, pickups, motocarros and bicycles
+function aiType(){const r=rand();return r<.22?'taxi':r<.49?'mototaxi':r<.59?'moto':r<.66?'buseta':r<.672?'chiva':r<.705?'camion':r<.76?'camioneta':r<.79?'motocarro':r<.83?'bici':'car'}
 function spawnAI(near,type){type=type||aiType();const v=newVehicle(0,0,0,type);v.ai=true;if(!placeAI(v,near)){v.ai=false;scene.remove(v.mesh);vehicles.pop();return null}return v}
 
 /* ---------- traffic lights at the big junctions ---------- */
@@ -1297,7 +1298,7 @@ const DRV=[];
 function seatIn(ch,v,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;ch.mesh.position.set(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12)+(rear&&v.rig.moto?.04:0),EX.seatZ(v,rear));ch.mesh.rotation.set(0,0,0);v.rig.body.add(ch.mesh);ch.mesh.visible=true}
 function unseat(ch){if(ch.mesh.parent)ch.mesh.parent.remove(ch.mesh);ch.mesh.visible=false}
 // every vehicle close to the player has someone at the wheel (police cars get an officer)
-for(let i=0;i<QL.alta.drivers+10;i++){const cop=i<10;const ch=buildCharacter(archetype(cop?'policeMoto':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop})}
+for(let i=0;i<QL.alta.drivers+22;i++){const cop=i<22;const ch=buildCharacter(archetype(cop?'policeMoto':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop})}
 let drvT=0;
 function updateDrivers(dt){drvT-=dt;if(drvT<=0){drvT=.3;const pd=v=>(v.hail?-1e5:0)+dist2(v.x,v.z,player.x,player.z);
     const cand=vehicles.filter(v=>v.mesh.visible&&v.rig.near.visible&&v!==player.car&&!v.agent&&(v.ai||v.chase||v.hail||v.tc)).sort((a,b)=>pd(a)-pd(b)).slice(0,Q.drivers);
@@ -1311,7 +1312,7 @@ const sitPose=v=>v&&!v.rig.moto&&!v.rig.open&&!v.bus&&v.type!=='coche'?'car':'si
 for(let i=0;i<330;i++)spawnAI(i<210);
 for(let i=0;i<4;i++)spawnAI(i<2,'coche');for(let i=0;i<2;i++)spawnAI(true,'chiva');
 // police patrols roam the city with the normal traffic
-for(let i=0;i<QL.alta.patrol;i++)spawnAI(i<3,'police');
+for(let i=0;i<QL.alta.patrol;i++)spawnAI(i%2===0,'police');
 // people and parked vehicles of the places around the city (CAI, paraderos, parques, terminal…)
 {const n0=STAY.length;LATER.forEach(f=>f());for(let i=n0;i<STAY.length;i++)ALLP.push(STAY[i])}
 
@@ -1846,8 +1847,9 @@ function drawBig(){if(!BIG.open)return;const dpr=Math.min(2,window.devicePixelRa
 /* ---------- traffic upkeep ---------- */
 let upkeep=0;
 function trafficUpkeep(dt){upkeep-=dt;if(upkeep>0)return;upkeep=.5;let pol=0;
-  for(const v of vehicles){if(!v.ai)continue;if(v.type==='police')pol++;if(v.hail)continue;const d=dist2(v.x,v.z,player.x,player.z);if(d>720)placeAI(v,false)}
-  if(pol<Q.patrol)spawnAI(false,'police')}
+  for(const v of vehicles){if(!v.ai)continue;if(v.type==='police')pol++;if(v.hail)continue;const d=dist2(v.x,v.z,player.x,player.z);if(v.type==='police'?d>520:d>720)placeAI(v,v.type==='police'?'mid':false)}
+  // police patrols on motorcycles keep coming by: the ones that drive away come back on a street 170–420 m from the player
+  if(pol<Q.patrol)spawnAI('mid','police')}
 
 /* ---------- agente de tránsito: cuando se arma un trancón cerca, llega solo en su moto, se para en la esquina del cruce
    y da paso a los carros uno por uno hasta que se despeja; después se monta otra vez y se va ---------- */

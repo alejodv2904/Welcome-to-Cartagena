@@ -18,7 +18,8 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 - **1.500.000 habitantes** repartidos por barrio: el recuadro de zona muestra los habitantes del barrio donde estás y el mapa grande los muestra todos. La cantidad de gente en la calle depende del tipo de barrio.
 - **Transcaribe** por toda la Avenida Pedro de Heredia hasta el Portal, con 17 estaciones.
 - **Mapa (M)** de toda la ciudad con símbolos: tiendas y locales, centros comerciales, paraderos de bus, estaciones de Transcaribe, CAI de la Policía, hospitales y centros de salud, gasolineras, aeropuerto y terminal, iglesias, parques, playas y encargos. Toca un símbolo de la leyenda para mostrarlo u ocultarlo.
-- **Policía en moto:** las patrullas son motos verdes con dos policías.
+- **Policía en moto:** las patrullas son motos verdes con dos policías, y hay muchas: andan por los alrededores y pasan a cada rato.
+- **Mototaxis por todas partes:** más o menos uno de cada cuatro vehículos de la calle es un mototaxi.
 - **Trancones:** los carros ya no se quedan trabados en los cruces; si se arma un trancón cerca, llega un agente de tránsito en su moto y da paso a los carros hasta despejarlo.
 - **Noche iluminada:** ventanas encendidas, postes de luz en todas las calles y el resplandor de la ciudad.
 - **Más encargos** por toda la ciudad: domicilios, carreras en taxi y en mototaxi, trasteos (en camión o camioneta) y piques (pasar por varios puntos de la ciudad contra el tiempo).
