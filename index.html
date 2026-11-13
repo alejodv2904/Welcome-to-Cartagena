@@ -91,14 +91,15 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113d"></script>
-<script src="ciudad-osm.js?v=20261113d"></script>
-<script src="ciudad.js?v=20261113d"></script>
-<script src="modelos.js?v=20261113d"></script>
-<script src="carga.js?v=20261113d"></script>
-<script src="gente.js?v=20261113d"></script>
-<script src="lugares.js?v=20261113d"></script>
-<script src="vehiculos.js?v=20261113d"></script><script src="extra.js?v=20261113d"></script><script src="celular.js?v=20261113d"></script><script src="animales.js?v=20261113d"></script>
+<script src="mapa.js?v=20261113e"></script>
+<script src="alturas.js?v=20261113e"></script>
+<script src="ciudad-osm.js?v=20261113e"></script>
+<script src="ciudad.js?v=20261113e"></script>
+<script src="modelos.js?v=20261113e"></script>
+<script src="carga.js?v=20261113e"></script>
+<script src="gente.js?v=20261113e"></script>
+<script src="lugares.js?v=20261113e"></script>
+<script src="vehiculos.js?v=20261113e"></script><script src="extra.js?v=20261113e"></script><script src="celular.js?v=20261113e"></script><script src="animales.js?v=20261113e"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -534,6 +535,36 @@ const PORTALS=[];
 const TORRE=(function(){const A=[-45.9,-42.1],B=[-33.1,-33.3],C=[-14.8,-86.1],D=[-2.1,-77.2];const S=[(A[0]+B[0])/2,(A[1]+B[1])/2],E=[(C[0]+D[0])/2,(C[1]+D[1])/2];
   const L=Math.hypot(E[0]-S[0],E[1]-S[1]),u=[(E[0]-S[0])/L,(E[1]-S[1])/L];let n=[-u[1],u[0]];const ins=[-34,-76.7];if(n[0]*(ins[0]-S[0])+n[1]*(ins[1]-S[1])>0)n=[-n[0],-n[1]];
   const G=[-23.9,-52.9],a=(G[0]-S[0])*u[0]+(G[1]-S[1])*u[1];return{S,u,n,L,a,hw:Math.hypot(B[0]-A[0],B[1]-A[1])/2,P:[S[0]+u[0]*a,S[1]+u[1]*a],yaw:Math.atan2(n[0],n[1])}})();
+// pisos reales de OpenStreetMap por edificio de mapa.js (alturas.js), solo si corresponde a esta versión de mapa.js
+const ALT=window.ALTURAS&&ALTURAS.n===MAP.buildings.length?ALTURAS:null;
+// distancia aproximada al agua (mar, bahía o caño), hasta 120 m
+function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
+/* pisos totales (con la planta baja) cuando OSM no los sabe: perfil real de cada barrio.
+   tipo (alturas.js): 2 bodega, 4 apartamentos/hotel, 8 comercio/oficinas, 16 institucional, 32 casa, 0 sin dato */
+const BAJOS=new Set(['Torices','Lo Amador','Nariño','La Esperanza','Pablo VI','Pie del Cerro','El Espinal','Paraíso II','La María']);
+function pisosZona(zn,ar,k,r,r2,cx,cz){const q=Math.round;
+  if(zn==='Bocagrande'||zn==='El Laguito'||zn==='Castillogrande'){
+    // torres de 15 a 40 pisos frente al mar; casas de 1 a 3 pisos por dentro (Castillogrande y Bocagrande interior)
+    if(k===32)return ar>700&&r2<.4?6+q(r*8):1+q(r*2);
+    const sea=seaDist(cx,cz);
+    if(k===4||ar>380){if(ar<180)return 5+q(r*5);
+      if(sea<=(zn==='Castillogrande'?50:80))return(zn==='Castillogrande'?12:16)+q(r*(zn==='Castillogrande'?10:24));
+      return(zn==='Castillogrande'?6:9)+q(r*r*(zn==='Castillogrande'?10:18))}
+    if(k===8)return 2+q(r*2);
+    return ar>150?(r<.5?2+q(r2*2):5+q(r2*6)):1+q(r);}
+  if(zn==='Centro Histórico'){if(ar>1200)return 2+q(r*2);if(k===4)return 3+q(r);return r<.1?1:r<.62?2:r<.96?3:4}   // casas coloniales de 2 y 3 pisos
+  if(zn==='San Diego')return r<.28?1:r<.86?2:3;
+  if(zn==='Getsemaní')return r<.45?1:r<.93?2:3;
+  if(zn==='La Matuna')return ar>380?6+q(r*r*16):3+q(r*3);    // el centro moderno: edificios de oficinas
+  if(zn==='Manga'){   // casas republicanas de 1 y 2 pisos mezcladas con edificios de 6 a 15
+    if(k===32)return 1+q(r);if(k===4)return 6+q(r*9);
+    if(ar>380){const sea=seaDist(cx,cz);return(r<(sea<=50?.75:.5))?6+q(r2*9):1+q(r2*2)}
+    return ar>150&&r<.12?4+q(r2*3):1+q(r*1.2)}
+  if(zn==='Marbella'||zn==='El Cabrero'){if(k===4||(ar>380&&seaDist(cx,cz)<=80))return 8+q(r*14);return 1+q(r*2)}
+  if(BAJOS.has(zn))return ar>700?1+q(r*2):r<.42?1:r<.88?2:3;  // barrios populares de 1 a 3 pisos
+  if(k===4)return 5+q(r*8);if(k===2)return 1;
+  if(zn==='El Bosque'||zn==='Pie de la Popa'||zn==='El Prado')return ar>500?(r<.4?4+q(r2*6):2+q(r2*2)):1+q(r*2);
+  return ar>2500?3+q(r*3):ar>700?2+q(r*2):(r<.55?1:2)}
 function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0))return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
   let cx=0,cz=0;for(let i=0;i<n;i++){cx+=pts[i*2];cz+=pts[i*2+1]}cx/=n;cz/=n;const ar=Math.abs(signedArea(pts));
   if(Math.hypot(cx-GM.popa[0],cz-GM.popa[1])<40)return;if(inPoly(pts,TORRE.P[0],TORRE.P[1]))return; // la Torre del Reloj tiene su propio modelo
@@ -545,15 +576,13 @@ function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''
   let gy=1e9,gmax=0;for(let i=0;i<pts.length;i+=2){const g=ground(pts[i],pts[i+1]);gy=Math.min(gy,g);gmax=Math.max(gmax,g)}
   if(flags&1){church(pts,cx,cz,gy,h||0,name,ar);return}
   // storeys
-  let floors;
-  if(h)floors=Math.max(0,Math.round((h-GF)/FL));
-  else if(boca)floors=ar>380?Math.round(6+r*r*26):(ar>120?1+Math.round(r*3):Math.round(r*1.4));
-  else if(centro)floors=ar>1200?1+Math.round(r*2):(r<.25?0:r<.85?1:2);
-  else if(getse)floors=r<.45?0:r<.9?1:2;
-  else floors=ar>2500?2+Math.round(r*3):ar>700?1+Math.round(r*2):(r<.55?0:1);
+  // pisos: los reales de OpenStreetMap (alturas.js) si los hay; si no, la altura de mapa.js; si no, según el barrio y el tipo de edificio
+  let floors;const real=ALT?ALT.pisos[idx]:0;
+  if(real)floors=real-1;
+  else if(h)floors=Math.max(0,Math.round((h-GF)/FL));
+  else floors=pisosZona(zn,ar,ALT?ALT.tipo[idx]:0,r,r2,cx,cz)-1;
   if(conv)floors=2;if(inq)floors=1;
-  const top=gy+GF+floors*FL;
-  const tower=boca&&floors>=6;
+  const top=gy+GF+floors*FL;  const tower=!centro&&!getse&&floors>=5;
   if(tower){const t=['tow_a','tow_b','tow_c'][Math.floor(r2*3)];const col=colObj(colB[Math.floor(r*colB.length)]);
     band(pts,gy-2,top,t,col,gy+GF+1,t==='tow_c'?22:18,t==='tow_c'?22:16,false);
     ring(pts,top,top+1.2,.3,col);flatRoof(pts,top+1.2,'roof_flat',WHITE,6);
