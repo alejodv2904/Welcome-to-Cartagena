@@ -35,7 +35,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 
 - **Barrios:** la zona que ves arriba a la izquierda sale de los límites reales de los barrios (OpenStreetMap).
 - **Lugares reales:** bancos, cajeros, bares, discotecas, restaurantes, cafés, farmacias, supermercados, hoteles, universidades, talleres, clínicas, gimnasios y centros comerciales aparecen con su nombre y en su ubicación real. Se puede entrar a todos.
-- **Horarios:** el día dura 24 minutos (cada segundo es un minuto del juego). Los bancos abren de 8:00 a.m. a 4:00 p.m., las discotecas de 9:00 p.m. a 4:00 a.m. (con cover), los bares desde las 4:00 p.m., y así.
+- **Horarios:** el día dura 48 minutos (cada minuto del juego son 2 segundos). Los bancos abren de 8:00 a.m. a 4:00 p.m., las discotecas de 9:00 p.m. a 4:00 a.m. (con cover), los bares desde las 4:00 p.m., y así.
 - **Bancos:** con el asesor abres tu cuenta de ahorros (incluye tarjeta débito), pides préstamos o sacas un certificado; en la caja consignas y retiras. Si te arresta la policía, solo pierdes parte del efectivo, no lo que tienes en el banco.
 - **Cajeros (F):** retira con tu tarjeta (cuota de $ 7.300 en cajeros de otro banco), deposita en los de tu banco, y en los cajeros Bancolombia saca o mete plata de Nequi.
 - **Celular (P):** Nequi, la app de tu banco, Uber, DiDi, Lugares (los lugares reales más cercanos por categoría, con GPS), Mapa y Teléfono. Si no te alcanza el efectivo, en las tiendas se paga con Nequi o con la tarjeta.
