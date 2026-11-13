@@ -121,21 +121,34 @@ function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(tru
     tpl[key]={root,meshName:keep.name}}
   for(const k of ['hat','hatB','nohatB'])if(!variants[k])variants[k]=variants.nohat;
   let hips=null;scene.traverse(o=>{if(!hips&&strip(o.name)==='Hips')hips=o});
-  return{kind,scene,hips,tex,mtex,tpl,skinAvg,plum,clips:{}}}
+  // hombro, codo, cadera y rodilla en el espacio de la malla: desde ahí la ropa se vuelve piel (manga corta, sin mangas, pantaloneta)
+  const bb=bonesOf(scene),lp=n=>{const b=bb[n];if(!b)return null;return first.worldToLocal(b.getWorldPosition(new THREE.Vector3()))};
+  const sh=lp('LeftArm'),el=lp('LeftForeArm'),hp=lp('LeftUpLeg'),kn=lp('LeftLeg');
+  const th=new THREE.Vector4(sh?Math.abs(sh.x):.18,el?Math.abs(el.x):.4,hp?hp.y:.9,kn?kn.y:.5);
+  return{kind,scene,hips,tex,mtex,tpl,skinAvg,plum,th,clips:{}}}
 
 /* ---------- shader: per-part recolouring, one draw call per person ---------- */
 const FRAG=`
 uniform sampler2D partMask;uniform vec3 pc[${NP}];uniform float pm[${NP}];uniform float pl[${NP}];
+uniform sampler2D uPat;uniform float uPatOn,uPatS,uSleeve,uShorts;uniform vec3 uSkinA;uniform vec4 uTh;varying vec3 vBind;
 `;
-function makeMaterial(M,cols,modes){const m=new THREE.MeshPhongMaterial({map:M.tex,skinning:true,shininess:14,specular:0x1c1a18});
-  const U={partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum}};m.userData.U=U;
-  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+const WHITE=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1,THREE.RGBAFormat);WHITE.needsUpdate=true;
+function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMaterial({map:M.tex,skinning:true,shininess:14,specular:0x1c1a18});
+  const U={partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatS:{value:M.kind==='m'?14:26},
+    uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBind=position;');
+    s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
     float pid=floor(texture2D(partMask,vUv).r*255.0/32.0+0.02);vec3 tc=diffuseColor.rgb;float lum=dot(tc,vec3(.299,.587,.114));
     vec3 pcol=vec3(1.0);float mode=0.0;float al=0.5;
     if(pid<0.5){pcol=pc[0];mode=pm[0];al=pl[0];}else if(pid<1.5){pcol=pc[1];mode=pm[1];al=pl[1];}else if(pid<2.5){pcol=pc[2];mode=pm[2];al=pl[2];}else if(pid<3.5){pcol=pc[3];mode=pm[3];al=pl[3];}
     else if(pid<4.5){pcol=pc[4];mode=pm[4];al=pl[4];}else if(pid<5.5){pcol=pc[5];mode=pm[5];al=pl[5];}else if(pid>6.5){pcol=pc[7];mode=pm[7];al=pl[7];}
-    if(mode>1.5)diffuseColor.rgb=pcol*clamp(0.25+0.75*lum/al,0.0,1.6);else if(mode>0.5)diffuseColor.rgb=tc*pcol;`)};
-  m.customProgramCacheKey=()=>'gente1';return m}
+    bool bare=false;float ax=abs(vBind.x);
+    if(pid>0.5&&pid<1.5&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>mix(uTh.x,uTh.y,0.45)))bare=true;
+    if(pid>1.5&&pid<2.5&&uShorts>0.5&&vBind.y<mix(uTh.w,uTh.z,0.2))bare=true;
+    if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lum/al,0.0,1.3);
+    else if(uPatOn>0.5&&pid>0.5&&pid<1.5)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lum/al,0.0,1.5);
+    else if(mode>1.5)diffuseColor.rgb=pcol*clamp(0.25+0.75*lum/al,0.0,1.6);else if(mode>0.5)diffuseColor.rgb=tc*pcol;`)};
+  m.customProgramCacheKey=()=>'gente2';return m}
 
 const models={m:prepModel(G.hombre,'m'),f:prepModel(G.mujer,'f')};
 // clips: walk/run/idle from one capture set, talking gestures from another
@@ -154,7 +167,7 @@ function create(sp){const M=models[sp.model||'m'];const T=M.tpl[(sp.hat&&M.kind=
   const cols=[skinRatio,col(sp.top||'#ffffff'),col(sp.bottom||'#333333'),col(sp.shoes||'#222222'),col(sp.hatC||(M.kind==='f'?'#141414':'#e9dcb0')),col(sp.hairC||'#1b1310'),col('#ffffff'),col(sp.hairC||'#1b1310')];
   const modes=[1,sp.top?2:0,sp.bottom?2:0,sp.shoes?2:0,2,M.kind==='m'?2:(sp.hairC?2:0),0,2];
   if(M.kind==='f'){modes[1]=sp.top?1:0;cols[1]=col(sp.top||'#ffffff').multiplyScalar(4)}// the dark top only takes a hint of colour
-  const mat=makeMaterial(M,cols,modes);mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=false;
+  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=false;
   const bones=bonesOf(root);
   const mixer=new THREE.AnimationMixer(root);const A={};for(const k in M.clips){A[k]=mixer.clipAction(M.clips[k]);A[k].play();A[k].setEffectiveWeight(0)}
   A.idle.setEffectiveWeight(1);
