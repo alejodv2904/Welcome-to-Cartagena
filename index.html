@@ -91,15 +91,15 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113e"></script>
-<script src="alturas.js?v=20261113e"></script>
-<script src="ciudad-osm.js?v=20261113e"></script>
-<script src="ciudad.js?v=20261113e"></script>
-<script src="modelos.js?v=20261113e"></script>
-<script src="carga.js?v=20261113e"></script>
-<script src="gente.js?v=20261113e"></script>
-<script src="lugares.js?v=20261113e"></script>
-<script src="vehiculos.js?v=20261113e"></script><script src="extra.js?v=20261113e"></script><script src="celular.js?v=20261113e"></script><script src="animales.js?v=20261113e"></script>
+<script src="mapa.js?v=20261113f"></script>
+<script src="alturas.js?v=20261113f"></script>
+<script src="ciudad-osm.js?v=20261113f"></script>
+<script src="ciudad.js?v=20261113f"></script>
+<script src="modelos.js?v=20261113f"></script>
+<script src="carga.js?v=20261113f"></script>
+<script src="gente.js?v=20261113f"></script>
+<script src="lugares.js?v=20261113f"></script>
+<script src="vehiculos.js?v=20261113f"></script><script src="extra.js?v=20261113f"></script><script src="celular.js?v=20261113f"></script><script src="animales.js?v=20261113f"></script><script src="sitios.js?v=20261113f"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -526,7 +526,7 @@ const CASTLE_P=MAP.castle||[];
 /* edificios identificados con Google Maps (coordenadas reales pasadas a metros del juego) */
 const GM={santoDomingo:[-354.6,-194.9],inquisicion:[-276.4,-73],plazaBolivar:[-239.8,-81.2],convenciones:[-11.3,179.7],popa:POPA_GM,gertrudis:[-330.7,-189.1]};
 // fachadas de piedra coralina a la vista en San Pedro Claver y Santo Domingo
-const CHURCH_COL={'Iglesia de San Pedro Claver':'#cdb994','Iglesia de Santo Domingo':'#ddd0b4'};
+const CHURCH_COL={'Iglesia de San Pedro Claver':'#cdb994','Iglesia de Santo Domingo':'#ddd0b4','Iglesia de La Ermita':'#f8f5ee'};
 function polyDist(p,x,z){if(inPoly(p,x,z))return 0;let d=1e9;const n=p.length/2;for(let i=0;i<n;i++){const j=(i+1)%n,ax=p[i*2],az=p[i*2+1],bx=p[j*2],bz=p[j*2+1];const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1;const t=clamp(((x-ax)*dx+(z-az)*dz)/l2,0,1);d=Math.min(d,Math.hypot(ax+dx*t-x,az+dz*t-z))}return d}
 // el Palacio de la Inquisición: el edificio más cercano al punto de Google Maps
 let INQ_I=-1;{let bd=25;MAP.buildings.forEach((b,i)=>{const d=polyDist(b[3],GM.inquisicion[0],GM.inquisicion[1]);if(d<bd){bd=d;INQ_I=i}})}
@@ -537,6 +537,10 @@ const TORRE=(function(){const A=[-45.9,-42.1],B=[-33.1,-33.3],C=[-14.8,-86.1],D=
   const G=[-23.9,-52.9],a=(G[0]-S[0])*u[0]+(G[1]-S[1])*u[1];return{S,u,n,L,a,hw:Math.hypot(B[0]-A[0],B[1]-A[1])/2,P:[S[0]+u[0]*a,S[1]+u[1]*a],yaw:Math.atan2(n[0],n[1])}})();
 // pisos reales de OpenStreetMap por edificio de mapa.js (alturas.js), solo si corresponde a esta versión de mapa.js
 const ALT=window.ALTURAS&&ALTURAS.n===MAP.buildings.length?ALTURAS:null;
+// sitios conocidos con modelo propio (sitios.js, de OpenStreetMap): los edificios de mapa.js que ocupan su lugar no se construyen
+const SIT=window.SITIOS||[],SIT_NAMES=new Set(SIT.map(s=>s.n)),SIT_TORRES=SIT.filter(s=>s.k==='torre'&&s.pisos);
+const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|claustro)$/.test(s.k)||s.k==='mall'&&!s.torre)SIT_SKIP.push(s.p);if(s.edif)SIT_SKIP.push(...s.edif)}
+function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
 /* pisos totales (con la planta baja) cuando OSM no los sabe: perfil real de cada barrio.
@@ -568,6 +572,7 @@ function pisosZona(zn,ar,k,r,r2,cx,cz){const q=Math.round;
 function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0))return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
   let cx=0,cz=0;for(let i=0;i<n;i++){cx+=pts[i*2];cz+=pts[i*2+1]}cx/=n;cz/=n;const ar=Math.abs(signedArea(pts));
   if(Math.hypot(cx-GM.popa[0],cz-GM.popa[1])<40)return;if(inPoly(pts,TORRE.P[0],TORRE.P[1]))return; // la Torre del Reloj tiene su propio modelo
+  if(sitioSkip(cx,cz))return;if(name==='Iglesia La Hermita')name='Iglesia de La Ermita';
   // el convento de La Popa tiene su propio modelo
   if(inPoly(pts,GM.santoDomingo[0],GM.santoDomingo[1])){flags|=1;name='Iglesia de Santo Domingo'}
   const conv=inPoly(pts,GM.convenciones[0],GM.convenciones[1]),inq=idx===INQ_I;
@@ -582,6 +587,7 @@ function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''
   else if(h)floors=Math.max(0,Math.round((h-GF)/FL));
   else floors=pisosZona(zn,ar,ALT?ALT.tipo[idx]:0,r,r2,cx,cz)-1;
   if(conv)floors=2;if(inq)floors=1;
+  for(const t of SIT_TORRES)if(inPoly(pts,t.x,t.z))floors=Math.max(floors,t.pisos-1);   // torres emblemáticas: sus pisos reales
   const top=gy+GF+floors*FL;  const tower=!centro&&!getse&&floors>=5;
   if(tower){const t=['tow_a','tow_b','tow_c'][Math.floor(r2*3)];const col=colObj(colB[Math.floor(r*colB.length)]);
     band(pts,gy-2,top,t,col,gy+GF+1,t==='tow_c'?22:18,t==='tow_c'?22:16,false);
@@ -916,6 +922,149 @@ const PLANE=(function(){const parts=[],col=[];const W=colObj('#f4f6f8'),B=colObj
   return{parts,col}})();
 function planeAt(x,z,yaw){const y=ground(x,z);PLANE.parts.forEach((g,i)=>{const c=g.clone();geoInto('plain',c,PLANE.col[i],place(x,y,z,0,yaw,0))});
   addSolidPoly(rectPts(x,z,4.2,34,yaw));addSolidPoly(rectPts(...lc(x,z,yaw,0,1.5),30,5,yaw))}
+/* ---------- sitios conocidos (sitios.js, forma y ubicación reales de OpenStreetMap): Puente Román, Mercado de Bazurto, Estadio Jaime Morón,
+   Muelle de La Bodeguita, Fuerte del Pastelillo, Plaza de Toros, centros comerciales, Hospital Naval, Claustro de San Agustín,
+   puerto de contenedores, Monumento a Blas de Lezo, La Ermita, torres de Bocagrande y los baluartes de la muralla ---------- */
+function construirSitios(){
+  const ccw=p=>{if(signedArea(p)>=0)return p;const q=[];for(let i=p.length-2;i>=0;i-=2)q.push(p[i],p[i+1]);return q};
+  const cen=p=>{let x=0,z=0;for(let i=0;i<p.length;i+=2){x+=p[i];z+=p[i+1]}return[x/(p.length/2),z/(p.length/2)]};
+  const scl=(p,cx,cz,k)=>p.map((v,i)=>i%2?cz+(v-cz)*k:cx+(v-cx)*k);
+  const minG=p=>{let g=1e9;for(let i=0;i<p.length;i+=2)g=Math.min(g,ground(p[i],p[i+1]));return g};
+  const edges=p=>{const n=p.length/2,o=[];for(let i=0;i<n;i++){const j=(i+1)%n,ax=p[i*2],az=p[i*2+1],bx=p[j*2],bz=p[j*2+1],L=Math.hypot(bx-ax,bz-az);if(L<.5)continue;
+    const ux=(bx-ax)/L,uz=(bz-az)/L;o.push({ax,az,bx,bz,L,ux,uz,nx:uz,nz:-ux,mx:(ax+bx)/2,mz:(az+bz)/2,yaw:Math.atan2(uz,-ux)})}return o};   // n: hacia afuera (polígono antihorario); yaw: el frente mira hacia n
+  const rot=e=>Math.atan2(-e.uz,e.ux);   // cajas con el largo (x local) a lo largo del borde
+  // el lado que da a la calle más cercana (para la fachada y el letrero)
+  const facade=p=>{let best=null,bd=1e9;for(const e of edges(p)){if(e.L<8)continue;const r=nearestRoad(e.mx+e.nx*3,e.mz+e.nz*3,120,s=>!s.walk);const d=(r?r.d:200)-Math.min(e.L,40)*.3;if(d<bd){bd=d;best=e}}return best||edges(p)[0]};
+  // eje principal de un polígono
+  const axis=p=>{const [cx,cz]=cen(p);let a=0,b=0,c=0;for(let i=0;i<p.length;i+=2){const x=p[i]-cx,z=p[i+1]-cz;a+=x*x;b+=x*z;c+=z*z}const t=.5*Math.atan2(2*b,a-c);return{cx,cz,ux:Math.cos(t),uz:Math.sin(t)}};
+  const box=(w,h,d,col,x,y,z,yaw,mk)=>geoInto(mk||'plain',new THREE.BoxGeometry(w,h,d),colObj(col),place(x,y,z,0,yaw||0,0));
+  const cyl=(r0,r1,h,col,x,y,z,seg,mk)=>geoInto(mk||'plain',new THREE.CylinderGeometry(r0,r1,h,seg||8),colObj(col),place(x,y,z));
+  const front=(e,d)=>snap(e.mx+e.nx*d,e.mz+e.nz*d);
+  // gradas escalonadas de un estadio o una plaza de toros, del borde hacia adentro
+  const tiers=(P,cx,cz,gy,lv,colA,colB)=>{lv.forEach(([k,h],i)=>{const q=scl(P,cx,cz,k);band(q,gy-1,gy+h,'plain',colObj(i?colB:colA),gy,4,4,false);flatRoof(q,gy+h,'plain',colObj(i%2?colA:colB),4)})};
+  const lancha=(x,z,yaw,col)=>{const M=(lx,y,lz)=>[x+Math.cos(yaw)*lx+Math.sin(yaw)*lz,y,z-Math.sin(yaw)*lx+Math.cos(yaw)*lz];
+    const b=(w,h,d,c,lx,y,lz)=>{const p=M(lx,y,lz);box(w,h,d,c,p[0],p[1],p[2],yaw)};
+    b(6.4,1,2.4,'#f7f7f2',0,.15,0);b(6.5,.25,2.5,col,0,.55,0);{const p=M(3.6,.2,0);geoInto('plain',new THREE.ConeGeometry(1.2,1.6,4),colObj('#f7f7f2'),place(p[0],p[1],p[2],0,yaw,-Math.PI/2))}
+    b(4,.12,2.3,col,-.6,2.3,0);for(const [lx,lz] of [[1.3,1],[1.3,-1],[-2.5,1],[-2.5,-1]])b(.08,1.7,.08,'#cfcfcf',lx,1.45,lz);b(.6,.9,.5,'#222',-3.4,.6,0)};
+  const garita=(x,z,y)=>{const C=colObj('#efe4cc');geoInto('coralS',new THREE.CylinderGeometry(1.1,1.1,2.6,10,1,true),C,place(x,y+1.3,z));geoInto('coralS',new THREE.ConeGeometry(1.1,1.4,10,1,true),C,place(x,y-.7,z,Math.PI,0,0));
+    geoInto('coralS',new THREE.SphereGeometry(1.25,10,5,0,TAU,0,Math.PI/2),C,place(x,y+2.6,z));geoInto('coralS',new THREE.SphereGeometry(.22,6,4),C,place(x,y+3.9,z))};
+  const LOG={sitios:0};
+  for(const s of SIT){const k=s.k,P=s.p?ccw(s.p):null;LOG.sitios++;
+    if(k==='baluarte'){addLM(s.n,s.x,s.z,12,0);continue}
+    if(k==='torre'){addLM(s.n,s.x,s.z,(s.h||s.pisos*FL)+8,0);continue}
+    if(k==='ermita'){const c=CHURCH_NAMES['Iglesia de La Ermita'];addLM('Iglesia de La Ermita',c?c[0]:s.x,c?c[1]:s.z,c?c[2]-ground(c[0],c[1]):30,0);icon('church',s.x,s.z,'Iglesia de La Ermita');continue}
+    if(k==='puente'){
+      // Puente Román: pretiles de concreto, borde del tablero y pilas sobre el agua
+      // (los lados largos llevan pretil aunque el agua de la máscara no llegue hasta el puente; las pilas, solo sobre el agua)
+      for(const e of edges(P)){if(e.L<40)continue;const m=Math.max(1,Math.round(e.L/3));for(let q=0;q<m;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t,z=e.az+(e.bz-e.az)*t,sl=e.L/m,y=ground(x,z);
+        if(!roadClear(x,z,-.4))continue;box(sl+.05,1,.35,'#e6e2da',x,y+.6,z,rot(e));box(sl+.05,1.6,.6,'#bdb7ac',x+e.nx*.3,y-.75,z+e.nz*.3,rot(e));addSolidPoly(rectPts(x,z,sl,.4,rot(e)));
+          if(q%6===3){cyl(.07,.07,6,'#9aa0a6',x,y+3.6,z,6);XGLOW.push([x-e.nx*.8,y+6.5,z-e.nz*.8,0xffe9b0,.6]);if(isWater(x+e.nx*3,z+e.nz*3))cyl(.9,.9,7,'#a9a398',x-e.nx*2,-4.2,z-e.nz*2,10)}}}
+      addLM(s.n,s.x,s.z,8,0);continue}
+    if(k==='mercado'){
+      // Mercado de Bazurto: galpones bajos con techo de zinc y toldos de colores; puestos con sombrillas en las calles de alrededor
+      const AW=['#e4572e','#1f9aa6','#f0b429','#2e7d32','#d81b60','#1f6fb2'];let big=null,ba=0;
+      for(const E0 of s.edif||[]){const E=ccw(E0),gy=minG(E),a=signedArea(E);if(a>ba){ba=a;big=E}
+        band(E,gy-1,gy+4.6,'worn_gf',colObj('#d8cfae'),gy,GF,8,true);ring(E,gy+4.6,gy+5.3,1.2,colObj('#9aa1a4'),'plain');flatRoof(E,gy+5.3,'roof_flat',colObj('#a7adb0'),4);addSolidPoly(E);
+        for(const e of edges(E)){const m=Math.floor(e.L/4.2);for(let q=0;q<m;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t+e.nx*1.1,z=e.az+(e.bz-e.az)*t+e.nz*1.1;if(!roadClear(x,z,-.3))continue;box(3.8,.1,2,AW[(q+Math.round(e.ax))%AW.length],x,gy+3.1,z,rot(e))}}}
+      addSpecial(P);let n=0;const [ax0,az0]=[s.x,s.z];
+      for(let gx=-180;gx<=180&&n<46;gx+=9)for(let gz=-150;gz<=150&&n<46;gz+=9){const x=ax0+gx+(hash(gx,gz)-.5)*4,z=az0+gz+(hash(gz,gx)-.5)*4;
+        if(!inPoly(P,x,z)||!onLand(x,z)||solidAt(x,z)||!roadClear(x,z,.3)||roadClear(x,z,6))continue;const r=nearestRoad(x,z,10);const yaw=r?Math.atan2(r.x-x,r.z-z):0,y=ground(x,z),c=AW[n%AW.length];
+        box(2.2,.9,1.2,'#7b5a3a',x,y+.45,z,yaw);box(2,.35,1,['#f0b429','#e4572e','#7cb342','#ff8f00','#c62828'][n%5],x,y+1.05,z,yaw);
+        cyl(.04,.04,2.4,'#dddddd',x,y+1.2,z,5);geoInto('plain',new THREE.ConeGeometry(1.5,.6,8,1,true),colObj(c),place(x,y+2.4,z));addSolidPoly(rectPts(x,z,2.2,1.2,yaw));
+        if(n%3!==2){const f=lc(x,z,yaw,0,-1.2);LATER.push(()=>stayAt('vendor',f[0],f[1],yaw,''))}n++}
+      LOG.puestos=n;
+      if(big){const e=facade(big),gy=minG(big);signAt(txtSign('MERCADO DE BAZURTO','','#e4572e','#ffffff'),e.mx+e.nx*1.3,gy+5.9,e.mz+e.nz*1.3,e.yaw,14,2.6);const f=front(e,5);addLM(s.n,s.x,s.z,12,1,f[0],f[1])}
+      else addLM(s.n,s.x,s.z,12,1);icon('market',s.x,s.z,s.n);continue}
+    if(k==='futbol'||k==='toros'){const [cx,cz]=cen(P),gy=minG(P);addSolidPoly(P);addSpecial(scl(P,cx,cz,1.06));
+      if(k==='futbol'){
+        // Estadio Jaime Morón: tribunas de concreto con sillas de colores, cancha con sus líneas y cuatro torres de luz
+        tiers(P,cx,cz,gy,[[1,15],[.95,12.5],[.9,10],[.85,7.5],[.8,5],[.75,2.5]],'#bfbab0','#1f6fb2');flatPoly(scl(P,cx,cz,.74),'grass',.08,5);
+        const A=axis(P),yaw=Math.atan2(-A.uz,A.ux),W=colObj('#ffffff');flatPoly(rectPts(cx,cz,105,68,yaw),'grass',.1,5,colObj('#5f9e45'));
+        for(const [a,b,w,d] of [[0,34,105,.25],[0,-34,105,.25],[52.5,0,.25,68],[-52.5,0,.25,68],[0,0,.25,68],[46.75,0,.25,40],[-46.75,0,.25,40],[50,20,5.5,.25],[50,-20,5.5,.25],[-50,20,5.5,.25],[-50,-20,5.5,.25]]){const q=[cx+a*A.ux-b*A.uz,cz+a*A.uz+b*A.ux];flatPoly(rectPts(q[0],q[1],w,d,yaw),'paint',.13,4,W)}
+        for(const sx of [-1,1])for(const sz of [-1,1]){const q=[cx+sx*72*A.ux-sz*52*A.uz,cz+sx*72*A.uz+sz*52*A.ux];if(!inPoly(P,q[0],q[1]))continue;cyl(.5,.8,44,'#9aa0a6',q[0],gy+22,q[1]);box(9,4,.8,'#e9eef2',q[0],gy+44,q[1],Math.atan2(cx-q[0],cz-q[1]));XGLOW.push([q[0],gy+44,q[1],0xfff6e0,1])}
+        const e=facade(P),f=front(e,8);signAt(txtSign('ESTADIO JAIME MORÓN','CARTAGENA','#1f6fb2','#ffffff'),e.mx+e.nx*.4,gy+11,e.mz+e.nz*.4,e.yaw,16,3.4);addLM(s.n,cx,cz,24,1,f[0],f[1]);icon('stadium',cx,cz,s.n)}
+      else{
+        // Plaza de Toros La Monumental: anillo blanco con arcos y cornisa ocre, tendidos escalonados, ruedo de arena y barrera roja
+        const C=colObj('#f4efe4'),O=colObj('#c8812f'),D=colObj('#2a221c');band(P,gy-1,gy+14,'stone',C,gy,6,6,false);ring(P,gy+5.6,gy+6.2,.3,O);ring(P,gy+14,gy+15,.35,O);
+        tiers(scl(P,cx,cz,.97),cx,cz,gy,[[1,13],[.9,10.5],[.8,8],[.7,5.5],[.6,3]],'#e3d8c2','#c9b99a');flatPoly(scl(P,cx,cz,.52),'plaza',.1,4,colObj('#d9b36c'));
+        const R=scl(P,cx,cz,.52);band(R,gy,gy+1.4,'plain',colObj('#8e1b1b'),gy,1,1,false);
+        for(const e of edges(P)){const m=Math.floor(e.L/6);for(let q=0;q<m;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t+e.nx*.04,z=e.az+(e.bz-e.az)*t+e.nz*.04;geoInto('plain',new THREE.PlaneGeometry(2.2,3.6),D,place(x,gy+1.8,z,0,e.yaw,0));geoInto('plain',new THREE.PlaneGeometry(1.6,1.6),D,place(x,gy+9.6,z,0,e.yaw,0))}}
+        const e=facade(P),f=front(e,7);signAt(txtSign('PLAZA DE TOROS','LA MONUMENTAL','#8e1b1b','#ffffff'),e.mx+e.nx*.45,gy+11.5,e.mz+e.nz*.45,e.yaw,12,3);addLM(s.n,cx,cz,22,1,f[0],f[1]);icon('bull',cx,cz,s.n)}
+      continue}
+    if(k==='fuerte'){
+      // Fuerte de San Sebastián del Pastelillo: muros bajos de piedra coralina con terraplén, garitas, cañones y bandera
+      const gy=minG(P),C=colObj('#e3d4b4'),[cx,cz]=cen(P);band(P,gy-1,gy+6,'coralS',C,gy,5,5,false);ring(P,gy+6,gy+7.1,0,C,'coralS');flatRoof(P,gy+6,'coralS',colObj('#d4c4a0'),5);addSolidPoly(P);addSpecial(P);
+      const E=edges(P);for(let i=0;i<E.length;i++){const a=E[i],b=E[(i+1)%E.length];if(a.L<5||b.L<5||a.ux*b.uz-a.uz*b.ux<0)continue;if(a.ux*b.ux+a.uz*b.uz>.35)continue;
+        let ox=a.ux-b.ux,oz=a.uz-b.uz;const l=Math.hypot(ox,oz)||1;garita(a.bx+ox/l*1.2,a.bz+oz/l*1.2,gy+6)}
+      for(const e of E){if(e.L<20||!isWater(e.mx+e.nx*15,e.mz+e.nz*15))continue;for(const t of [.35,.65]){const x=e.ax+(e.bx-e.ax)*t-e.nx*2.5,z=e.az+(e.bz-e.az)*t-e.nz*2.5;geoInto('plain',new THREE.CylinderGeometry(.28,.38,3,10),colObj('#1d1d1d'),place(x+e.nx*.8,gy+6.6,z+e.nz*.8,0,Math.atan2(e.ux,e.uz),-Math.PI/2));box(1.4,.6,1.4,'#5b4634',x,gy+6.3,z,rot(e))}}
+      let fx=cx,fz=cz;if(!inPoly(P,fx,fz)){fx=P[0]*.7+cx*.3;fz=P[1]*.7+cz*.3}cyl(.12,.12,9,'#d9d9d9',fx,gy+10.5,fz,6);box(4.5,1,.06,'#fcd116',fx+2.3,gy+14.2,fz);box(4.5,.5,.06,'#003893',fx+2.3,gy+13.45,fz);box(4.5,.5,.06,'#ce1126',fx+2.3,gy+12.95,fz);
+      const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
+    if(k==='mall'){
+      // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
+      const gy=minG(P),e=facade(P);let top;
+      if(s.torre){top=gy+GF+((s.pisos||3)-1)*FL}else{const C=colObj('#f4f1ea');top=gy+GF+2*FL;band(P,gy-2,gy+GF,'mod_gf',C,gy,GF,8,true);band(P,gy+GF,top,'mod_up',C,gy+GF,FL,8,true);ring(P,top-.05,top+.35,.22,TRIMC);ring(P,top+.35,top+1.2,0,C,'plain');flatRoof(P,top+.6,'roof_flat',WHITE,6);addSolidPoly(P);addSpecial(P)}
+      band(rectPts(e.mx+e.nx*.12,e.mz+e.nz*.12,Math.min(e.L-2,26),.3,rot(e)),gy,gy+GF-.4,'tow_c',colObj('#ffffff'),gy,22,22,false);
+      const sy=s.torre?gy+GF+FL*2.5:top-1.6;signAt(txtSign(s.n.replace(/^Centro Comercial /,'').toUpperCase(),'CENTRO COMERCIAL','#1f5fa8','#ffffff'),e.mx+e.nx*.5,sy,e.mz+e.nz*.5,e.yaw,Math.min(22,e.L*.6),4);
+      MALL_SHOPS.push({x:e.mx+e.nx*1.8,z:e.mz+e.nz*1.8,wx:e.mx,wz:e.mz,nx:e.nx,nz:e.nz,len:Math.min(e.L,70),yaw:e.yaw,gy,type:'mall',name:s.n,mall:true});
+      const f=front(e,6);addLM(s.n,s.x,s.z,(s.torre?20:top-gy)+8,1,f[0],f[1]);continue}
+    if(k==='hospital'||k==='claustro'){const gy=minG(P),e=facade(P),hosp=k==='hospital';const C=colObj(hosp?'#ffffff':'#f5edd8'),fl=hosp?4:1,top=gy+GF+fl*FL,st=hosp?'mod':'col2';
+      band(P,gy-2,gy+GF,st+'_gf',C,gy,GF,8,true);band(P,gy+GF,top,st+'_up',C,gy+GF,FL,8,true);ring(P,top-.05,top+.35,.22,TRIMC);addSolidPoly(P);addSpecial(P);
+      if(hosp){ring(P,top+.35,top+.9,0,C,'plain');flatRoof(P,top+.5,'roof_flat',WHITE,6);signAt(crossTex,e.mx+e.nx*.1,gy+GF+.4,e.mz+e.nz*.1,e.yaw,2.4,2.4);
+        signAt(txtSign('HOSPITAL NAVAL','ARMADA DE COLOMBIA','#ffffff','#1f3a6e'),e.mx-e.ux*e.L*.2+e.nx*.12,top-1.6,e.mz-e.uz*e.L*.2+e.nz*.12,e.yaw,14,3.4);icon('hospital',s.x,s.z,s.n)}
+      else{
+        // Claustro de San Agustín: casona colonial de dos pisos con tejas y la torre del antiguo convento en la esquina
+        flatRoof(P,top+.35,'roof_tile',WHITE,2.2);let bi=0,bd=1e9;for(let i=0;i<P.length;i+=2){const r=nearestRoad(P[i],P[i+1],40,q=>!q.walk);if(r&&r.d<bd){bd=r.d;bi=i}}
+        const tx=lerp(P[bi],s.x,.08),tz=lerp(P[bi+1],s.z,.08),tp=rectPts(tx,tz,6.5,6.5,rot(e)),th=top+11;band(tp,top,th,'stone',C,gy,6,6,false);ring(tp,th-.2,th+.6,.4,TRIMC);flatRoof(tp,th+.6,'roof_tile',WHITE,2.2);
+        for(const [a,b] of [[3.27,0],[-3.27,0],[0,3.27],[0,-3.27]]){const q=lc(tx,tz,rot(e),a,b);geoInto('plain',new THREE.PlaneGeometry(1.6,3),colObj('#2a221c'),place(q[0],th-3,q[1],0,rot(e)+Math.atan2(a,b),0))}
+        signAt(txtSign('UNIVERSIDAD DE CARTAGENA','CLAUSTRO DE SAN AGUSTÍN','#7a1c1c','#ffffff'),e.mx+e.nx*.12,gy+GF-.5,e.mz+e.nz*.12,e.yaw,10,2.4);icon('uni',s.x,s.z,s.n)}
+      const f=front(e,4);addLM(s.n,s.x,s.z,(k==='claustro'?top+12:top)-gy+6,1,f[0],f[1]);continue}
+    if(k==='muelle'){
+      // Muelle turístico de La Bodeguita: taquilla, sala de espera techada y lanchas amarradas
+      let n=0;const AW=['#1f6fb2','#e4572e','#2e7d32','#f0b429','#1f9aa6'];
+      // el malecón del muelle (en el juego queda sobre el agua): plataforma de concreto con bolardos en el borde
+      flatRoof(P,.6,'stone',colObj('#cfc8bb'),4);band(P,-1.2,.6,'plain',colObj('#a9a398'),0,1,1,false);
+      for(const e of edges(P)){if(!isWater(e.mx+e.nx*4,e.mz+e.nz*4))continue;for(let d=2;d<e.L;d+=6){const x=e.ax+e.ux*d-e.nx*.6,z=e.az+e.uz*d-e.nz*.6;cyl(.18,.22,.6,'#2b2b2b',x,.9,z,8)}}
+      for(const e of edges(P)){const m=Math.floor(e.L/7);for(let q=0;q<m&&n<10;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t+e.nx*3.4,z=e.az+(e.bz-e.az)*t+e.nz*3.4;if(!isWater(x,z)||!isWater(x+e.nx*2,z+e.nz*2)||!isWater(x+e.ux*3.5,z+e.uz*3.5)||!isWater(x-e.ux*3.5,z-e.uz*3.5))continue;lancha(x,z,rot(e),AW[n%AW.length]);n++}}
+      LOG.lanchas=n;let spot=null;const p0=s.punta||[s.x,s.z];for(let r=0;r<90&&!spot;r+=3)for(let a=0;a<TAU&&!spot;a+=TAU/16){const x=p0[0]+Math.sin(a)*r,z=p0[1]+Math.cos(a)*r;if(rectFree(x,z,14,7,faceRoad(x,z),.3))spot={x,z,yaw:faceRoad(x,z)}}
+      if(spot){const y=ground(spot.x,spot.z);boxBuilding(...lc(spot.x,spot.z,spot.yaw,-3.5,0),6,5,spot.yaw,0,'mod','#f4f1ea');addSpecial(rectPts(spot.x,spot.z,15,8,spot.yaw));
+        box(8,.25,6,'#1f6fb2',...(()=>{const q=lc(spot.x,spot.z,spot.yaw,3.5,0);return[q[0],y+3.4,q[1]]})(),spot.yaw);for(const [a,b] of [[0,-2.7],[0,2.7],[7,-2.7],[7,2.7]]){const q=lc(spot.x,spot.z,spot.yaw,a,b);cyl(.12,.12,3.3,'#e9e6dc',q[0],y+1.65,q[1],6)}
+        const q=lc(spot.x,spot.z,spot.yaw,-3.5,2.55);signAt(txtSign('MUELLE TURÍSTICO','LA BODEGUITA · ISLAS DEL ROSARIO','#1f9aa6','#ffffff'),q[0],y+GF+.6,q[1],spot.yaw,6,1.6);
+        for(let i=0;i<4;i++){const p=lc(spot.x,spot.z,spot.yaw,1+i*1.6,0);LATER.push(()=>stayAt(i%2?'tourist':'vendor',p[0],p[1],spot.yaw,i%2?'':'hips'))}}
+      const pt=s.punta||[s.x,s.z];addLM(s.n,pt[0],pt[1],10,1);icon('pier',pt[0],pt[1],s.n);continue}
+    if(k==='puerto'){
+      // Puerto de Cartagena: patios de contenedores, grúas pórtico en los muelles y un buque portacontenedores
+      const A=axis(P),yaw=Math.atan2(-A.uz,A.ux),CC=['#c0392b','#1f5fa8','#2e7d32','#e67e22','#7f8c8d','#8e44ad','#d4ac0d','#16a085','#9c2a1f','#34495e','#ecf0f1'];let nb=0;addSpecial(P);
+      for(let u=-640;u<=640&&nb<900;u+=13.2)for(let v=-360;v<=360&&nb<900;v+=3.1){const iu=Math.round(u/13.2),iv=Math.round(v/3.1);if(((iu%6)+6)%6===5||((iv%9)+9)%9>=7)continue;
+        const x=A.cx+u*A.ux-v*A.uz,z=A.cz+u*A.uz+v*A.ux;if(!inPoly(P,x,z)||!onLand(x,z)||solidAt(x,z)||!roadClear(x,z,2)||!roadClear(x+A.ux*6,z+A.uz*6,1)||!roadClear(x-A.ux*6,z-A.uz*6,1)||seaDist(x,z)<50)continue;
+        if(!onLand(x+A.ux*6.5,z+A.uz*6.5)||!onLand(x-A.ux*6.5,z-A.uz*6.5)||solidAt(x+A.ux*6.5,z+A.uz*6.5)||solidAt(x-A.ux*6.5,z-A.uz*6.5))continue;
+        const h=1+Math.floor(hash(iu*7,iv*3)*4.2),y=ground(x,z);for(let l=0;l<h&&nb<900;l++){box(12.1,2.55,2.45,CC[Math.floor(hash(iu+l*31,iv*5)*CC.length)],x,y+1.3+l*2.6,z,yaw);nb++}addSolidPoly(rectPts(x,z,12.2,2.5,yaw))}
+      LOG.contenedores=nb;let ship=false;LOG.gruas=0;
+      for(const M0 of s.muelles||[]){const MP=ccw(M0);const E=edges(MP).filter(e=>e.L>=60&&isWater(e.mx+e.nx*20,e.mz+e.nz*20)).sort((a,b)=>b.L-a.L);if(!E.length)continue;const e=E[0],gy=ground(e.mx,e.mz),r=rot(e);
+        const nC=Math.min(3,Math.floor(e.L/55));LOG.gruas+=nC;for(let c=0;c<nC;c++){const t=(c+.5)/nC,bx=e.ax+(e.bx-e.ax)*t,bz=e.az+(e.bz-e.az)*t,W=(a,b,y)=>[bx+e.ux*a+e.nx*b,y,bz+e.uz*a+e.nz*b];
+          // grúa pórtico: patas, vigas, pluma sobre el agua y cabina
+          for(const a of [-8,8])for(const b of [-2,-20]){const p=W(a,b,gy+19);box(1.3,38,1.3,'#c0392b',p[0],p[1],p[2],r);addSolidPoly(rectPts(p[0],p[2],1.6,1.6,r))}
+          for(const b of [-2,-20]){const p=W(0,b,gy+37);box(17.3,1.6,1.6,'#c0392b',p[0],p[1],p[2],r)}
+          for(const a of [-8,8]){const p=W(a,8,gy+40);box(2.4,2.2,72,'#ecf0f1',p[0],p[1],p[2],r);const q=W(a,-11,gy+50);box(1,22,1,'#c0392b',q[0],q[1],q[2],r)}
+          {const p=W(0,-11,gy+43);box(8,5,9,'#ecf0f1',p[0],p[1],p[2],r);const q=W(0,24,gy+37.5);box(3,2.5,3,'#2b2b2b',q[0],q[1],q[2],r)}}
+        if(!ship){const L=Math.min(e.L-10,170),c=[e.mx+e.nx*19,e.mz+e.nz*19];const ok=[[1,1],[1,-1],[-1,1],[-1,-1]].every(([a,b])=>isWater(c[0]+e.ux*L/2*a+e.nx*13*b,c[1]+e.uz*L/2*a+e.nz*13*b));
+          if(ok){ship=true;LOG.buque=1;const S=(a,b,y)=>[c[0]+e.ux*a+e.nx*b,y,c[1]+e.uz*a+e.nz*b];{const p=S(0,0,2.5);box(L,9,26,'#1f3a5f',p[0],p[1],p[2],r)}{const p=S(0,0,-1.6);box(L+.2,1.6,26.2,'#9c2a1f',p[0],p[1],p[2],r)}
+            {const p=S(L/2,0,2.5);box(18.4,9,18.4,'#1f3a5f',p[0],p[1],p[2],r+Math.PI/4)}
+            {const p=S(-L/2+9,0,15);box(12,16,22,'#f4f4f2',p[0],p[1],p[2],r);const q=S(-L/2+9,0,23.6);box(13,1.2,26,'#f4f4f2',q[0],q[1],q[2],r)}
+            for(let a=-L/2+22;a<L/2-10;a+=13)for(let b=-10;b<=10;b+=2.6){const h=1+Math.floor(hash(Math.round(a),Math.round(b*10))*4);for(let l=0;l<h;l++){const p=S(a,b,8.3+l*2.6);box(12.1,2.55,2.45,CC[Math.floor(hash(Math.round(a)+l*17,Math.round(b*7))*CC.length)],p[0],p[1],p[2],r)}}}}}
+      const e=facade(P),f=front(e,6);addLM(s.n,s.x,s.z,30,1,f[0],f[1]);icon('port',s.x,s.z,s.n);continue}
+    if(k==='blas'){
+      // Monumento a Blas de Lezo, frente al Castillo: pedestal de piedra y el almirante en bronce con su pata de palo, señalando con la espada
+      const [x,z]=freeSpot(s.x,s.z,7),y=ground(x,z),r=nearestRoad(x,z,60,q=>!q.walk),yw=r?Math.atan2(r.x-x,r.z-z):0;const grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=yw;scene.add(grp);
+      const st=mat('#d9cdb4'),dk=mat('#b9ab90'),br=new THREE.MeshPhongMaterial({color:'#5a4326',specular:0x6b5a3a,shininess:40});
+      const add=(g,m,px,py,pz,rx,ry,rz)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
+      add(new THREE.BoxGeometry(6,.5,6),dk,0,.25,0);add(new THREE.BoxGeometry(4.2,.6,4.2),st,0,.8,0);add(new THREE.BoxGeometry(2.8,3.6,2.8),st,0,2.9,0);add(new THREE.BoxGeometry(3.2,.4,3.2),dk,0,4.9,0);
+      add(new THREE.CylinderGeometry(.17,.13,1.6,10),br,.25,5.9,0);add(new THREE.CylinderGeometry(.06,.05,1.6,8),br,-.25,5.9,.1);            // pierna y pata de palo
+      add(new THREE.CylinderGeometry(.42,.7,1.5,14),br,0,7.1,0);add(new THREE.CylinderGeometry(.38,.44,1.1,14),br,0,8.2,0);add(new THREE.SphereGeometry(.28,12,8),br,0,9.05,0);
+      add(new THREE.CylinderGeometry(.5,.5,.16,3),br,0,9.3,0);add(new THREE.CylinderGeometry(.09,.08,1,8),br,.5,8.3,.3,-1.1,0,-.6);add(new THREE.BoxGeometry(.06,.06,1.6),br,.85,8.85,1.1,-.35,0,0);   // sombrero, brazo y espada
+      add(new THREE.CylinderGeometry(.09,.08,.9,8),br,-.48,7.95,0,0,0,.35);addSolidPoly([x-3,z-3,x+3,z-3,x+3,z+3,x-3,z+3]);
+      addLM(s.n,x,z,14,0);icon('monument',x,z,s.n);continue}
+  }
+  console.log('sitios conocidos:',JSON.stringify(LOG))}
 (function(){
   const A=CD.AIRPORT,adx=A.dx,adz=A.dz,sd=A.side||1,lx=-adz*sd,lz=adx*sd,T0=A.t||700;const ap=(s,l)=>[A.x+adx*s+lx*l,A.z+adz*s+lz*l];
   // aeropuerto: pista, calle de rodaje, plataforma, terminal, torre de control y aviones
@@ -935,9 +1084,10 @@ function planeAt(x,z,yaw){const y=ground(x,z);PLANE.parts.forEach((g,i)=>{const 
     for(const all of [[...ap(-130,-200),...ap(A.len+130,-200),...ap(A.len+130,200),...ap(-130,200)],[...ap(T0-340,0),...ap(T0+440,0),...ap(T0+440,380),...ap(T0-340,380)]])addSpecial(signedArea(all)<0?[all[6],all[7],all[4],all[5],all[2],all[3],all[0],all[1]]:all);
     const door=ap(T0,372);addLM('Aeropuerto Rafael Núñez',tc[0],tc[1],22,1,door[0],door[1]);icon('airport',tc[0],tc[1],'Aeropuerto Rafael Núñez');
     for(let s=200;s<A.len;s+=300)for(const l of [-26,26]){const p=ap(s,l);XGLOW.push([p[0],ground(p[0],p[1])+.5,p[1],l<0?0x6fb0ff:0x6fb0ff])}}
+  construirSitios();
   for(const L of CD.LUGARES){const k=L.kind;
     if(k==='aeropuerto')continue;
-    if(k==='mercado'){addLM(L.name,L.x,L.z,10,L.mission);icon('market',L.x,L.z,L.name);continue}
+    if(k==='mercado'){if(SIT_NAMES.has(L.name))continue;addLM(L.name,L.x,L.z,10,L.mission);icon('market',L.x,L.z,L.name);continue}
     if(k==='playa'){let x=L.x,z=L.z;for(let t=0;t<60&&isWater(x,z);t++){x+=10;z+=6}addLM(L.name,x,z,8,L.mission);icon('beach',x,z,L.name);
       for(let i=0;i<10;i++){const a=i*2.4,px=x+Math.sin(a)*(8+i*3),pz=z+Math.cos(a)*(8+i*3);if(!onLand(px,pz)||solidAt(px,pz))continue;const col=pick(['#e4572e','#1f9aa6','#f0b429','#ffffff','#2b6cb0']);
         geoInto('plain',new THREE.CylinderGeometry(.04,.04,2.4,5),colObj('#ddd'),place(px,ground(px,pz)+1.2,pz));geoInto('plain',new THREE.ConeGeometry(1.4,.6,8,1,true),colObj(col),place(px,ground(px,pz)+2.4,pz));
@@ -2135,7 +2285,7 @@ const WPX=8,mapW=document.createElement('canvas');mapW.width=Math.ceil((WB[2]-WB
 const ICONDEF={casa:{c:'#1f9aa6',g:'house'},banco:{c:'#0d47a1',e:'🏦'},cajero:{c:'#1565c0',e:'🏧'},bar:{c:'#6d4c41',e:'🍺'},discoteca:{c:'#7b1fa2',e:'💃'},cafe:{c:'#4e2c14',e:'☕'},comidas:{c:'#d84315',e:'🍔'},supermercado:{c:'#c62828',e:'🛒'},hotel:{c:'#5d1a1a',e:'🏨'},universidad:{c:'#1b5e20',e:'🎓'},taller:{c:'#37474f',e:'🔧'},clinica:{c:'#00838f',e:'🏥'},gimnasio:{c:'#212121',e:'🏋️'},tienda:{c:'#f0b429',t:'T',f:'#3b1d0a'},fritos:{c:'#e4572e',t:'F'},restaurante:{c:'#2e7d32',t:'R'},heladeria:{c:'#f48fb1',t:'H',f:'#3b0a24'},panaderia:{c:'#a0522d',t:'P'},drogueria:{c:'#1565c0',t:'+'},
   ropa:{c:'#7b1fa2',t:'M'},recuerdos:{c:'#1f9aa6',t:'A'},joyeria:{c:'#0b5d3b',t:'J',f:'#f6e7a8'},mall:{c:'#f0b429',t:'CC',sq:1,f:'#17130f'},stop:{c:'#1f6fb2',g:'bus',sq:1},tc:{c:'#1f9aa6',t:'TC',sq:1},
   cai:{c:'#0f6b33',t:'CAI',sq:1},hospital:{c:'#ffffff',g:'cross',sq:1},salud:{c:'#ffffff',g:'cross',sq:1},gas:{c:'#d32f2f',g:'pump',sq:1},airport:{c:'#1f5fa8',g:'plane'},terminal:{c:'#7b1fa2',g:'bus',sq:1},
-  stadium:{c:'#2e7d32',g:'ball'},uni:{c:'#7a1c1c',t:'U',sq:1},church:{c:'#8d6e63',g:'church'},park:{c:'#43a047',g:'tree'},beach:{c:'#f4c26b',g:'umbrella'},market:{c:'#e4572e',t:'Mdo',sq:1},star:{c:'#f0b429',g:'star'},
+  stadium:{c:'#2e7d32',g:'ball'},uni:{c:'#7a1c1c',t:'U',sq:1},church:{c:'#8d6e63',g:'church'},park:{c:'#43a047',g:'tree'},beach:{c:'#f4c26b',g:'umbrella'},market:{c:'#e4572e',t:'Mdo',sq:1},star:{c:'#f0b429',g:'star'},port:{c:'#1f5fa8',e:'⚓'},fort:{c:'#a1887f',e:'🏰'},bull:{c:'#8e1b1b',e:'🐂'},pier:{c:'#1f9aa6',e:'⛴'},monument:{c:'#7a5a2e',e:'🗿'},
   deliv:{c:'#f0b429',t:'$',f:'#17130f'},fare:{c:'#1f9aa6',t:'T'},moto:{c:'#ff8f00',t:'Mt'},trasteo:{c:'#8d6e63',t:'Tr'},pique:{c:'#d81b60',g:'flag'},dest:{c:'#e4572e',g:'flag'}};
 const ICONC={};
 function iconCanvas(k){if(ICONC[k])return ICONC[k];const D=ICONDEF[k]||ICONDEF.star,S=48,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');
@@ -2157,7 +2307,7 @@ function iconCanvas(k){if(ICONC[k])return ICONC[k];const D=ICONDEF[k]||ICONDEF.s
   ICONC[k]=c;return c}
 const ICAT=[['home','Mi casa',['casa'],0],['shop','Tiendas y locales',['tienda','fritos','heladeria','panaderia','ropa','recuerdos','joyeria','supermercado'],.45],['comer','Restaurantes y cafés',['restaurante','cafe','comidas'],.45],['banco','Bancos y cajeros',['banco','cajero'],.3],['noche','Bares y discotecas',['bar','discoteca'],.3],['hotel','Hoteles',['hotel'],.45],['edu','Universidades',['universidad'],0],['taller','Talleres y gimnasios',['taller','gimnasio'],.2],['mall','Centros comerciales',['mall'],0],['stop','Paraderos de bus',['stop'],.16],['tc','Transcaribe',['tc'],0],
   ['cai','Policía (CAI)',['cai'],0],['salud','Hospitales, clínicas y farmacias',['hospital','salud','clinica','drogueria'],0],['gas','Gasolineras',['gas'],0],['transp','Aeropuerto y terminal',['airport','terminal'],0],['church','Iglesias',['church'],0],
-  ['park','Parques, playas y estadio',['park','beach','stadium','uni','market'],0],['star','Sitios turísticos',['star'],0],['mis','Encargos',['deliv','fare','moto','trasteo','pique','dest'],0]];
+  ['park','Parques, playas y estadio',['park','beach','stadium','uni','market'],0],['star','Sitios turísticos',['star','fort','bull','pier','monument','port'],0],['mis','Encargos',['deliv','fare','moto','trasteo','pique','dest'],0]];
 const ICAT_OF={};for(const c of ICAT)for(const k of c[2])ICAT_OF[k]=c[0];
 const MAPHIDE=new Set();try{for(const k of JSON.parse(localStorage.getItem('cl_maphide')||'[]'))MAPHIDE.add(k)}catch(e){}
 // all the fixed symbols, bucketed in 200 m cells for the minimap
@@ -2590,7 +2740,7 @@ $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
 {const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
   b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
-window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild,LM,MALL_SHOPS,CHURCH_NAMES,solidAt,onLand,isWater,roadClear,inSpecial};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>
