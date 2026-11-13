@@ -21,6 +21,9 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 - **Policía en moto:** las patrullas son motos verdes con dos policías, y hay muchas: andan por los alrededores y pasan a cada rato.
 - **Mototaxis por todas partes:** más o menos uno de cada cuatro vehículos de la calle es un mototaxi, y la mayoría lleva un pasajero atrás. En las carreras en moto, tu pasajero también va sentado atrás.
 - **Todos los vehículos llevan conductor:** de cerca se ven las personas sentadas; de lejos, las motos y bicicletas muestran a su conductor (y al de atrás).
+- **Semáforos y cebras:** los cruces de avenidas y vías principales tienen semáforo y paso de cebra en cada esquina. Los carros paran antes de la cebra y los peatones solo cruzan por ella cuando el semáforo se lo permite (ya no se atraviesan a mitad de cuadra). En cada semáforo cercano hay un agente de tránsito de pie dirigiendo.
+- **Cruces sin semáforo:** los carros pasan una calle a la vez, así no se atraviesan unos con otros, y giran en curva por la esquina.
+- **Choques:** los vehículos chocan con su forma real y quedan abollados donde se golpearon (se rompen las luces si el golpe es fuerte). Si chocas un carro, llega un agente de tránsito, escucha a los dos conductores y la multa ($ 600.000) es para el vehículo que golpeó por detrás; si te golpearon a ti, el otro te paga los daños. Si te vas antes, te busca la policía.
 - **Trancones:** los carros ya no se quedan trabados en los cruces; si se arma un trancón cerca, llega un agente de tránsito en su moto y da paso a los carros hasta despejarlo.
 - **Noche iluminada:** ventanas encendidas, postes de luz en todas las calles y el resplandor de la ciudad.
 - **Más encargos** por toda la ciudad: domicilios, carreras en taxi y en mototaxi, trasteos (en camión o camioneta) y piques (pasar por varios puntos de la ciudad contra el tiempo).

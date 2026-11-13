@@ -1092,9 +1092,21 @@ function crowdLook(sp){const ms=modelSpec(sp);const f=ms.model==='f';const C=c=>
 function makePed(kind,x,z,eager){const sp=archetype(kind);const p={sp,look:crowdLook(sp),ch:null,mesh:null,kind,x,z,ang:0,spd:kind==='palenquera'?rr(.8,1.1):kind==='tourist'?rr(.95,1.3):rr(1.1,1.5),from:-1,to:-1,side:1,stand:0,inScene:false,skin:false,vis:false};
   if(eager)pedBuild(p);return p}
 function pedBuild(p){if(p.ch)return;p.ch=buildCharacter(p.sp);p.mesh=p.ch.mesh;p.mesh.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=true})}
-function placePed(p,minD,maxD,hidden){for(let t=0;t<8;t++){const n=nodeNear(minD,maxD,hidden);if(n<0||CENTRO_SET.has(n))continue;const N=GRAPH.nodes[n];if(rand()>pedDens(N.x,N.z))continue;const adj=PADJ.get(n);const q=pick(adj);
+function placePed(p,minD,maxD,hidden){p.xing=null;p.flipAt=undefined;p.okN=-1;for(let t=0;t<8;t++){const n=nodeNear(minD,maxD,hidden);if(n<0||CENTRO_SET.has(n))continue;const N=GRAPH.nodes[n];if(rand()>pedDens(N.x,N.z))continue;const adj=PADJ.get(n);const q=pick(adj);
     p.from=n;p.to=q.to;p.side=rand()<.5?1:-1;p.w=RW[q.ty];const B=GRAPH.nodes[q.to];const L=dist2(N.x,N.z,B.x,B.z);p.s=rr(0,L);p.L=L;pedPos(p);p.yawS=p.ang;if(onLand(p.x,p.z)&&!solidAt(p.x,p.z))return true}p.from=-1;return false}
-function pedPos(p){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];const dx=(B.x-A.x)/(p.L||1),dz=(B.z-A.z)/(p.L||1);const o=p.side*(p.w/2+1.1);p.x=A.x+dx*p.s-dz*o;p.z=A.z+dz*p.s+dx*o;p.ang=Math.atan2(dx,dz)}
+function pedPos(p){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];const dx=(B.x-A.x)/(p.L||1),dz=(B.z-A.z)/(p.L||1);const X=p.xing;const o=(X?lerp(X.from,X.to,X.k):p.side)*(p.w/2+1.1);
+  p.x=A.x+dx*p.s-dz*o;p.z=A.z+dz*p.s+dx*o;p.ang=X&&!X.wait?Math.atan2(-dz*(X.to-X.from),dx*(X.to-X.from)):Math.atan2(dx,dz)}
+// pedestrians only cross at the zebra crossings of the junctions with traffic lights, and only when the light lets them:
+// returns 0 walking along the street, 1 crossing it (s does not advance), 2 waiting at the kerb
+function pedRule(p,dt){const X=p.xing;
+  if(X){if(X.wait){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];if(!EX.pedAcross(B.x-A.x,B.z-A.z))return 2;X.wait=false}
+    X.k+=p.spd*dt/X.len;if(X.k>=1){p.side=X.to;p.xing=null;return 0}return 1}
+  if(p.flipAt!==undefined&&p.s>=p.flipAt){p.s=p.flipAt;p.flipAt=undefined;p.xing={k:0,from:p.side,to:-p.side,len:p.w+2.2,wait:true};return 2}
+  const T=p.okN===p.to?null:EX.tlAt(p.to);
+  if(T&&p.s>=p.L-(T.w+.6)){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];if(!EX.pedAlong(B.x-A.x,B.z-A.z)){p.s=Math.max(p.s-p.spd*dt,p.L-(T.w+.6));return 2}p.okN=p.to}
+  return 0}
+// arrived at a node: at a junction with traffic lights, sometimes cross to the other sidewalk by its zebra crossing
+function pedTurn(p){p.okN=-1;p.flipAt=undefined;const T=EX.tlAt(p.from);if(T&&rand()<.3&&p.L>T.w+8)p.flipAt=T.w+1.3}
 // walkers (only the closest ones get a full skinned model, built on demand)
 const NPED=Math.max(QL.alta.peds,QL.media.peds,QL.baja.peds);
 for(let i=0;i<NPED;i++){const p=makePed('local',0,0);if(!placePed(p,12,Q.crowdD-10,false)){peds.push(p);continue}const k=zoneKind(p.x,p.z);
@@ -1102,7 +1114,7 @@ for(let i=0;i<NPED;i++){const p=makePed('local',0,0);if(!placePed(p,12,Q.crowdD-
 /* residents of the Centro (Centro Histórico, San Diego, Getsemaní): about 1000 people who always live and walk there,
    simulated everywhere and drawn when near (Q.res says how many exist at each quality level) */
 const RES=[],NRES=3000;
-function resPlace(p){for(let t=0;t<10;t++){const n=pick(CENTRO_NODES);const adj=(PADJ.get(n)||[]).filter(q=>CENTRO_SET.has(q.to));if(!adj.length)continue;const q=pick(adj);
+function resPlace(p){p.xing=null;p.flipAt=undefined;p.okN=-1;for(let t=0;t<10;t++){const n=pick(CENTRO_NODES);const adj=(PADJ.get(n)||[]).filter(q=>CENTRO_SET.has(q.to));if(!adj.length)continue;const q=pick(adj);
     p.from=n;p.to=q.to;p.side=rand()<.5?1:-1;p.w=RW[q.ty];const A=GRAPH.nodes[n],B=GRAPH.nodes[q.to];p.L=dist2(A.x,A.z,B.x,B.z);p.s=rr(0,p.L);pedPos(p);p.yawS=p.ang;if(onLand(p.x,p.z)&&!solidAt(p.x,p.z))return true}return false}
 if(CENTRO_NODES.length)for(let i=0;i<NRES;i++){const p=makePed('local',0,0);const k=(()=>{const r=rand();return r<.28?'tourist':r<.34?'palenquera':r<.41?'vendor':r<.46?'police':'local'})();
   const q=k==='local'?p:makePed(k,0,0);q.res=true;if(resPlace(q))RES.push(q)}
@@ -1156,7 +1168,8 @@ function updatePeds(dt){lodT-=dt;if(lodT<=0){lodT=.25;relod()}updatePeds.budget=
     if(p.kind==='police'&&(p.chasing||chaseCops&&d<38)){if(!chaseCops){p.chasing=false;p.from=-1;continue}p.chasing=true;
       const dx=player.x-p.x,dz=player.z-p.z;const run=d>1.3?5.2:0;if(run){const nx=p.x+dx/d*run*dt,nz=p.z+dz/d*run*dt;moveOnLand(p,nx,nz);collide(p,.35)}
       p.ang=angLerp(p.ang,Math.atan2(dx,dz),Math.min(1,dt*8));if(d<1.7&&!player.car)copFootNear=true;showPed(p,dt,run,'',d);continue}
-    p.s+=p.spd*dt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from);if(!opts.length)opts=adj;if(!opts.length){p.from=-1;continue}const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);if(rand()<.15)p.side=-p.side}
+    const rule=pedRule(p,dt);if(rule===2)speed=0;
+    if(rule===0){p.s+=p.spd*dt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from);if(!opts.length)opts=adj;if(!opts.length){p.from=-1;continue}const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);pedTurn(p)}}
     pedPos(p);const ang=p.ang;p.ang=p.yawS===undefined?ang:angLerp(p.yawS,ang,Math.min(1,dt*6));p.yawS=p.ang;
     showPed(p,dt,speed,p.kind==='vendor'?'cooler':p.kind==='palenquera'&&p.look.phase<3?'bowl':'',d)}
   // residents: all of them keep walking (far ones in cheap steps), only the near ones are drawn
@@ -1165,12 +1178,13 @@ function updatePeds(dt){lodT-=dt;if(lodT<=0){lodT=.25;relod()}updatePeds.budget=
     let d=Math.abs(p.x-player.x)+Math.abs(p.z-player.z);const near=d<Q.crowdD*1.42;
     if(!near&&(i&3)!==rStep){if(p.vis){p.vis=false;showPed(p,dt,0,'',999)}continue}const sdt=near?dt:dt*4;
     if(p.down>0){d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;showPed(p,dt,0,'',d);continue}
-    p.s+=p.spd*sdt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from&&CENTRO_SET.has(q.to));if(!opts.length)opts=adj.filter(q=>CENTRO_SET.has(q.to));if(!opts.length){resPlace(p);continue}
-      const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);if(rand()<.15)p.side=-p.side}
+    const rule=pedRule(p,sdt);
+    if(rule===0){p.s+=p.spd*sdt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from&&CENTRO_SET.has(q.to));if(!opts.length)opts=adj.filter(q=>CENTRO_SET.has(q.to));if(!opts.length){resPlace(p);continue}
+      const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);pedTurn(p)}}
     pedPos(p);if(!near){p.yawS=p.ang;if(p.vis){p.vis=false;showPed(p,dt,0,'',999)}continue}
     d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
     p.ang=angLerp(p.yawS===undefined?p.ang:p.yawS,p.ang,Math.min(1,dt*6));p.yawS=p.ang;
-    showPed(p,dt,p.spd,p.kind==='vendor'?'cooler':p.kind==='palenquera'&&p.look.phase<3?'bowl':'',d)}
+    showPed(p,dt,rule===2?0:p.spd,p.kind==='vendor'?'cooler':p.kind==='palenquera'&&p.look.phase<3?'bowl':'',d)}
   for(const p of STAY){const d=dist2(p.x,p.z,player.x,player.z);p.vis=!p.gone&&d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
     // face the player when close, like they are offering something
     if(d<9&&p.pose!=='talk'&&!p.noFace)p.ang=angLerp(p.ang,Math.atan2(player.x-p.x,player.z-p.z),Math.min(1,dt*3));
@@ -1217,12 +1231,27 @@ function laneOf(e,v){const k=v&&EDGE[v.type];return e.two?(e.ty<=2?3.2:1.9)+(k?k
 function edgeAround(r0,r1){const a=rand()*TAU,r=Math.sqrt(rr(r0*r0,r1*r1)),x=player.x+Math.sin(a)*r,z=player.z+Math.cos(a)*r;const l=EGR.get(Math.floor(x/EG)+','+Math.floor(z/EG));return l&&l.length?pick(l):-1}
 // near: 30–420 m from the player (start of the game), 'mid': 170–420 m (comes back just out of sight), otherwise 240–620 m
 function placeAI(v,near){const r0=near==='mid'?170:near?30:240,r1=near?420:620;for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(r0,r1);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
-    if(d<r0||d>r1)continue;v.e=ei;v.t=rr(0,e.len);v.pax=v.type==='mototaxi'&&!v.hail&&rand()<.7;v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
+    if(d<r0||d>r1)continue;v.pe=-1;v.e=ei;v.t=rr(0,e.len);v.pax=v.type==='mototaxi'&&!v.hail&&rand()<.7;v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
 // how far a car can pull over towards the kerb (to pick up or drop off a passenger)
 function pullRoom(e,v){return Math.max(0,RW[e.ty]/2-1.05-laneOf(e,v))}
-function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull=lerp(v.pull||0,v.pullT||0,Math.min(1,dt*1.4));v.dodge=lerp(v.dodge||0,v.dodgeT||0,Math.min(1,dt*1.3))}const ln=laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*2.7;const tx=A.x+e.dx*v.t-e.dz*ln,tz=A.z+e.dz*v.t+e.dx*ln;
-  if(dt>0&&dist2(tx,tz,v.x,v.z)<6){v.x=lerp(v.x,tx,Math.min(1,dt*6));v.z=lerp(v.z,tz,Math.min(1,dt*6))}else{v.x=tx;v.z=tz}
-  v.yaw=dt>0?angLerp(v.yaw,Math.atan2(e.dx,e.dz),Math.min(1,dt*6)):Math.atan2(e.dx,e.dz);syncCar(v)}
+function aiLane(e,v){return laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*2.7}
+// how far before and after a junction the turn is drawn as a curve (none when going straight or turning back)
+function turnR(pe,ne){const dot=pe.dx*ne.dx+pe.dz*ne.dz;if(dot>.985||dot<-.35)return 0;return Math.min(clamp(3+(1-dot)*5.5,3,10),pe.len*.45,ne.len*.45)}
+// position and heading on the curve that joins the lane of edge pe with the lane of edge ne (quadratic Bézier through the corner)
+function turnPt(v,pe,ne,R,s){const A=GRAPH.nodes[pe.a],B=GRAPH.nodes[ne.a],l1=aiLane(pe,v),l2=aiLane(ne,v);
+  const p0x=A.x+pe.dx*(pe.len-R)-pe.dz*l1,p0z=A.z+pe.dz*(pe.len-R)+pe.dx*l1,p2x=B.x+ne.dx*R-ne.dz*l2,p2z=B.z+ne.dz*R+ne.dx*l2;
+  // corner: where the two lane lines meet
+  const ex=A.x+pe.dx*pe.len-pe.dz*l1,ez=A.z+pe.dz*pe.len+pe.dx*l1,sx=B.x-ne.dz*l2,sz=B.z+ne.dx*l2;const den=pe.dx*ne.dz-pe.dz*ne.dx;
+  let cx=(ex+sx)/2,cz=(ez+sz)/2;if(Math.abs(den)>.05){const u=((sx-ex)*ne.dz-(sz-ez)*ne.dx)/den;if(Math.abs(u)<R*1.5){cx=ex+pe.dx*u;cz=ez+pe.dz*u}}
+  const a=(1-s)*(1-s),b=2*s*(1-s),c=s*s;const x=a*p0x+b*cx+c*p2x,z=a*p0z+b*cz+c*p2z;const tx=2*(1-s)*(cx-p0x)+2*s*(p2x-cx),tz=2*(1-s)*(cz-p0z)+2*s*(p2z-cz);
+  return{x,z,yaw:Math.atan2(tx,tz)}}
+function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull=lerp(v.pull||0,v.pullT||0,Math.min(1,dt*1.4));v.dodge=lerp(v.dodge||0,v.dodgeT||0,Math.min(1,dt*1.3))}const ln=aiLane(e,v);let tx=A.x+e.dx*v.t-e.dz*ln,tz=A.z+e.dz*v.t+e.dx*ln,ty=Math.atan2(e.dx,e.dz);
+  // turning: follow a curve through the junction instead of pivoting on the corner
+  {const pe=v.pe>=0?GRAPH.edges[v.pe]:null;let C=null;if(pe&&pe.b===e.a){const R=turnR(pe,e);if(R&&v.t<R)C=turnPt(v,pe,e,R,.5+v.t/(2*R))}
+    if(!C&&v.next>=0){const ne=GRAPH.edges[v.next];if(ne.a===e.b){const R=turnR(e,ne);if(R&&e.len-v.t<R)C=turnPt(v,e,ne,R,(v.t-(e.len-R))/(2*R))}}
+    if(C){tx=C.x;tz=C.z;ty=C.yaw}}
+  if(dt>0&&dist2(tx,tz,v.x,v.z)<6){v.x=lerp(v.x,tx,Math.min(1,dt*8));v.z=lerp(v.z,tz,Math.min(1,dt*8))}else{v.x=tx;v.z=tz}
+  v.yaw=dt>0?angLerp(v.yaw,ty,Math.min(1,dt*9)):ty;syncCar(v)}
 function chooseNext(v){if(v.route&&v.route.length)return v.route.shift();const e=GRAPH.edges[v.e],B=GRAPH.nodes[e.b];let outs=B.out.filter(o=>GRAPH.edges[o].b!==e.a);
   if(v.type==='coche'){const c=outs.filter(o=>{const n=GRAPH.nodes[GRAPH.edges[o].b];return inCentro(n.x,n.z)});if(c.length)outs=c}
   if(v.type==='bus'){const c=outs.filter(o=>GRAPH.edges[o].ty<=2);if(c.length)outs=c}
@@ -1254,10 +1283,16 @@ function lightAhead(v,e,left){let ee=e,dd=left,L=EX.tlAt(e.b);if(!L&&v.next>=0&&
 const VG=new Map(),VGC=24,VNB=[];
 function buildVG(){VG.clear();for(const o of vehicles){if(o.off)continue;const k=(Math.floor(o.x/VGC)+600)*4000+Math.floor(o.z/VGC)+600;let a=VG.get(k);if(!a){a=[];VG.set(k,a)}a.push(o)}}
 function nearV(x,z){VNB.length=0;const ci=Math.floor(x/VGC)+600,cj=Math.floor(z/VGC)+600;for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=VG.get(i*4000+j);if(a)for(const o of a)VNB.push(o)}return VNB}
+const JN=new Map();let simT=0;
 function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(v.next<0)v.next=chooseNext(v);
   let tgt=v.cruise;const left=e.len-v.t;
   if(v.next>=0){const n=GRAPH.edges[v.next];const dot=n.dx*e.dx+n.dz*e.dz;if(dot<.7&&left<18)tgt=Math.min(tgt,dot<0?3:5.5)}else if(left<10)tgt=Math.min(tgt,2);
+  // junctions without traffic lights: one street at a time (a short line of cars from the same street may follow), so cars never cross through each other
+  {const now=simT;if(v.jn>=0){const J=JN.get(v.jn);if(!J||J.vid!==v.vid)v.jn=-1;else if(v.e!==J.e&&v.t>7||now>J.until){JN.delete(v.jn);v.jn=-1}}
+    const nb=e.b;if(!(v.clearT>0)&&!v.ghost&&v.next>=0&&left<v.len/2+9&&v.jn!==nb&&(PADJ.get(nb)||[]).length>=3&&!EX.tlAt(nb)){const J=JN.get(nb);
+      if(!J||J.until<now||J.e===v.e&&J.cnt<3){if(v.jn>=0&&JN.get(v.jn)&&JN.get(v.jn).vid===v.vid)JN.delete(v.jn);JN.set(nb,{vid:v.vid,e:v.e,until:now+6,cnt:J&&J.e===v.e&&J.until>=now?J.cnt+1:1});v.jn=nb}
+      else tgt=Math.min(tgt,Math.max(0,(left-v.len/2-6)*.8))}}
   // red and yellow lights: stop at the line (a car already too close to stop on yellow goes through)
   {const L=lightAhead(v,e,left);if(L&&L.c!=='G'&&L.d>-.8&&L.d<60){if(L.c==='R'||v.tlStop||L.d>v.speed*.55){v.tlStop=true;tgt=Math.min(tgt,Math.max(0,L.d*.75))}}else v.tlStop=false}
   // a hailed taxi / buseta: pull over and stop where the passenger waits (or at the destination)
@@ -1284,7 +1319,7 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(!free)for(const p of peds){if(!p.vis)continue;const rx=p.x-v.x,rz=p.z-v.z;if(Math.abs(rx)>10||Math.abs(rz)>10)continue;const al=rx*sy+rz*cy;if(al>0&&al<8&&Math.abs(rx*cy-rz*sy)<1.8)tgt=Math.min(tgt,Math.max(0,al-3.5))}
   v.speed=lerp(v.speed,tgt,Math.min(1,dt*(tgt<v.speed?4:1.4)));
   v.t+=v.speed*dt;if(H&&H.stop&&!H.halt&&v.e===H.stop.e&&v.t>H.stop.t)v.t=H.stop.t;
-  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise}
+  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.pe=v.e;v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise}
   aiPos(v,dt)}
 // wheels, steering, suspension and level of detail for every visible vehicle
 function updateRigs(dt){const nd=Q.view>600?100:Q.view>450?75:60;const night=NIGHT.value>.5;
@@ -1362,7 +1397,7 @@ function hail(){if(!started||player.car||player.ride||EX.inside||EX.entering||EX
   const v=best.v;v.pax=false;Object.assign(SV,{v,state:'coming',t:0,dest:null});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;
   toast((v.type==='taxi'?'¡Taxiii!':v.type==='mototaxi'?'¡Mototaxi!':'¡Buseta!')+' Ya viene a recogerte',1900);horn()}
 function releaseService(){const v=SV.v;if(v){v.hail=null;v.route=null;v.pullT=0;v.next=-1;if(!v.ai&&v!==player.car){v.ai=true}}Object.assign(SV,{v:null,state:'',dest:null});svMark.visible=false}
-function onHailArrive(v){if(v.agent){TRA.arrived=true;return}if(v.hail&&v.hail.npc){if(!v.hail.boarding){v.hail.boarding=true;paxBoard(v)}return}if(v!==SV.v){v.hail=null;return}
+function onHailArrive(v){if(v.agent){if(v===CR.v)CR.arrived=true;else TRA.arrived=true;return}if(v.hail&&v.hail.npc){if(!v.hail.boarding){v.hail.boarding=true;paxBoard(v)}return}if(v!==SV.v){v.hail=null;return}
   if(SV.state==='coming'){SV.state='waiting';SV.t=0;horn();toast('¡Llegó tu '+SNAME(v)+'! Acércate y presiona '+(isTouch()?'Entrar':'F'),2200)}
   else if(SV.state==='riding')finishRide()}
 function boardService(){const v=SV.v;SV.state='boarding';v.hail.hold=true;v.speed=0;
@@ -1564,14 +1599,19 @@ function updateDriven(v,dt,inp){const thr=inp.iz,hb=inp.run,S=v.spec,top=S.top*(
   // climbing the Cerro slows you down
   const slope=(ground(v.x+Math.sin(v.yaw)*2,v.z+Math.cos(v.yaw)*2)-vehY(v))/2;v.speed-=slope*9*dt;
   v.speed=clamp(v.speed,-10,top);
-  const turn=inp.ix*S.turn*clamp(Math.abs(v.speed)/5,0,1)/(1+Math.abs(v.speed)/34)*(v.speed>=0?1:-1);v.yaw-=turn*dt;
-  const nx=v.x+Math.sin(v.yaw)*v.speed*dt,nz=v.z+Math.cos(v.yaw)*v.speed*dt;
+  const turn=inp.ix*S.turn*clamp(Math.abs(v.speed)/5,0,1)/(1+Math.abs(v.speed)/34)*(v.speed>=0?1:-1);const y0=v.yaw;v.yaw-=turn*dt;
+  // the car turns around its rear axle (the back follows the front, like a real car) instead of spinning on its centre
+  const ax=v.len*.28;const nx=v.x+Math.sin(v.yaw)*v.speed*dt+ax*(Math.sin(v.yaw)-Math.sin(y0)),nz=v.z+Math.cos(v.yaw)*v.speed*dt+ax*(Math.cos(v.yaw)-Math.cos(y0));
   const sp0=Math.abs(v.speed);
   if(!moveOnLand(v,nx,nz))v.speed*=.5;
   if(collide(v,v.r)){if(sp0>7)damage(v,(sp0-7)*2.4);v.speed*=.55}
-  for(const o of vehicles){if(o===v)continue;const dx=o.x-v.x,dz=o.z-v.z;if(Math.abs(dx)>14||Math.abs(dz)>14)continue;const d=Math.hypot(dx,dz),md=v.r+o.r;if(d<md&&d>.01){const p=(md-d)/2;o.x+=dx/d*p;o.z+=dz/d*p;v.x-=dx/d*p;v.z-=dz/d*p;
-    if(sp0>6&&!v.bump){damage(v,(sp0-6)*1.4);damage(o,(sp0-6)*1.4);if(v===player.car&&o.type==='police')crime(1,'¡Chocaste una patrulla!');if(v===player.car&&o.chase===undefined&&false){}}
-    v.bump=.3;v.speed*=.85;if(o.ai)o.speed*=.3}}
+  // other vehicles: collision with their real shape (oriented boxes), dents where they touch, and the crash procedure with a traffic officer
+  for(const o of vehicles){if(o===v||o.off)continue;const dx=o.x-v.x,dz=o.z-v.z;if(Math.abs(dx)>16||Math.abs(dz)>16)continue;const H=obbHit(v,o);if(!H)continue;
+    const mv=v.bus?3:v.rig.moto?.4:1,mo=o.bus?3:o.rig.moto?.4:1,ka=mo/(mv+mo);v.x-=H.nx*H.o*ka;v.z-=H.nz*H.o*ka;o.x+=H.nx*H.o*(1-ka);o.z+=H.nz*H.o*(1-ka);
+    const va=v.speed,vb=o.speed;const close=(Math.sin(v.yaw)*va-Math.sin(o.yaw)*vb)*H.nx+(Math.cos(v.yaw)*va-Math.cos(o.yaw)*vb)*H.nz;
+    if(close>2.2&&!v.bump){const amt=clamp(close*.03,.05,.32);dentVehicle(v,H.cx,H.cz,amt);dentVehicle(o,H.cx,H.cz,amt);if(close>5){damage(v,(close-5)*1.6);damage(o,(close-5)*1.6)}else crash(.06+close*.01);
+      if(v===player.car&&o.type==='police')crime(1,'¡Chocaste una patrulla!');else if(v===player.car&&close>3)crashStart(v,o,H)}
+    v.bump=.35;v.speed*=.6;if(o.ai)o.speed*=.2;else o.speed=0}
   if(v.bump)v.bump=Math.max(0,v.bump-dt);
   if(v===player.car)checkHits(v);
   syncCar(v);if(v===player.car){player.x=v.x;player.z=v.z}}
@@ -1886,6 +1926,85 @@ function updateTransito(dt){TRA.cd-=dt;
   else if(TRA.state==='back'){if(traWalk(v.x+Math.cos(v.yaw)*1.1,v.z-Math.sin(v.yaw)*1.1,dt)||TRA.t>25){scene.remove(ch.mesh);seatIn(ch,v);v.hail=null;v.route=null;v.pullT=0;v.next=-1;TRA.state='leave';TRA.t=0}}
   else if(TRA.state==='leave'){animate(ch,0,dt,'sit');if(TRA.t>35||dist2(v.x,v.z,player.x,player.z)>340){traReset();TRA.cd=25}return}
   if(TRA.state==='walk'||TRA.state==='direct'||TRA.state==='back'){ch.mesh.position.set(TRA.x,standY(TRA.x,TRA.z),TRA.z);ch.mesh.rotation.y=TRA.ang}}
+/* ---------- choques: forma real de los vehículos, abolladuras y el agente de tránsito que llega, escucha a los dos y pone la multa ---------- */
+function obbOf(v){const s=Math.sin(v.yaw),c=Math.cos(v.yaw);return{x:v.x,z:v.z,f:[s,c],r:[c,-s],hl:(v.rig.len||v.len)/2*.97,hw:(v.rig.wid||1.6)/2*.97}}
+// separating-axis test between two vehicles seen from above: penetration o along n (from a to b) and a contact point
+function obbHit(a,b){const A=obbOf(a),Bq=obbOf(b);const dx=Bq.x-A.x,dz=Bq.z-A.z;let best=1e9,nx=0,nz=0,ra0=0;
+  for(const ax of [A.f,A.r,Bq.f,Bq.r]){const dist=dx*ax[0]+dz*ax[1];const ra=A.hl*Math.abs(A.f[0]*ax[0]+A.f[1]*ax[1])+A.hw*Math.abs(A.r[0]*ax[0]+A.r[1]*ax[1]);
+    const rb=Bq.hl*Math.abs(Bq.f[0]*ax[0]+Bq.f[1]*ax[1])+Bq.hw*Math.abs(Bq.r[0]*ax[0]+Bq.r[1]*ax[1]);const o=ra+rb-Math.abs(dist);if(o<=0)return null;
+    if(o<best){best=o;const sg=dist<0?-1:1;nx=ax[0]*sg;nz=ax[1]*sg;ra0=ra}}
+  // contact: on a's surface along n, clamped to the overlapping stretch of the two boxes
+  const px=A.x+nx*(ra0-best/2),pz=A.z+nz*(ra0-best/2);const tx=-nz,tz=nx;const ta=(Bq.x-A.x)*tx+(Bq.z-A.z)*tz;const cx=px+tx*ta*.5,cz=pz+tz*ta*.5;
+  return{o:best,nx,nz,cx,cz}}
+// dents: the body panels near the hit are pushed in and scuffed (each damaged vehicle gets its own copy of the body)
+function dentVehicle(v,x,z,amt){const R=v.rig;if(!R.paint||R.moto)return;let g=R.paint.geometry;if(!R.dmg){g=g.clone();R.paint.geometry=g;R.dmg=0}R.dmg+=amt;
+  const c=Math.cos(v.yaw),sn=Math.sin(v.yaw),dx=x-v.x,dz=z-v.z;const lx=dx*c-dz*sn,lz=dx*sn+dz*c;const L=Math.hypot(lx,lz)||1,ix=-lx/L,iz=-lz/L;
+  const P=g.attributes.position,C=g.attributes.color;const rad=.75+amt*1.6;
+  for(let i=0;i<P.count;i++){const px=P.getX(i),py=P.getY(i),pz=P.getZ(i);const d=Math.hypot(px-lx,pz-lz);if(d>rad||py<.12)continue;const k=1-d/rad,h=.55+hash(i,7)*.7;
+    P.setXYZ(i,px+ix*amt*k*h,py-amt*k*.3*h,pz+iz*amt*k*h);if(C){const f=1-.5*k;C.setXYZ(i,C.getX(i)*f+.1*k,C.getY(i)*f+.1*k,C.getZ(i)*f+.1*k)}}
+  P.needsUpdate=true;if(C)C.needsUpdate=true;g.computeVertexNormals();
+  const hl=(R.len||v.len)/2;if(amt>.1&&lz>hl*.55&&R.headMesh)R.headMesh.visible=false;if(amt>.1&&lz<-hl*.55&&R.tailMesh)R.tailMesh.visible=false}
+const CR={state:'idle',o:null,v:null,ch:null,J:null,t:0,cd:0,lines:[],li:0,lt:0,fault:'',x:0,z:0,ang:0,arrived:false};
+const crEl=document.createElement('div');crEl.id='crashUI';crEl.innerHTML='<div class="who"></div><div class="say"></div><button>Continuar ▸</button>';document.body.appendChild(crEl);
+{const st=document.createElement('style');st.textContent=`#crashUI{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);width:min(520px,calc(100vw - 32px));box-sizing:border-box;background:rgba(23,19,15,.92);border:1px solid rgba(240,180,41,.55);border-radius:10px;padding:12px 14px 10px;color:#f5ead7;font:15px var(--body);z-index:25;display:none}
+#crashUI.on{display:block}#crashUI .who{font:700 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:#f0b429;margin-bottom:4px}#crashUI .say{line-height:1.35}#crashUI button{float:right;margin-top:8px;background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:7px 14px;font:700 13px var(--body);cursor:pointer}`;document.head.appendChild(st)}
+crEl.querySelector('button').addEventListener('click',()=>{CR.lt=99});
+function crSay(i){const L=CR.lines[i];if(!L){crEl.classList.remove('on');return}crEl.querySelector('.who').textContent=L[0];crEl.querySelector('.say').textContent=L[1];crEl.classList.add('on');if(L[2])L[2]()}
+// who hit whom: the vehicle whose front touched the other's back (rear-end) is to blame; otherwise the one that drove into the other
+function crashStart(p,o,H){if(CR.state!=='idle'||CR.cd>0||W>0||!o.ai||o.agent||o.chase||o.tc||o.hail||o===SV.v)return;
+  const A=obbOf(p),Bq=obbOf(o);const la=(H.cx-A.x)*A.f[0]+(H.cz-A.z)*A.f[1],lb=(H.cx-Bq.x)*Bq.f[0]+(H.cz-Bq.z)*Bq.f[1];
+  const pF=la>A.hl*.35,pR=la<-A.hl*.35,oF=lb>Bq.hl*.35,oR=lb<-Bq.hl*.35;let fault,rear=false;
+  if(pF&&oR){fault='p';rear=true}else if(oF&&pR){fault='o';rear=true}
+  else{const vp=(Math.sin(p.yaw)*H.nx+Math.cos(p.yaw)*H.nz)*p.speed,vo=-(Math.sin(o.yaw)*H.nx+Math.cos(o.yaw)*H.nz)*o.speed;fault=vp>=vo?'p':'o'}
+  o.hail={hold:true,crash:true};o.speed=0;o.route=null;Object.assign(CR,{state:'coming',o,t:0,J:{x:H.cx,z:H.cz},fault,rear,arrived:false,lines:[],li:0,lt:0});
+  if(!crSpawn(CR.J)){CR.v=null;const a=rand()*TAU;CR.x=CR.J.x+Math.sin(a)*22;CR.z=CR.J.z+Math.cos(a)*22;crChar();scene.add(CR.ch.mesh);CR.ch.mesh.visible=true;CR.state='walk';CR.t=0}
+  toast('¡Choque! Ya llamaron al agente de tránsito: espéralo aquí, no te vayas',2600)}
+function crChar(){if(!CR.ch){CR.ch=buildCharacter(archetype('transito'));CR.ch.mesh.visible=false}return CR.ch}
+function crSpawn(J){const ch=crChar();const st=curbEdge(J.x,J.z,70);if(!st)return false;
+  for(let k=0;k<10;k++){const ei=edgeNear(J.x,J.z,110,220);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];const v=newVehicle(A.x,A.z,0,'transito');v.ai=true;v.e=ei;v.t=e.len*.3;v.cruise=13;v.speed=6;v.next=-1;aiPos(v,0);
+    const r=routeFor(v,{ei:st.ei,t:st.t});if(!r||r.len>900){scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1);continue}
+    v.agent=true;v.ghost=true;v.hail={stop:{e:st.ei,t:st.t}};v.route=r.path;CR.v=v;ch.mesh.visible=true;seatIn(ch,v);return true}
+  return false}
+function crWalk(tx,tz,dt){const dx=tx-CR.x,dz=tz-CR.z,d=Math.hypot(dx,dz);if(d<.4){animate(CR.ch,0,dt,'');return true}const sp=1.8;CR.x+=dx/d*Math.min(d,sp*dt);CR.z+=dz/d*Math.min(d,sp*dt);CR.ang=angLerp(CR.ang,Math.atan2(dx,dz),Math.min(1,dt*8));animate(CR.ch,sp,dt,'');return false}
+function crReset(){const v=CR.v,o=CR.o;crEl.classList.remove('on');if(CR.ch){unseat(CR.ch);if(CR.ch.mesh.parent)CR.ch.mesh.parent.remove(CR.ch.mesh);CR.ch.mesh.visible=false}
+  if(v&&v!==player.car&&vehicles.includes(v)){scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}if(o&&o.hail&&o.hail.crash){o.hail=null;o.next=-1}
+  Object.assign(CR,{state:'idle',v:null,o:null,cd:20})}
+function crDialog(){const o=CR.o,nm=(VNAME[o.type]||'vehículo').toLowerCase(),art=/^(moto|buseta|chiva|camioneta|bicicleta)/.test(nm)?'la':'el',oth=art+' '+nm;const fine=600000,pay=250000,doth=(art==='el'?'del ':'de la ')+nm;
+  const A='Agente de tránsito',O='Conductor '+(art==='la'?'de la ':'del ')+nm,Y='Tú';const L=[[A,'Buenas. Agente de tránsito. A ver, ¿qué fue lo que pasó aquí?']];
+  if(CR.fault==='p'){L.push([O,CR.rear?'¡Agente, este señor me pegó por detrás! Yo iba tranquilo en mi carril.':'¡Agente, se me vino encima! Yo iba en lo mío.'],[Y,'Agente, eso fue de una, no alcancé a frenar…']);
+    L.push([A,CR.rear?'Revisé los dos vehículos: el golpe está atrás '+doth+' y adelante del suyo. Usted golpeó por detrás: no guardó la distancia.':'Revisé los dos vehículos: el golpe lo dio usted con la parte de adelante.']);
+    L.push([A,'El comparendo es para usted: '+fmt(fine)+'. Maneje con cuidado, ¿listo?',()=>{const paid=Math.min(money,fine);money-=paid;$('money').textContent=fmt(money);chime();toast('Pagaste el comparendo: '+fmt(paid)+(paid<fine?' (no te alcanzó para todo)':''),2400)}])}
+  else{L.push([Y,CR.rear?'¡Agente, '+oth+' me pegó por detrás!':'¡Agente, '+oth+' se me vino encima!'],[O,'Agente, es que frenó en seco…']);
+    L.push([A,CR.rear?'Revisé los dos vehículos: el golpe está adelante '+doth+' y atrás del suyo. El que golpeó por detrás fue '+oth+'.':'Revisé los dos vehículos: el golpe lo dio '+oth+' con la parte de adelante.']);
+    L.push([A,'El comparendo es para '+oth+', y le tiene que reconocer los daños a usted: '+fmt(pay)+'. Sigan con cuidado.',()=>{money+=pay;$('money').textContent=fmt(money);chime();if(player.car)player.car.hp=Math.min(100,player.car.hp+25);toast('Te pagaron los daños: +'+fmt(pay),2400)}])}
+  return L}
+function updateCrash(dt){if(CR.cd>0)CR.cd-=dt;if(CR.state==='idle')return;CR.t+=dt;const J=CR.J,ch=CR.ch;
+  // the other vehicle must still be there, and you must not run away
+  if(!vehicles.includes(CR.o)){crReset();return}
+  if(CR.state!=='back'&&CR.state!=='leave'&&dist2(player.x,player.z,J.x,J.z)>75){crReset();crime(1,'Te fuiste del lugar del choque: la policía te busca');return}
+  if(CR.state==='coming'){const v=CR.v;if(!v||!vehicles.includes(v)){crReset();return}animate(ch,0,dt,'sit');if(CR.t>70){crReset();return}
+    if(CR.arrived){unseat(ch);scene.add(ch.mesh);ch.mesh.visible=true;CR.x=v.x+Math.cos(v.yaw)*1.1;CR.z=v.z-Math.sin(v.yaw)*1.1;CR.ang=v.yaw;CR.state='walk';CR.t=0}else return}
+  if(CR.state==='walk'){const tx=(J.x+player.x)/2,tz=(J.z+player.z)/2;const ox=player.x-CR.o.x,oz=player.z-CR.o.z,ol=Math.hypot(ox,oz)||1;const gx=J.x-oz/ol*3.2,gz=J.z+ox/ol*3.2;
+    if(crWalk(gx,gz,dt)||CR.t>30){CR.state='talk';CR.lines=crDialog();CR.li=0;CR.lt=0;crSay(0)}}
+  else if(CR.state==='talk'){CR.lt+=dt;CR.ang=angLerp(CR.ang,Math.atan2(player.x-CR.x,player.z-CR.z),Math.min(1,dt*4));animate(ch,0,dt,'talk');
+    if(CR.lt>4.2){CR.lt=0;CR.li++;if(CR.li>=CR.lines.length){crEl.classList.remove('on');CR.state='back';CR.t=0;if(CR.o.hail&&CR.o.hail.crash){CR.o.hail=null;CR.o.next=-1}}else crSay(CR.li)}}
+  else if(CR.state==='back'){const v=CR.v;if(!v){if(crWalk(CR.x+30,CR.z,dt)||CR.t>12)crReset()}else if(crWalk(v.x+Math.cos(v.yaw)*1.1,v.z-Math.sin(v.yaw)*1.1,dt)||CR.t>25){scene.remove(ch.mesh);seatIn(ch,v);v.hail=null;v.route=null;v.pullT=0;v.next=-1;CR.state='leave';CR.t=0}}
+  else if(CR.state==='leave'){animate(ch,0,dt,'sit');if(CR.t>30||dist2(CR.v.x,CR.v.z,player.x,player.z)>320)crReset();return}
+  if(CR.state==='walk'||CR.state==='talk'||CR.state==='back'){ch.mesh.position.set(CR.x,standY(CR.x,CR.z),CR.z);ch.mesh.rotation.y=CR.ang}}
+
+/* ---------- agentes de tránsito de pie en los semáforos cercanos: uno por cruce, en la esquina, dirigiendo el tránsito ---------- */
+const TLA={list:[],t:0,corner:new Map()};
+function lightCorner(n,T){let c=TLA.corner.get(n);if(c)return c;let best=null,bs=1e9;
+  for(let k=0;k<16;k++){const a=k/16*TAU+.2;const r=T.w+2.3;const x=T.x+Math.sin(a)*r*1.25,z=T.z+Math.cos(a)*r*1.25;if(!onLand(x,z)||solidAt(x,z))continue;const q=nearestRoad(x,z,14,s=>!s.walk);if(!q)continue;const off=q.d-q.s.w/2;const sc=Math.abs(off-1.1);if(sc<bs){bs=sc;best=[x,z]}}
+  c=best||[T.x+T.w+2,T.z+T.w+2];TLA.corner.set(n,c);return c}
+function updateLightAgents(dt){const want=Q.patrol>=13?8:Q.patrol>=10?6:Q.patrol>=7?4:3;while(TLA.list.length<want){const ch=buildCharacter(archetype('transito'));ch.mesh.visible=false;TLA.list.push({ch,n:-1,ph:rand()*6})}
+  TLA.t-=dt;if(TLA.t<=0){TLA.t=.8;const near=[];for(const [n,T] of EX.tlNodes){const d=dist2(T.x,T.z,player.x,player.z);if(d<Q.crowdD+40)near.push([n,T,d])}near.sort((a,b)=>a[2]-b[2]);
+    // one officer per junction (the two carriageways of an avenue make several nodes close together)
+    const pick=[];for(const q of near){if(pick.length>=want)break;if(pick.some(p=>dist2(p[1].x,p[1].z,q[1].x,q[1].z)<34))continue;pick.push(q)}const keep=new Set(pick.map(q=>q[0]));
+    for(const a of TLA.list)if(a.n>=0&&!keep.has(a.n)){if(a.ch.mesh.parent)a.ch.mesh.parent.remove(a.ch.mesh);a.ch.mesh.visible=false;a.n=-1}
+    for(const q of pick){if(TLA.list.some(a=>a.n===q[0]))continue;const a=TLA.list.find(a=>a.n<0);if(!a)break;a.n=q[0];a.T=q[1];const c=lightCorner(q[0],q[1]);a.x=c[0];a.z=c[1];scene.add(a.ch.mesh);a.ch.mesh.visible=true}}
+  for(const a of TLA.list){if(a.n<0)continue;a.ph+=dt;const T=a.T;const base=Math.atan2(T.x-a.x,T.z-a.z);a.ch.mesh.position.set(a.x,standY(a.x,a.z),a.z);a.ch.mesh.rotation.y=base+Math.sin(a.ph*.35)*.5;
+    animate(a.ch,0,dt,'traffic')}}
 /* ---------- time of day: sun, sky dome, fog, stars, lit windows and street lamps ---------- */
 let gameH=10.3;const DAYRATE=24/(16*60);   // a full day lasts 16 real minutes
 const NIGHT={value:0};
@@ -1992,7 +2111,7 @@ function downPose(p,dt){p.down-=dt;const k=p.down>1?Math.min(1,(5-p.down)*5):Mat
 
 /* ---------- calle viva: locales, interiores, radio, postes, semáforos, grupos de gente ---------- */
 const NIGHTMATS=[];
-const EX=window.EXTRA({outer:(x,z)=>!(x>CD.OSMR[0]&&x<CD.OSMR[2]&&z>CD.OSMR[1]&&z<CD.OSMR[3]),THREE,scene,camera,renderer,player,PPL,buildCharacter,archetype,animate,ground,onLand,solidAt,inPoly,signedArea,nearestRoad,GRAPH,RW,MAP,LM,zoneName,inCentro,isBoca,
+const EX=window.EXTRA({outer:(x,z)=>!(x>CD.OSMR[0]&&x<CD.OSMR[2]&&z>CD.OSMR[1]&&z<CD.OSMR[3]),THREE,scene,camera,renderer,player,PPL,buildCharacter,archetype,animate,ground,onLand,solidAt,inPoly,signedArea,nearestRoad,GRAPH,RW,RLIFT,MAP,LM,zoneName,inCentro,isBoca,
   toast,fmt,chime,crash,tone,crime,policeNear,isTouch,rand,pick,rr,hash,dist2,clamp,lerp,angLerp,instChunks,place,tiles,TILE,ALLP,LOWEND,heroSpec:HERO_SPEC,nightMats:NIGHTMATS,
   get NIGHT(){return NIGHT},get Q(){return Q},standY,getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getAC:()=>AC,isMuted:()=>muted});
 EX.init();money=60000;$('money').textContent=fmt(money);
@@ -2018,7 +2137,7 @@ function adaptQuality(dt){ftAcc+=dt;ftN++;ftT+=dt;if(ftT<2.5)return;const avg=ft
 function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;const dt=Math.max(0,Math.min(.05,rawDt));last=now;frameNo++;syncLock();if(PAUSE.open||BIG.open){renderer.render(EX.inside?EX.IS:scene,camera);return}adaptQuality(Math.min(rawDt,.2));step(dt,now);
   {const r=camera.far*.92;skyDome.scale.set(-r,r,r);skyDome.position.copy(camera.position)}
   renderer.render(EX.inside?EX.IS:scene,camera)}
-function step(dt,now){
+function step(dt,now){simT+=dt;
   updateDay(started?dt:0);placeSun(player.x,player.z);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
   window.__water.offset.x+=dt*.004;window.__water.offset.y+=dt*.0025;
   if(started&&EX.inside){EX.updateInside(dt,EX.menu?{ix:0,iz:0,run:false}:readInput());updateDay(0);EX.update(dt,now/1000)}
@@ -2026,7 +2145,7 @@ function step(dt,now){
     if(player.car)updateDriven(player.car,dt,inp);else if(TC.board){}else if(EX.tween(dt)){}else if(player.ride){player.x=player.ride.x;player.z=player.ride.z}else updateFoot(dt,inp);EX.update(dt,now/1000);
     buildVG();let aiN=0,vi=0;for(const v of vehicles){vi++;if(v===player.car)continue;if(v.ai){if(!v.hail&&v.type!=='police'&&aiN++>=Q.cars){v.off=true;continue}v.off=false;
       if(!v.hail&&!v.chase&&Math.abs(v.x-player.x)+Math.abs(v.z-player.z)>360){if((vi+frameNo)%3)continue;updateAI(v,Math.min(.15,dt*3));continue}updateAI(v,dt)}else updateParked(v,dt)}
-    updateChunks(player.x,player.z,4);trafficUpkeep(dt);updateTransito(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
+    updateChunks(player.x,player.z,4);trafficUpkeep(dt);updateTransito(dt);updateCrash(dt);updateLightAgents(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
   else{orbit+=dt*.08;const gy=standY(player.x,player.z);player.mesh.position.set(player.x,gy,player.z);animate(player.ch,0,dt,'');camera.position.set(player.x+Math.sin(orbit)*60,gy+38,player.z+Math.cos(orbit)*60);camera.lookAt(player.x,gy+6,player.z);
     updateChunks(player.x,player.z,4);buildVG();for(const v of vehicles)if(v.ai)updateAI(v,dt);updatePeds(dt);hudT-=dt;if(hudT<=0){hudT=.5;updateTiles(player.x,player.z);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,player.x,player.z)<420}}
   for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<(v.tc?Q.vd*1.6:Q.vd);
@@ -2048,7 +2167,7 @@ $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
 {const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
   b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
-window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={TRA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>

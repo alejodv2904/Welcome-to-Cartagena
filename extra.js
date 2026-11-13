@@ -577,15 +577,21 @@ function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of
 
 const TL={mats:[],t:0};
 (function trafficLights(){const G=C.GRAPH;const deg=new Map();G.edges.forEach((e,i)=>{for(const n of [e.a,e.b]){let l=deg.get(n);if(!l){l=[];deg.set(n,l)}l.push(i)}});
-  const groups=[[],[]];const housing=[],poles=[];let count=0;TL.nodes=new Map();
-  for(const [n,list] of deg){if(count>700)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
+  const groups=[[],[]];const housing=[],poles=[];let count=0;TL.nodes=new Map();const zeb=new Map(),zseen=new Set();
+  for(const [n,list] of deg){if(count>3200)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
     // in the generated barrios only where avenues cross or an avenue meets a main street (not at every corner)
     if(C.outer&&C.outer(N.x,N.z)&&!list.some(i=>G.edges[i].ty===3)&&main.length<6)continue;
     let wInt=0;for(const i of list)wInt=Math.max(wInt,C.RW[G.edges[i].ty]/2);
     for(const i of list){const e=G.edges[i];const o=e.a===n?G.nodes[e.b]:G.nodes[e.a];let dx=o.x-N.x,dz=o.z-N.z;const L=Math.hypot(dx,dz);if(L<wInt+6)continue;dx/=L;dz/=L;
       const mx=-dx,mz=-dz;const rx=-mz,rz=mx;const w=C.RW[e.ty]/2;const x=N.x+dx*(wInt+1.5)+rx*(w+1.1),z=N.z+dz*(wInt+1.5)+rz*(w+1.1);if(!C.onLand(x,z)||C.solidAt(x,z))continue;
       const y=C.ground(x,z),yaw=Math.atan2(dx,dz);const grp=Math.abs(dx)>Math.abs(dz)?0:1;
-      poles.push({x,z,m:C.place(x,y,z,0,yaw,0)});groups[grp].push({x,z,y,yaw});count++;TL.nodes.set(n,{off:wInt+1.5})}}
+      poles.push({x,z,m:C.place(x,y,z,0,yaw,0)});groups[grp].push({x,z,y,yaw});count++;TL.nodes.set(n,{off:wInt+3.2,w:wInt,x:N.x,z:N.z});
+      // zebra crossing on this arm, where the sidewalks of the cross street meet it (cars stop behind it)
+      const ok=e.a===n?e.b:e.a;if(!zseen.has(n+'>'+ok)){zseen.add(n+'>'+ok);const W=Math.max(4,Math.round(C.RW[e.ty]));const zx=N.x+dx*(wInt+1.3),zz=N.z+dz*(wInt+1.3);
+        let a2=zeb.get(W);if(!a2){a2=[];zeb.set(W,a2)}a2.push({x:zx,z:zz,m:C.place(zx,C.ground(zx,zz)+C.RLIFT[e.ty]+.018,zz,0,yaw,0)})}}}
+  const zm=new THREE.MeshLambertMaterial({color:'#f2f0e8',polygonOffset:true,polygonOffsetFactor:-3});
+  for(const [W,items] of zeb){const P=[];const n=Math.max(3,Math.round(W/1.05));for(let k=0;k<n;k++){const x=-W/2+(k+.5)*W/n;const g=new THREE.PlaneGeometry(W/n*.52,2.6);g.rotateX(-Math.PI/2);g.translate(x,0,0);P.push(...g.toNonIndexed().attributes.position.array)}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();C.instChunks(g,zm,items,'lamp',false)}
   const pg=(function(){const parts=[new THREE.CylinderGeometry(.08,.1,4.2,6).translate(0,2.1,0),new THREE.BoxGeometry(.38,1.1,.3).translate(0,4.1,0)];const P=[];parts.forEach(g=>P.push(...g.toNonIndexed().attributes.position.array));
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();return g})();
   C.instChunks(pg,lm('#2a2c2e'),poles,'lamp',false);
@@ -595,6 +601,10 @@ const TL={mats:[],t:0};
 // the light a car approaching along edge e sees (same grouping as the poles: by the axis of the street)
 function tlAt(n){return TL.nodes.get(n)||null}
 function tlColor(e){const g=Math.abs(e.dx)>Math.abs(e.dz)?0:1;const t=(TL.t+g*12)%24;return t<10?'G':t<12?'Y':'R'}
+// pedestrians: walking along (dx,dz) they may cross the perpendicular street while their own direction has green (and time to cross);
+// crossing the street that runs along (dx,dz) only while its cars have red
+function pedAlong(dx,dz){const g=Math.abs(dx)>Math.abs(dz)?0:1;const t=(TL.t+g*12)%24;return t<7.5}
+function pedAcross(dx,dz){const g=Math.abs(dx)>Math.abs(dz)?0:1;const t=(TL.t+g*12)%24;return t>12.5&&t<20}
 function updateTL(dt){TL.t=(TL.t+dt)%24;const ph=g=>{const t=(TL.t+g*12)%24;return t<10?2:t<12?1:0};const dark=new THREE.Color(0x2a2a2a);
   for(const q of TL.mats){const on=ph(q.gi)===q.ci;q.m.color.copy(on?q.c:dark)}}
 
@@ -669,7 +679,7 @@ const API={
   get inside(){return inside},get shopDef(){return CUR.def},IS,SHOPS,seatZ,buildFacades,typeFor,TYPES,
   setSpec(spec){P.spec=Object.assign({},spec);rebuildPlayer();if(inside)IS.add(player.mesh)},
   init(){makeGroups()},
-  act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,
+  act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,pedAlong,pedAcross,get tlNodes(){return TL.nodes},
   updateInside,outPrompt,mini,
   update(dt,now){const nv=C.NIGHT.value;C.nightMats[0].emissive.setRGB(nv*.75,nv*.75,nv*.75);C.nightMats[1].emissive.setRGB(nv*.55,nv*.38,nv*.2);updateMarkers(dt,now);updateGroups(dt);updateTL(dt);updateDoors(dt);updateVictims(dt);radioUpdate(dt);hud()},
   get menu(){return !!menuOpen},
