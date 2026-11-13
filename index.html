@@ -61,6 +61,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 #rideUI h3{margin:0 0 4px;font:400 22px var(--display);color:#f0b429}#rideUI .sub{margin:0 0 10px;opacity:.8}#rideUI .items{display:flex;flex-direction:column;gap:6px}
 #rideUI .it{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:inherit;font:inherit;text-align:left;cursor:pointer}
 #rideUI .it:hover,#rideUI .it:focus{background:rgba(240,180,41,.18);outline:none}#rideUI .it b{color:#8ac926;white-space:nowrap}#rideUI .it small{display:block;opacity:.7;font-size:12px}#rideUI .it.no b{color:#e4572e}
+#rideUI .find{width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;border-radius:7px;border:1px solid rgba(240,180,41,.5);background:rgba(255,255,255,.08);color:#f5ead7;font:15px var(--body);outline:none}#rideUI .find:focus{border-color:#f0b429;background:rgba(255,255,255,.12)}#rideUI .find::placeholder{color:rgba(245,234,215,.55)}
+#rideUI .items{max-height:min(52vh,420px);overflow:auto;padding-right:2px}#rideUI .none{opacity:.75;padding:10px 4px}
 #rideUI .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px}#rideUI .close{background:#e4572e;color:#fff;border:0;border-radius:6px;padding:10px 20px;font:700 15px var(--body);cursor:pointer}
 #gpuInfo{font-size:12px;background:rgba(23,19,15,.6);padding:2px 6px;border-radius:4px;max-width:270px;text-align:right}#gpuInfo.bad{color:#ffb4a0}
 #go:active{transform:translateY(3px);box-shadow:0 1px 0 #8f2d14}
@@ -361,11 +363,12 @@ function densify(pts){const n=pts.length/2,P=[];for(let i=0;i<n-1;i++){const ax=
 function ribbonP(P,w,lift,mkey,col,off,uScale,joints){if(P.length<2)return;const h=w/2;off=off||0;const L=[],R=[],S=[0];
   for(let i=1;i<P.length;i++)S.push(S[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));
   for(let i=0;i<P.length;i++){const a=P[Math.max(0,i-1)],b=P[Math.min(P.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const nx=-dz,nz=dx;
-    const cx=P[i][0]+nx*off,cz=P[i][1]+nz*off,y=ground(P[i][0],P[i][1])+lift;L.push([cx+nx*h,y,cz+nz*h]);R.push([cx-nx*h,y,cz-nz*h])}
+    // each edge vertex takes the height of the terrain under it, so on the hill the road banks with the slope (cars sit on it, not inside it)
+    const cx=P[i][0]+nx*off,cz=P[i][1]+nz*off,lx=cx+nx*h,lz=cz+nz*h,qx=cx-nx*h,qz=cz-nz*h;L.push([lx,ground(lx,lz)+lift,lz]);R.push([qx,ground(qx,qz)+lift,qz])}
   for(let i=0;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);
     if(uScale)quad(b,L[i],L[i+1],R[i+1],R[i],[[0,S[i]/uScale],[0,S[i+1]/uScale],[w/uScale,S[i+1]/uScale],[w/uScale,S[i]/uScale]],col);
     else quadW(b,L[i],L[i+1],R[i+1],R[i],8,col)}
-  if(joints)for(let i=1;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);const y=ground(P[i][0],P[i][1])+lift;const c=[P[i][0],y,P[i][1]];for(let k=0;k<8;k++){const a0=k/8*TAU,a1=(k+1)/8*TAU;triW(b,c,[P[i][0]+Math.cos(a1)*h,y,P[i][1]+Math.sin(a1)*h],[P[i][0]+Math.cos(a0)*h,y,P[i][1]+Math.sin(a0)*h],8,col)}}}
+  if(joints)for(let i=1;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);const y=ground(P[i][0],P[i][1])+lift;const c=[P[i][0],y,P[i][1]];const gp=(x,z)=>[x,ground(x,z)+lift,z];for(let k=0;k<8;k++){const a0=k/8*TAU,a1=(k+1)/8*TAU;triW(b,c,gp(P[i][0]+Math.cos(a1)*h,P[i][1]+Math.sin(a1)*h),gp(P[i][0]+Math.cos(a0)*h,P[i][1]+Math.sin(a0)*h),8,col)}}}
 const GRAPH={nodes:[],edges:[],idx:new Map()};
 function gnode(x,z){const k=Math.round(x*10)+','+Math.round(z*10);let n=GRAPH.idx.get(k);if(n===undefined){n=GRAPH.nodes.length;GRAPH.nodes.push({x,z,out:[]});GRAPH.idx.set(k,n)}return n}
 function gedge(a,b,ty,two,name){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
@@ -862,12 +865,22 @@ function segStyle(s){if(s.walk||s.ty>5||s.ty<1&&!s.outerAv)return null;if(s.styl
   s.style=st;return st}
 const LOTC=new Map(),SHOPLOT=new Map();
 function lotsOf(s){let L=LOTC.get(s.rid);if(L)return L;const st=segStyle(s);L=st?CD.lotsFor(s,st,LOTH):[];
-  for(const l of L){const sh=SHOPLOT.get(s.rid+':'+l.side+':'+l.k);if(sh)l.shop=sh}if(LOTC.size>8000)LOTC.clear();LOTC.set(s.rid,L);return L}
+  for(const l of L){const sh=SHOPLOT.get(s.rid+':'+l.side+':'+l.k);if(sh){l.shop=sh;if(sh.home)homeLook(l)}}if(LOTC.size>8000)LOTC.clear();LOTC.set(s.rid,L);return L}
 // a shop on some of the blocks of every barrio (decided once, so the map can show them all)
 function pickShops(){const out=[];for(const s of ALLSEGS){const st=segStyle(s);if(!st)continue;const pr=(CD.STYLES[st].shop||.1)*.8;if(CD.hashI(s.rid,991)>pr)continue;const L=lotsOf(s);if(!L.length)continue;
     const l=L[Math.floor(CD.hashI(s.rid,992)*L.length)];if(l.ware)continue;const zn=zoneName(l.cx,l.cz);const type=EX.typeFor(zn),names=EX.TYPES[type].names,nm=names[Math.floor(CD.hashI(s.rid,993)*names.length)];
     const sh={x:l.fx,z:l.fz,wx:l.wx,wz:l.wz,nx:l.nx,nz:l.nz,len:l.lw,yaw:Math.atan2(l.nx,l.nz),gy:ground(l.wx,l.wz),type,name:nm,gen:true};l.shop=sh;SHOPLOT.set(s.rid+':'+l.side+':'+l.k,sh);out.push(sh)}
   return out}
+// the player's house: a lot on a street between Los Caracoles and El Carmelo, two floors, painted, with a gable roof and its name over the door
+const HOME_AT=[(CD.BARRIOS.find(b=>b[0]==='Los Caracoles')||[0,4980,3880])[1]/2+(CD.BARRIOS.find(b=>b[0]==='El Carmelo')||[0,5640,3880])[1]/2,
+  (CD.BARRIOS.find(b=>b[0]==='Los Caracoles')||[0,4980,3880])[2]/2+(CD.BARRIOS.find(b=>b[0]==='El Carmelo')||[0,5640,3880])[2]/2];
+function homeLook(l){l.col='#f7c873';l.floors=1;l.gable=true;l.tower=false;l.ware=false}
+function pickHome(){let best=null,bs=null,bd=1e9;
+  for(const s of ALLSEGS){if(!s.grid||s.walk)continue;if(dist2((s.ax+s.bx)/2,(s.az+s.bz)/2,HOME_AT[0],HOME_AT[1])>360)continue;
+    for(const l of lotsOf(s)){if(l.shop||l.ware||l.tower||l.lw<6.5||l.d<8)continue;const d=dist2(l.cx,l.cz,HOME_AT[0],HOME_AT[1]);if(d<bd){bd=d;best=l;bs=s}}}
+  if(!best)return null;const l=best;
+  const sh={x:l.fx,z:l.fz,wx:l.wx,wz:l.wz,nx:l.nx,nz:l.nz,len:l.lw,yaw:Math.atan2(l.nx,l.nz),gy:ground(l.wx,l.wz),type:'casa',name:'Mi casa',gen:true,home:true};
+  l.shop=sh;homeLook(l);SHOPLOT.set(bs.rid+':'+l.side+':'+l.k,sh);addLM('Mi casa',l.cx,l.cz,12,false,l.fx,l.fz);return sh}
 function addSolidProc(pts){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<pts.length;i+=2){x0=Math.min(x0,pts[i]);x1=Math.max(x1,pts[i]);z0=Math.min(z0,pts[i+1]);z1=Math.max(z1,pts[i+1])}
   const s={pts,x0,z0,x1,z1,proc:true,cells:[]};for(let i=Math.floor(x0/CELL);i<=Math.floor(x1/CELL);i++)for(let j=Math.floor(z0/CELL);j<=Math.floor(z1/CELL);j++){const k=skey(i,j);let a=sgrid.get(k);if(!a){a=[];sgrid.set(k,a)}a.push(s);s.cells.push(k)}return s}
 function removeSolid(s){for(const k of s.cells){const a=sgrid.get(k);if(!a)continue;const i=a.indexOf(s);if(i>=0)a.splice(i,1)}}
@@ -1184,10 +1197,16 @@ const VSPEC={car:{r:1.6,len:4.5,top:38,acc:16,turn:2.1,cruise:1},taxi:{r:1.6,len
 const carColors=['#f2efe6','#2b6cb0','#3a3a3a','#8a1c1c','#1f9aa6','#c0c0c0','#e4572e','#244a2e','#d9d9d9','#111'];
 let VID=0;function newVehicle(x,z,yaw,type,color){type=type||'car';const col=color||(type==='taxi'?'#f2c01e':type==='police'?'#b5e61d':type==='transito'?'#f4f4f2':type==='bus'?'#ffffff':type==='coche'?pick(['#1b1b1b','#f2efe6','#5a1a1a']):type==='buseta'?pick(['#f2efe6','#f0b429','#e4572e','#1f9aa6']):type==='camion'?pick(['#d32f2f','#1565c0','#f2efe6','#2e7d32','#f0b429']):type==='motocarro'?pick(['#2e7d32','#f0b429','#d32f2f','#1565c0']):type==='bici'?pick(['#d32f2f','#1565c0','#111','#2e7d32','#f28c28','#7b1fa2']):pick(carColors));
   const design=type==='police'?'motopol':type==='transito'?'mototra':type==='mototaxi'?'moto':type==='car'?pick(['car','car','hatch','hatch','suv']):type==='camion'?pick(['camion','estacas']):type==='camioneta'?pick(['pickup','pickup','suv']):type;const alt=type==='buseta'?[pick(['#e4572e','#1f9aa6','#f0b429','#2e7d32']),pick(['#d32f2f','#1565c0','#7b1fa2','#f57c00'])]:null;
-  const rig=VK.build(design,col,alt);if(rig.horse)addHorse(rig);scene.add(rig.root);const S=VSPEC[type];
+  const rig=VK.build(design,col,alt);rig.root.rotation.order='YXZ';if(rig.horse)addHorse(rig);scene.add(rig.root);const S=VSPEC[type];
   const v={vid:VID++,mesh:rig.root,rig,x,z,yaw,py:yaw,speed:0,ai:false,r:S.r,len:S.len,type,taxi:type==='taxi',bus:type==='bus'||type==='buseta'||type==='chiva'||type==='camion',hp:100,spec:S,col};vehicles.push(v);syncCar(v);return v}
 const vehY=v=>v.tc?ground(v.x,v.z)+RLIFT[0]+.03:v.ai&&v.e>=0&&GRAPH.edges[v.e]&&!v.chase?ground(v.x,v.z)+RLIFT[GRAPH.edges[v.e].ty]:standY(v.x,v.z);
-function syncCar(v){v.mesh.position.set(v.x,vehY(v),v.z);v.mesh.rotation.y=v.yaw}
+// on the hill the vehicle tilts with the ground: pitch from the wheels in front and behind, roll from both sides (motorcycles stay upright)
+function syncCar(v){let y=vehY(v),pitch=0,roll=0;
+  if(hillR(v.x,v.z)<1.3){const sn=Math.sin(v.yaw),cs=Math.cos(v.yaw),h=v.len*.4,w=Math.max(.3,(v.rig.wid||1.6)*.42);
+    const gC=ground(v.x,v.z),gF=ground(v.x+sn*h,v.z+cs*h),gB=ground(v.x-sn*h,v.z-cs*h);pitch=-Math.atan2(gF-gB,2*h);
+    if(!v.rig.moto){const gL=ground(v.x+cs*w,v.z-sn*w),gR=ground(v.x-cs*w,v.z+sn*w);roll=Math.atan2(gL-gR,2*w)}
+    y+=Math.max(0,(gF+gB)/2-gC)}
+  v.mesh.position.set(v.x,y,v.z);v.mesh.rotation.set(pitch,v.yaw,roll)}
 const CRUISE={0:15,1:13,2:12,3:10.5,4:8};
 const aiEdges=GRAPH.edges.map((e,i)=>i);
 const centroEdges=aiEdges.filter(i=>{const e=GRAPH.edges[i],A=GRAPH.nodes[e.a];return inCentro(A.x,A.z)});
@@ -1275,7 +1294,7 @@ function updateRigs(dt){const nd=Q.view>600?80:55;const night=NIGHT.value>.5;
 const _cz=new Map();function inCentroF(v){const k=(Math.round(v.x/60))+','+(Math.round(v.z/60));let r=_cz.get(k);if(r===undefined){r=inCentro(v.x,v.z);_cz.set(k,r)}return r}
 // drivers: a small pool of seated people moved into the nearest moving vehicles
 const DRV=[];
-function seatIn(ch,v,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;ch.mesh.position.set(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12)+(rear&&v.rig.moto?.04:0),rear?s.z-(v.rig.moto?.42:.95):s.z);ch.mesh.rotation.set(0,0,0);v.rig.body.add(ch.mesh);ch.mesh.visible=true}
+function seatIn(ch,v,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;ch.mesh.position.set(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12)+(rear&&v.rig.moto?.04:0),EX.seatZ(v,rear));ch.mesh.rotation.set(0,0,0);v.rig.body.add(ch.mesh);ch.mesh.visible=true}
 function unseat(ch){if(ch.mesh.parent)ch.mesh.parent.remove(ch.mesh);ch.mesh.visible=false}
 // every vehicle close to the player has someone at the wheel (police cars get an officer)
 for(let i=0;i<QL.alta.drivers+10;i++){const cop=i<10;const ch=buildCharacter(archetype(cop?'policeMoto':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop})}
@@ -1286,7 +1305,9 @@ function updateDrivers(dt){drvT-=dt;if(drvT<=0){drvT=.3;const pd=v=>(v.hail?-1e5
     // the police always ride in pairs on their motorcycles
     for(const v of cand){if(DRV.some(d=>d.v===v))continue;if(v.type==='police'){const ds=DRV.filter(d=>!d.v&&!d.busy&&d.cop).slice(0,2);if(ds.length<2)continue;ds[0].v=v;seatIn(ds[0].ch,v);ds[1].v=v;ds[1].rear=true;seatIn(ds[1].ch,v,true);continue}
       const d=DRV.find(d=>!d.v&&!d.busy&&!d.cop);if(!d)continue;d.v=v;seatIn(d.ch,v)}}
-  for(const d of DRV)if(d.v&&!d.busy&&d.ch.mesh.visible)animate(d.ch,0,dt,'sit')}
+  for(const d of DRV)if(d.v&&!d.busy&&d.ch.mesh.visible)animate(d.ch,0,dt,sitPose(d.v))}
+// cars: legs forward under the dashboard; motorcycles, buses, trucks and open vehicles: shins down
+const sitPose=v=>v&&!v.rig.moto&&!v.rig.open&&!v.bus&&v.type!=='coche'?'car':'sit';
 for(let i=0;i<330;i++)spawnAI(i<210);
 for(let i=0;i<4;i++)spawnAI(i<2,'coche');for(let i=0;i<2;i++)spawnAI(true,'chiva');
 // police patrols roam the city with the normal traffic
@@ -1306,6 +1327,20 @@ function findRoute(from,toE){const tgt=GRAPH.edges[toE].a;if(from===tgt)return[t
   const pop=()=>{const top=H[0],last=H.pop();if(H.length){H[0]=last;let i=0;for(;;){const l=i*2+1,r=l+1;let m=i;if(l<H.length&&H[l][0]<H[m][0])m=l;if(r<H.length&&H[r][0]<H[m][0])m=r;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m}}return top};
   while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(n===tgt)break;if(d>12000)return null;for(const ei of GRAPH.nodes[n].out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;prev[e.b]=ei;push([nd,e.b])}}}
   if(prev[tgt]<0)return null;const path=[toE];let n=tgt,guard=0;while(n!==from&&guard++<8000){const ei=prev[n];path.unshift(ei);n=GRAPH.edges[ei].a}return path}
+// drive cost from a node to every node of the street graph (same weights as findRoute)
+function driveCosts(from,lim){const NN=GRAPH.nodes.length;const dist=new Float64Array(NN).fill(Infinity);dist[from]=0;const H=[[0,from]];
+  const push=x=>{H.push(x);let i=H.length-1;while(i>0){const p=(i-1)>>1;if(H[p][0]<=H[i][0])break;[H[p],H[i]]=[H[i],H[p]];i=p}};
+  const pop=()=>{const top=H[0],last=H.pop();if(H.length){H[0]=last;let i=0;for(;;){const l=i*2+1,r=l+1;let m=i;if(l<H.length&&H[l][0]<H[m][0])m=l;if(r<H.length&&H[r][0]<H[m][0])m=r;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m}}return top};
+  while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(d>lim)break;for(const ei of GRAPH.nodes[n].out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;push([nd,e.b])}}}return dist}
+// where to drop the passenger near (x,z): of all the kerbs within reach, the one with the shortest drive plus a short walk
+// (the nearest kerb can be a street that is only reachable the long way round)
+function bestStop(v,x,z){const e0=GRAPH.edges[v.e];if(!e0)return null;const dist=driveCosts(e0.b,30000);let best=null,bs=1e18;
+  for(const R of [140,300]){const seen=new Set(),r=Math.ceil(R/EG),ci=Math.floor(x/EG),cj=Math.floor(z/EG);
+    for(let i=ci-r;i<=ci+r;i++)for(let j=cj-r;j<=cj+r;j++){const l=EGR.get(i+','+j);if(!l)continue;for(const ei of l){if(seen.has(ei))continue;seen.add(ei);const e=GRAPH.edges[ei];if(e.len<9)continue;const A=GRAPH.nodes[e.a];
+      const t=clamp((x-A.x)*e.dx+(z-A.z)*e.dz,6,e.len-3);const qx=A.x+e.dx*t,qz=A.z+e.dz*t;const d=dist2(x,z,qx,qz);if(d>R)continue;
+      const drive=ei===v.e&&t>v.t+4?t-v.t:dist[e.a]+t;if(!isFinite(drive))continue;const side=(x-qx)*-e.dz+(z-qz)*e.dx;const sc=drive+d*4+(side>0||!e.two?0:25);
+      if(sc<bs){bs=sc;best={ei,t,d,x:qx,z:qz}}}}if(best)break}
+  return best}
 function routeFor(v,stop){const e=GRAPH.edges[v.e];if(v.e===stop.ei&&v.t<stop.t-4)return{path:[],len:stop.t-v.t};const p=findRoute(e.b,stop.ei);if(!p)return null;let len=e.len-v.t+stop.t;for(let i=0;i<p.length-1;i++)len+=GRAPH.edges[p[i]].len;return{path:p,len}}
 const SV={v:null,state:'',t:0,dest:null,fare:0,d0:1};
 const svMark=(function(){const g=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0xffd23f,transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false,fog:false});
@@ -1328,25 +1363,35 @@ function onHailArrive(v){if(v.agent){TRA.arrived=true;return}if(v.hail&&v.hail.n
   else if(SV.state==='riding')finishRide()}
 function boardService(){const v=SV.v;SV.state='boarding';v.hail.hold=true;v.speed=0;
   EX.enterCar(v,()=>{player.ride=v;seatIn(player.ch,v,true);SV.state='menu';openRideMenu()},{rear:true})}
-// destinations: the current errand first, then landmarks and malls by distance
+// destinations: the current errand first, the player's house, then landmarks, malls and every barrio of the city by distance
+const normTxt=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function destList(){const out=[];const seen=new Set();
   if((M.stage===0||M.stage===1)&&M.from){const tg=M.stage===0?M.from:M.to;out.push({name:tg.name,x:tg.mx,z:tg.mz,tag:'Encargo'});seen.add(tg.name)}
-  const all=LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz})).concat(EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'})));
-  all.filter(l=>!seen.has(l.name)&&dist2(l.x,l.z,player.x,player.z)>140).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).forEach(l=>{if(out.length<40&&!seen.has(l.name)){seen.add(l.name);out.push(l)}});return out}
+  const H=EX.HOME;if(H&&dist2(H.x,H.z,player.x,player.z)>60){out.push({name:'Mi casa',x:H.x,z:H.z,tag:'Entre Los Caracoles y El Carmelo'});seen.add('Mi casa')}
+  const all=LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz,tag:'Sitio'})).concat(EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'})))
+    .concat(ZONES.filter(q=>!isWater(q[1],q[2])||nearestRoad(q[1],q[2],260)).map(q=>({name:q[0],x:q[1],z:q[2],tag:'Barrio'})));
+  all.filter(l=>!seen.has(l.name)&&dist2(l.x,l.z,player.x,player.z)>140).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).forEach(l=>{if(!seen.has(l.name)){seen.add(l.name);out.push(l)}});return out}
 // taxi and mototaxi charge by the distance of the trip (mototaxi is cheaper); busetas charge a flat fare
 function fareFor(v,d){const km=d*1.35/1000;return v.type==='buseta'?2800:v.type==='mototaxi'?Math.max(3000,Math.round((2000+km*1500)/500)*500):Math.max(6000,Math.round((4500+km*2600)/500)*500)}
-const rideEl=document.createElement('div');rideEl.id='rideUI';rideEl.innerHTML='<div class="sbox"><h3></h3><p class="sub"></p><div class="items"></div><div class="foot"><span class="bal"></span><button class="close">Bajarme aquí</button></div></div>';document.body.appendChild(rideEl);
+const rideEl=document.createElement('div');rideEl.id='rideUI';rideEl.innerHTML='<div class="sbox"><h3></h3><p class="sub"></p><input class="find" type="search" placeholder="Busca un barrio o un lugar…" autocomplete="off" spellcheck="false"><div class="items"></div><div class="foot"><span class="bal"></span><button class="close">Bajarme aquí</button></div></div>';document.body.appendChild(rideEl);
 rideEl.querySelector('.close').addEventListener('click',()=>{closeRideMenu();if(player.ride)finishRide(true)});
-let rideOpts=[];
+let rideOpts=[],rideShown=[];
+const rideFind=rideEl.querySelector('.find');
+// typing in the search box must not drive the player, open the map or pick a numbered destination
+for(const ev of ['keydown','keyup'])rideFind.addEventListener(ev,e=>{e.stopPropagation();if(ev==='keydown'){if(e.code==='Enter'){e.preventDefault();if(rideShown.length)pickDest(0)}else if(e.code==='Escape'){if(rideFind.value){rideFind.value='';renderRide()}else{closeRideMenu();if(player.ride)finishRide(true)}}}});
+rideFind.addEventListener('input',()=>renderRide());
 function openRideMenu(){const v=SV.v;rideOpts=destList();rideEl.querySelector('h3').textContent=v.type==='taxi'?'¿Para dónde vamos?':v.type==='mototaxi'?'Mototaxi · ¿pa\u2019 dónde, mi llave?':'Buseta · ¿dónde se baja?';
-  rideEl.querySelector('.sub').textContent=v.type==='taxi'?'El taxímetro cobra por distancia.':v.type==='mototaxi'?'Cobra por distancia, más barato que el taxi.':'Pasaje único: '+fmt(2800);const box=rideEl.querySelector('.items');box.innerHTML='';
-  rideOpts.forEach((o,i)=>{const d=dist2(o.x,o.z,player.x,player.z),f=fareFor(v,d);const b=document.createElement('button');b.className='it'+(money<f?' no':'');
-    b.innerHTML=`<span>${i<9?(i+1)+'. ':''}${o.name}<small>${o.tag?o.tag+' · ':''}${(d/1000).toFixed(1)} km</small></span><b>${fmt(f)}</b>`;b.addEventListener('click',()=>pickDest(i));box.appendChild(b)});
-  rideEl.querySelector('.bal').textContent='Tienes '+fmt(money);rideEl.classList.add('on')}
-function closeRideMenu(){rideEl.classList.remove('on')}
+  rideEl.querySelector('.sub').textContent=(v.type==='taxi'?'El taxímetro cobra por distancia.':v.type==='mototaxi'?'Cobra por distancia, más barato que el taxi.':'Pasaje único: '+fmt(2800))+' Escribe el barrio para buscarlo.';
+  rideFind.value='';renderRide();rideEl.querySelector('.bal').textContent='Tienes '+fmt(money);rideEl.classList.add('on');if(!isTouch())setTimeout(()=>rideFind.focus(),30)}
+function renderRide(){const v=SV.v;if(!v)return;const q=normTxt(rideFind.value.trim());const box=rideEl.querySelector('.items');box.innerHTML='';
+  rideShown=q?rideOpts.filter(o=>normTxt(o.name).includes(q)||(o.tag&&normTxt(o.tag).includes(q))).sort((a,b)=>(normTxt(a.name).startsWith(q)?0:1)-(normTxt(b.name).startsWith(q)?0:1)):rideOpts;
+  if(!rideShown.length){const p=document.createElement('div');p.className='none';p.textContent='No encontré "'+rideFind.value.trim()+'". Prueba con otro nombre.';box.appendChild(p);return}
+  rideShown.forEach((o,i)=>{const d=dist2(o.x,o.z,player.x,player.z),f=fareFor(v,d);const b=document.createElement('button');b.className='it'+(money<f?' no':'');
+    b.innerHTML=`<span>${i<9?(i+1)+'. ':''}${o.name}<small>${o.tag?o.tag+' · ':''}${(d/1000).toFixed(1)} km</small></span><b>${fmt(f)}</b>`;b.addEventListener('click',()=>pickDest(i));box.appendChild(b)})}
+function closeRideMenu(){rideEl.classList.remove('on');if(document.activeElement===rideFind)rideFind.blur()}
 const rideOpen=()=>rideEl.classList.contains('on');
-function pickDest(i){const o=rideOpts[i],v=SV.v;if(!o||!v)return;const f=fareFor(v,dist2(o.x,o.z,player.x,player.z));if(money<f){toast('No te alcanza la plata',1400);return}
-  const st=curbEdge(o.x,o.z,90)||curbEdge(o.x,o.z,260);closeRideMenu();if(!st){toast('El conductor no sabe llegar allá',1600);finishRide(true);return}
+function pickDest(i){const o=rideShown[i],v=SV.v;if(!o||!v)return;const f=fareFor(v,dist2(o.x,o.z,player.x,player.z));if(money<f){toast('No te alcanza la plata',1400);return}
+  const st=bestStop(v,o.x,o.z)||curbEdge(o.x,o.z,90)||curbEdge(o.x,o.z,260);closeRideMenu();if(!st){toast('El conductor no sabe llegar allá',1600);finishRide(true);return}
   const r=routeFor(v,st);Object.assign(SV,{dest:o,fare:f,state:'riding',stop:st,d0:Math.max(1,dist2(o.x,o.z,v.x,v.z))});
   v.hail={stop:{e:st.ei,t:st.t}};v.next=-1;v.pullT=0;v.tlStop=false;
   if(r){v.route=r.path;toast((v.type==='taxi'?'Taxi':v.type==='mototaxi'?'Mototaxi':'Buseta')+' a '+o.name,1600)}else{v.route=[];skipRide()}}
@@ -1386,6 +1431,10 @@ const keys={};let stick={x:0,y:0},runHeld=false,lastDrag=0,started=false;
 const gameKeys=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','KeyF','KeyH','KeyQ','KeyE','Space','KeyT'];
 window.addEventListener('keydown',e=>{if(gameKeys.includes(e.code))e.preventDefault();if(e.repeat)return;keys[e.code]=true;if(!started)return;if(e.code==='KeyF'||(e.code==='Enter'))act();if(e.code==='KeyH')horn();if(e.code==='KeyT')hail();if(e.code==='Space'&&!player.car&&!player.ride)EX.jump();if(e.code==='KeyG')EX.punch();if(e.code==='KeyR')EX.radioNext()});
 window.addEventListener('keyup',e=>{keys[e.code]=false});
+// truco: escribir DINERO con el teclado suma $ 1.000.000 cada vez
+let cheatBuf='';window.addEventListener('keydown',e=>{const tg=e.target;if(!started||tg&&(tg.tagName==='INPUT'||tg.tagName==='TEXTAREA'))return;
+  if(!e.key||e.key.length!==1){return}if(!/[a-zñ]/i.test(e.key)){cheatBuf='';return}cheatBuf=(cheatBuf+e.key.toUpperCase()).slice(-6);
+  if(cheatBuf==='DINERO'){cheatBuf='';money+=1000000;$('money').textContent=fmt(money);chime();toast('¡Truco! +'+fmt(1000000)+' · tienes '+fmt(money),2200)}});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 if(window.matchMedia('(pointer:coarse)').matches||'ontouchstart' in window)document.documentElement.classList.add('is-touch');
 const cvs=$('gl');let drag=null;
@@ -1570,7 +1619,7 @@ function updateMission(dt){updateOffers(dt);
   const s=1+Math.sin(performance.now()/260)*.12;bRing.scale.set(s,s,s);
   if(M.stage===1){M.t+=dt;const left=Math.max(0,M.limit-M.t);$('mTime').textContent=Math.floor(left/60)+':'+String(Math.floor(left%60)).padStart(2,'0');
     if(left<=0){M.stage=2;M.wait=3;toast(M.type==='fare'?'El pasajero se bajó molesto':'Se acabó el tiempo',2200);renderMission();return}}
-  if(M.pax&&M.pax.riding)animate(M.pax,0,dt,'sit');if(M.pax&&M.stage===0){const p=M.pax.mesh;p.rotation.y=Math.atan2(player.x-M.from.mx,player.z-M.from.mz);animate(M.pax,0,dt,'wave')}
+  if(M.pax&&M.pax.riding)animate(M.pax,0,dt,sitPose(player.car));if(M.pax&&M.stage===0){const p=M.pax.mesh;p.rotation.y=Math.atan2(player.x-M.from.mx,player.z-M.from.mz);animate(M.pax,0,dt,'wave')}
   M.nag-=dt;const fare=M.type==='fare'||M.type==='moto';const rq=OREQ[M.type];const near=dist2(player.x,player.z,tg.mx,tg.mz)<(fare||M.type==='pique'?14:10);
   if(near&&M.stage===1&&M.type==='pique'){if(!player.car){if(M.nag<=0){toast('Súbete a un vehículo para seguir el pique',1600);M.nag=4}return}
     if(M.pi<M.pts.length-1){M.pi++;M.to=M.pts[M.pi];tone(880,.12,'square',.08);toast('¡Punto '+M.pi+'! Sigue al '+(M.pi+1),1300);renderMission();return}}
@@ -1631,7 +1680,7 @@ const WPX=8,mapW=document.createElement('canvas');mapW.width=Math.ceil((WB[2]-WB
   g.strokeStyle='#fff6d8';g.lineWidth=20;g.beginPath();for(const r of GEN.roads){const p=r[5];g.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)g.lineTo(p[i],p[i+1])}g.stroke();
   g.restore()})();
 /* ---------- símbolos del mapa: tiendas, paraderos, Transcaribe, CAI, salud, gasolineras… ---------- */
-const ICONDEF={tienda:{c:'#f0b429',t:'T',f:'#3b1d0a'},fritos:{c:'#e4572e',t:'F'},restaurante:{c:'#2e7d32',t:'R'},heladeria:{c:'#f48fb1',t:'H',f:'#3b0a24'},panaderia:{c:'#a0522d',t:'P'},drogueria:{c:'#1565c0',t:'+'},
+const ICONDEF={casa:{c:'#1f9aa6',g:'house'},tienda:{c:'#f0b429',t:'T',f:'#3b1d0a'},fritos:{c:'#e4572e',t:'F'},restaurante:{c:'#2e7d32',t:'R'},heladeria:{c:'#f48fb1',t:'H',f:'#3b0a24'},panaderia:{c:'#a0522d',t:'P'},drogueria:{c:'#1565c0',t:'+'},
   ropa:{c:'#7b1fa2',t:'M'},recuerdos:{c:'#1f9aa6',t:'A'},joyeria:{c:'#0b5d3b',t:'J',f:'#f6e7a8'},mall:{c:'#f0b429',t:'CC',sq:1,f:'#17130f'},stop:{c:'#1f6fb2',g:'bus',sq:1},tc:{c:'#1f9aa6',t:'TC',sq:1},
   cai:{c:'#0f6b33',t:'CAI',sq:1},hospital:{c:'#ffffff',g:'cross',sq:1},salud:{c:'#ffffff',g:'cross',sq:1},gas:{c:'#d32f2f',g:'pump',sq:1},airport:{c:'#1f5fa8',g:'plane'},terminal:{c:'#7b1fa2',g:'bus',sq:1},
   stadium:{c:'#2e7d32',g:'ball'},uni:{c:'#7a1c1c',t:'U',sq:1},church:{c:'#8d6e63',g:'church'},park:{c:'#43a047',g:'tree'},beach:{c:'#f4c26b',g:'umbrella'},market:{c:'#e4572e',t:'Mdo',sq:1},star:{c:'#f0b429',g:'star'},
@@ -1642,6 +1691,7 @@ function iconCanvas(k){if(ICONC[k])return ICONC[k];const D=ICONDEF[k]||ICONDEF.s
   const fg=D.f||'#ffffff';g.fillStyle=fg;g.strokeStyle=fg;g.lineWidth=3;
   if(D.t){g.font=`900 ${D.t.length>2?17:D.t.length>1?21:28}px Arial,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(D.t,S/2,S/2+1)}
   else if(D.g==='bus'){g.fillRect(12,11,24,22);g.fillStyle=D.c;g.fillRect(15,14,18,8);g.fillStyle=fg;g.beginPath();g.arc(17,35,3.5,0,TAU);g.arc(31,35,3.5,0,TAU);g.fill()}
+  else if(D.g==='house'){g.beginPath();g.moveTo(S/2,9);g.lineTo(39,24);g.lineTo(9,24);g.closePath();g.fill();g.fillRect(14,23,20,15);g.fillStyle=D.c;g.fillRect(21,29,6,9)}
   else if(D.g==='cross'){g.fillStyle='#e01e1e';g.fillRect(19,9,10,30);g.fillRect(9,19,30,10)}
   else if(D.g==='pump'){g.fillRect(13,11,15,27);g.fillStyle=D.c;g.fillRect(16,14,9,7);g.strokeStyle=fg;g.beginPath();g.moveTo(28,16);g.lineTo(34,20);g.lineTo(34,32);g.stroke()}
   else if(D.g==='plane'){g.save();g.translate(S/2,S/2);g.rotate(-Math.PI/4);g.beginPath();g.ellipse(0,0,3.5,15,0,0,TAU);g.fill();g.fillRect(-13,-3,26,6);g.fillRect(-6,10,12,4);g.restore()}
@@ -1652,7 +1702,7 @@ function iconCanvas(k){if(ICONC[k])return ICONC[k];const D=ICONDEF[k]||ICONDEF.s
   else if(D.g==='star'){g.beginPath();for(let i=0;i<10;i++){const a=i/10*TAU-Math.PI/2,r=i%2?7:16;g.lineTo(S/2+Math.cos(a)*r,S/2+1+Math.sin(a)*r)}g.closePath();g.fill()}
   else if(D.g==='flag'){g.fillRect(15,9,3,30);g.beginPath();g.moveTo(18,10);g.lineTo(35,16);g.lineTo(18,23);g.fill()}
   ICONC[k]=c;return c}
-const ICAT=[['shop','Tiendas y locales',['tienda','fritos','restaurante','heladeria','panaderia','drogueria','ropa','recuerdos','joyeria'],.45],['mall','Centros comerciales',['mall'],0],['stop','Paraderos de bus',['stop'],.16],['tc','Transcaribe',['tc'],0],
+const ICAT=[['home','Mi casa',['casa'],0],['shop','Tiendas y locales',['tienda','fritos','restaurante','heladeria','panaderia','drogueria','ropa','recuerdos','joyeria'],.45],['mall','Centros comerciales',['mall'],0],['stop','Paraderos de bus',['stop'],.16],['tc','Transcaribe',['tc'],0],
   ['cai','Policía (CAI)',['cai'],0],['salud','Hospitales y salud',['hospital','salud'],0],['gas','Gasolineras',['gas'],0],['transp','Aeropuerto y terminal',['airport','terminal'],0],['church','Iglesias',['church'],0],
   ['park','Parques, playas y estadio',['park','beach','stadium','uni','market'],0],['star','Sitios turísticos',['star'],0],['mis','Encargos',['deliv','fare','moto','trasteo','pique','dest'],0]];
 const ICAT_OF={};for(const c of ICAT)for(const k of c[2])ICAT_OF[k]=c[0];
@@ -1941,8 +1991,11 @@ const EX=window.EXTRA({outer:(x,z)=>!(x>CD.OSMR[0]&&x<CD.OSMR[2]&&z>CD.OSMR[1]&&
   toast,fmt,chime,crash,tone,crime,policeNear,isTouch,rand,pick,rr,hash,dist2,clamp,lerp,angLerp,instChunks,place,tiles,TILE,ALLP,LOWEND,heroSpec:HERO_SPEC,nightMats:NIGHTMATS,
   get NIGHT(){return NIGHT},get Q(){return Q},standY,getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getAC:()=>AC,isMuted:()=>muted});
 EX.init();money=60000;$('money').textContent=fmt(money);
+// la casa: dormir hasta las 6:00 o una siesta de 2 horas (energía llena) y guardar la partida
+EX.onHome=k=>{if(k==='save'){saveGame();toast('Partida guardada en tu casa',1800);return}const sleep=k==='sleep';
+  EX.fade(sleep?'Durmiendo… zzz':'Echando una siesta…',()=>{gameH=sleep?6:(gameH+2)%24;EX.P.en=EX.P.max;updateDay(0)});setTimeout(()=>toast(sleep?'¡Buenos días! Dormiste hasta las 6:00 y tienes toda la energía':'Qué buena siesta: tienes toda la energía',2400),900)};
 // shops of the generated barrios and the big malls, then the blocks around the starting point
-{const t0=performance.now();const gs=pickShops();for(const s of gs.concat(MALL_SHOPS))EX.SHOPS.push(s);if(MALL_SHOPS.length)for(const m of EX.buildFacades(MALL_SHOPS))scene.add(m);
+{const t0=performance.now();const gs=pickShops();{const home=pickHome();if(home){gs.push(home);EX.HOME=home}else console.warn('sin lote para la casa')}for(const s of gs.concat(MALL_SHOPS))EX.SHOPS.push(s);if(MALL_SHOPS.length)for(const m of EX.buildFacades(MALL_SHOPS))scene.add(m);
   buildIcons();updateChunks(player.x,player.z,1e9);console.log('ciudad: '+gs.length+' locales, '+CHK.size+' bloques en '+Math.round(performance.now()-t0)+' ms')}
 /* ---------- main loop ---------- */
 let last=performance.now(),orbit=0;
@@ -1972,7 +2025,7 @@ function step(dt,now){
   else{orbit+=dt*.08;const gy=standY(player.x,player.z);player.mesh.position.set(player.x,gy,player.z);animate(player.ch,0,dt,'');camera.position.set(player.x+Math.sin(orbit)*60,gy+38,player.z+Math.cos(orbit)*60);camera.lookAt(player.x,gy+6,player.z);
     updateChunks(player.x,player.z,4);buildVG();for(const v of vehicles)if(v.ai)updateAI(v,dt);updatePeds(dt);hudT-=dt;if(hudT<=0){hudT=.5;updateTiles(player.x,player.z);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,player.x,player.z)<420}}
   for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<(v.tc?Q.vd*1.6:Q.vd);
-  updateRigs(dt);updateDrivers(dt);if(player.car||player.ride)animate(player.ch,0,dt,'sit');
+  updateRigs(dt);updateDrivers(dt);if(player.car||player.ride)animate(player.ch,0,dt,sitPose(player.car||player.ride));
   const co=window.__camOverride;if(co){camera.position.set(co[0],co[1],co[2]);camera.lookAt(co[3],co[4],co[5]);updateTiles(co[3],co[5]);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,co[3],co[5])<500}
   updateCarLights();if(player.car){const h=player.car.hp;hpEl.style.width=h+'%';hpEl.style.background=h>55?'#8ac926':h>25?'#f0b429':'#e4572e'}
 }

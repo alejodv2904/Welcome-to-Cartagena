@@ -24,7 +24,8 @@ const BARRIOS=[
   ['Fredonia',8350,1050,38000,'popular',700],['El Pozón',9900,1500,95000,'popular',1050],['Chiquinquirá',4250,1150,15000,'popular',460],['Zaragocilla',5150,1450,20000,'medio',520],
   ['España',3900,1800,14000,'medio',460],['María Auxiliadora',4650,2050,15000,'medio',460],['Los Ejecutivos',5100,2650,9000,'alto',460],['La Castellana',5850,2950,12000,'medio',520],
   ['Los Alpes',6500,2050,16000,'medio',520],['Las Gaviotas',7400,2300,28000,'medio',620],['Villa Olímpica',8300,2300,10000,'medio',520],['San José de los Campanos',9900,3700,38000,'popular',850],
-  ['Blas de Lezo',3950,3800,30000,'popular',620],['Los Corales',4700,3350,18000,'medio',520],['San Fernando',5300,4600,28000,'popular',620],['El Socorro',6150,4200,32000,'popular',580],
+  ['Blas de Lezo',3950,3800,30000,'popular',620],['Los Corales',4700,3350,14000,'medio',480],['San Fernando',5300,4600,24000,'popular',600],['El Socorro',6150,4200,28000,'popular',560],
+  ['Los Caracoles',4980,3880,14000,'popular',420],['El Carmelo',5640,3880,13000,'popular',420],
   ['Ternera',7300,3900,26000,'popular',650],['La Consolata',8600,4500,24000,'popular',650],['Santa Lucía',6500,5300,30000,'popular',620],['Villa Estrella',9300,5700,26000,'popular',720],
   ['Ceballos',4750,5850,14000,'popular',520],['Albornoz',4600,6900,9000,'industrial',650],['Henequén',6200,6500,22000,'popular',620],['Nelson Mandela',7700,6700,65000,'popular',1000],
   ['Policarpa',4950,8500,18000,'popular',650],['Mamonal',5700,9700,4000,'industrial',1200],['Rosedal',8800,7200,20000,'popular',750],
@@ -51,6 +52,8 @@ const AVENIDAS=[
   {name:'Avenida Pedro Romero',ty:2,lanes:2,pts:[[6900,3100],[6950,1600],[7000,700],[7050,-350]]},
   {name:'Avenida Crisanto Luque',ty:2,lanes:2,pts:[[3700,700],[4300,1300],[4700,1900],[5300,3300],[5900,4900],[6500,6300],[7300,7700]]},
   {name:'Avenida del Aeropuerto',ty:2,lanes:2,pts:[[4300,-1150],[4250,-1900],[4050,-2500],[3700,-2900]]},
+  // Crespo: de la Avenida Santander al aeropuerto por el lado de la terminal (empieza entre las dos calzadas y termina en la Avenida del Aeropuerto)
+  {name:'Calle 70 (Crespo)',ty:2,lanes:2,pts:[[2048.8,-1881.6],[2200,-1700],[2700,-1850],[3150,-2050],[3500,-2300],[3800,-2520],[4030,-2560]]},
 ];
 
 // lugares: aeropuerto, terminal, hospitales, centros comerciales, estadios, CAI, gasolineras, iglesias, parques, playas
