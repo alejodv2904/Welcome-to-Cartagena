@@ -129,8 +129,119 @@ function busBody(col,o){const L=o.L,W=o.W/2,A=B();const H=o.H;
   for(const z of o.wz)for(const s of [-1,1]){const arch=new THREE.CylinderGeometry(o.wr+.08,o.wr+.08,.24,14,1,true,0,Math.PI);arch.rotateZ(Math.PI/2);addGeo(A,arch,'#121212',mx(s*(W-.11),o.wr+.03,z))}
   return{A,glass:[],head,tail,plates,wheels:o.wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.14),z,r:o.wr,w:.28,front:i===0,spokes:8,style:'steel'}))).flat(),seat:{x:W-.55,y:.75,z:L/2-.95},len:L,wid:W*2,roof:H}}
 SPEC.buseta=(col,alt)=>{const s=busBody(col,{L:7,W:2.25,H:2.85,win0:1.55,nwin:5,wz:[2.35,-2.2],wr:.42,stripes:[[.85,1.05,alt[0]],[1.08,1.18,alt[1]]]});return s};
-SPEC.bus=(col)=>{const s=busBody('#f4f4f2',{L:12,W:2.55,H:3.15,win0:1.35,nwin:8,wz:[4,-2.9,-4.1],wr:.5,stripes:[[.7,1.0,'#1f9aa6'],[1.02,1.16,'#f28c28']]});
-  s.extra=[{geo:new THREE.PlaneGeometry(1.6,.26).applyMatrix4(mx(0,2.86,6.02)),mat:M.busSign}];return s};
+/* ---------- buses de Transcaribe ----------
+   padrón (alimentador, 12 m) y articulado (troncal, 18 m): blanco arriba, franja negra de ventanas, faldón y esquinas naranja,
+   la gaviota y el nombre del sistema, número interno, letrero LED adelante y parabrisas de vidrio (se ve el conductor).
+   La pintura de los costados, el frente y la cola son texturas dibujadas aquí mismo. */
+const TCOR='#f2661c',TBLK='#121619',TEX_C=new Map();
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
+function gull(g,x,y,s,col){// gaviota estilizada (dos alas curvas sobre una ola)
+  g.save();g.translate(x,y);g.scale(s,s);g.fillStyle=col;g.beginPath();g.moveTo(-30,4);g.quadraticCurveTo(-16,-14,0,-2);g.quadraticCurveTo(16,-14,30,4);g.quadraticCurveTo(16,-6,0,6);g.quadraticCurveTo(-16,-6,-30,4);g.fill();
+  g.lineWidth=3.2;g.strokeStyle=col;g.beginPath();g.moveTo(-26,16);g.quadraticCurveTo(-12,8,0,14);g.quadraticCurveTo(12,20,26,12);g.stroke();g.restore()}
+// costado: L metros de largo, alto de .3 m a H; frontLeft: el frente queda a la izquierda de la textura (lado +x del vehículo)
+// o: {doors:[[desde el frente (m), ancho]], num, art:'front'|'rear'|undefined, cab: metros de cabina adelante (sin ventanas pintadas)}
+function tcSideTex(L,H,frontLeft,o){const key='s'+L+H+frontLeft+JSON.stringify(o);if(TEX_C.has(key))return TEX_C.get(key);
+  const PX=64,Wc=Math.round(L*PX),Hc=Math.round((H-.3)*PX),c=cv(Wc,Hc),g=c.getContext('2d');
+  const X=m=>frontLeft?m*PX:Wc-m*PX,Y=y=>Hc-(y-.3)*PX;// m: metros desde el frente; y: altura sobre el piso
+  const rect=(m0,m1,y0,y1,col)=>{const a=X(m0),b=X(m1);g.fillStyle=col;g.fillRect(Math.min(a,b),Y(y1),Math.abs(b-a),Y(y0)-Y(y1))};
+  g.fillStyle='#f6f6f3';g.fillRect(0,0,Wc,Hc);
+  // franja de ventanas y techo
+  const wy0=1.22,wy1=H-.28;rect(0,L,wy0,wy1,'#1a2228');rect(0,L,H-.2,H,'#202428');
+  // reflejo del cielo en los vidrios y parales
+  {const gr=g.createLinearGradient(0,Y(wy1),0,Y(wy0));gr.addColorStop(0,'rgba(120,150,170,.35)');gr.addColorStop(.5,'rgba(40,55,65,.15)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,Y(wy1),Wc,Y(wy0)-Y(wy1))}
+  for(let m=(o.cab||0)+.9;m<L-.3;m+=1.45)rect(m,m+.07,wy0,wy1,TBLK);
+  // faldón naranja: bajo a lo largo, sube en la esquina delantera y en la trasera de cada cuerpo
+  g.fillStyle=TCOR;g.beginPath();
+  const pts=o.art==='rear'?[[0,.3],[0,.62],[L-2.2,.62],[L-.9,1.18],[L,1.18],[L,.3]]:o.art==='front'?[[0,.3],[0,1.18],[.9,1.18],[2.3,.62],[L,.62],[L,.3]]:[[0,.3],[0,1.18],[.9,1.18],[2.3,.62],[L-2.2,.62],[L-.8,1.18],[L,1.18],[L,.3]];
+  pts.forEach(([m,y],i)=>i?g.lineTo(X(m),Y(y)):g.moveTo(X(m),Y(y)));g.closePath();g.fill();
+  rect(0,L,wy0-.06,wy0,'#d8d8d4');
+  // rejillas traseras (motor) en el último tramo de abajo
+  if(o.art!=='front')for(let k=0;k<5;k++)rect(L-2.0+k*.22,L-1.88+k*.22,.68,1.08,'#8b8f93');
+  // puertas: vidrio de piso a techo con marco negro
+  for(const [m,w] of o.doors||[]){rect(m-.04,m+w+.04,.32,wy1,TBLK);rect(m+.05,m+w/2-.03,.4,wy1-.06,'#25323b');rect(m+w/2+.03,m+w-.05,.4,wy1-.06,'#25323b');
+    rect(m+.05,m+w-.05,.95,1.0,'#9aa3a8')}
+  // logo: gaviota naranja y TransCaribe, número interno y silla de ruedas
+  if(o.art!=='rear'){const lm=o.art==='front'?5:4.3,ly=.9;gull(g,X(lm),Y(ly+.12),.95,TCOR);g.fillStyle=TCOR;g.font='bold 30px Arial,sans-serif';g.textAlign='center';g.fillText('TransCaribe',X(lm),Y(ly-.32));
+    g.fillStyle='#222';g.font='bold 22px Arial Narrow,Arial,sans-serif';g.fillText(o.num||'TC32001',X(1.85),Y(1.06))}
+  {const m=o.art==='rear'?2.6:L/2+.6;rect(m,m+.34,.72,1.06,'#1565c0');g.fillStyle='#fff';g.font='bold 20px Arial';g.textAlign='center';g.fillText('♿',X(m+.17),Y(.8))}
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;TEX_C.set(key,t);return t}
+// frente: parte baja (de .3 m hasta la base del parabrisas) con esquinas naranja, faros y placa; y letrero LED arriba
+function tcFrontTex(W,route){const key='f'+W+route;if(TEX_C.has(key))return TEX_C.get(key);
+  const PX=80,Wc=Math.round(W*PX),Hc=Math.round(.95*PX),Hs=Math.round(.32*PX),c=cv(Wc,Hc+Hs),g=c.getContext('2d');
+  // letrero (franja superior de la textura)
+  g.fillStyle='#0b0d0e';g.fillRect(0,0,Wc,Hs);g.fillStyle='#ffb020';g.font='bold '+Math.round(Hs*.62)+'px Arial Narrow,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(route,Wc/2,Hs/2+1);
+  // parte baja
+  const y0=Hs;g.fillStyle='#f6f6f3';g.fillRect(0,y0,Wc,Hc);
+  g.fillStyle=TCOR;for(const sd of [0,1]){g.beginPath();const x0=sd?Wc:0,dx=sd?-1:1;g.moveTo(x0,y0);g.lineTo(x0+dx*Wc*.2,y0);g.quadraticCurveTo(x0+dx*Wc*.1,y0+Hc*.55,x0+dx*Wc*.16,y0+Hc);g.lineTo(x0,y0+Hc);g.closePath();g.fill()}
+  // faros: franjas oscuras inclinadas con LED
+  for(const sd of [0,1]){const cx=sd?Wc*.8:Wc*.2;g.save();g.translate(cx,y0+Hc*.3);g.rotate(sd?.18:-.18);g.fillStyle='#15191c';g.fillRect(-Wc*.11,-9,Wc*.22,18);g.fillStyle='#ffffff';for(let k=0;k<5;k++)g.fillRect(-Wc*.09+k*Wc*.04,-3,Wc*.025,5);g.restore()}
+  // placa blanca de servicio público
+  const pw=Wc*.2,ph=Hc*.24,py=y0+Hc*.4;g.fillStyle='#fbfbf6';g.fillRect(Wc/2-pw/2,py,pw,ph);g.strokeStyle='#111';g.lineWidth=2;g.strokeRect(Wc/2-pw/2,py,pw,ph);
+  g.fillStyle='#111';g.font='bold '+Math.round(ph*.62)+'px Arial Narrow,Arial';g.fillText('WGM '+(100+Math.floor(Math.random()*899)),Wc/2,py+ph*.52);
+  g.fillStyle='#1565c0';g.fillRect(Wc*.64,y0+Hc*.62,Hc*.2,Hc*.2);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;TEX_C.set(key,t);return t}
+function tcRearTex(W,H){const key='r'+W+H;if(TEX_C.has(key))return TEX_C.get(key);const PX=64,Wc=Math.round(W*PX),Hc=Math.round((H-.3)*PX),c=cv(Wc,Hc),g=c.getContext('2d');
+  g.fillStyle='#f6f6f3';g.fillRect(0,0,Wc,Hc);g.fillStyle='#1a2228';g.fillRect(Wc*.06,Hc*.08,Wc*.88,Hc*.36);g.fillStyle=TCOR;g.fillRect(0,Hc*.72,Wc,Hc*.28);
+  g.fillStyle='#8b8f93';for(let k=0;k<6;k++)g.fillRect(Wc*.25,Hc*(.5+k*.035),Wc*.5,Hc*.018);gull(g,Wc/2,Hc*.62,.8,TCOR);
+  const t=new THREE.CanvasTexture(c);TEX_C.set(key,t);return t}
+// quad with explicit UVs: p = 4 corners [x,y,z] (bottom-left, bottom-right, top-right, top-left as seen from outside), uv = [u0,v0,u1,v1]
+function quad(p,uv){const g=new THREE.BufferGeometry();const P=[...p[0],...p[1],...p[2],...p[0],...p[2],...p[3]];const [u0,v0,u1,v1]=uv;
+  g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute([u0,v0,u1,v0,u1,v1,u0,v0,u1,v1,u0,v1],2));g.computeVertexNormals();return g}
+const decalMat=new Map();function dmat(t){if(!decalMat.has(t))decalMat.set(t,new THREE.MeshLambertMaterial({map:t}));return decalMat.get(t)}
+/* one body section: length L centred at zc. cab: driver's cabin with glass at the front (true for the front section).
+   doorsR/doorsL: doors on the right (-x) / left (+x) side, in metres from the section's front */
+function tcSection(A,glass,extra,o){const L=o.L,W=o.W/2,H=o.H,zc=o.zc||0,zf=zc+L/2,zb=zc-L/2,cab=o.cab?1.75:0;
+  // painted box body (rounded loft) behind the cabin
+  const Lb=L-cab,zcB=zb+Lb/2;const f={w:z=>W*interp([[-Lb/2,o.art==='front'?1:.985],[-Lb/2+.2,1],[Lb/2,1]],z),y0:z=>.32,yb:z=>H-.3,yt:z=>interp([[-Lb/2,o.art==='front'?H:H-.06],[-Lb/2+.25,H],[Lb/2,H]],z)};
+  addGeo(A,bodyLoft(Lb,f,10).applyMatrix4(mx(0,0,zcB)),'#f6f6f3');
+  if(cab){const z0=zf-cab;
+    addGeo(A,new THREE.BoxGeometry(W*2-.04,.5,cab),'#3a3f44',mx(0,.55,z0+cab/2));// piso y tablero bajo
+    addGeo(A,new THREE.BoxGeometry(W*2,.92,.18),'#f6f6f3',mx(0,.77,zf-.09));// frente bajo
+    for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.06,.92,cab),'#f6f6f3',mx(sd*(W-.03),.77,z0+cab/2));// costados bajos
+    addGeo(A,new THREE.BoxGeometry(W*2,.34,cab),'#f6f6f3',mx(0,H-.17,z0+cab/2));// techo de la cabina
+    addGeo(A,new THREE.BoxGeometry(W*2-.3,.08,.5),'#2b2f33',mx(0,1.28,zf-.38));// tablero
+    addGeo(A,new THREE.BoxGeometry(W*2-.1,H-.9,.06),'#262c31',mx(0,(H+.5)/2,z0+.04));// mampara oscura detrás del conductor
+    addGeo(A,new THREE.BoxGeometry(.5,.12,.5),'#1d2226',mx(W-.62,.92,zf-1.05));addGeo(A,new THREE.BoxGeometry(.5,.7,.1),'#1d2226',mx(W-.62,1.3,zf-1.33));// silla del conductor
+    addGeo(A,new THREE.TorusGeometry(.2,.025,6,14),'#111',mx(W-.62,1.45,zf-.62,-1.1,0,0));// timón
+    for(const sd of [-1,1]){addGeo(A,new THREE.BoxGeometry(.1,H-1.55,.1),TBLK,mx(sd*(W-.05),(H+1.15)/2-.1,zf-.06));// parales del parabrisas
+      // espejos "orejas de conejo"
+      addGeo(A,new THREE.BoxGeometry(.04,.04,.55),'#1b1b1b',mx(sd*(W+.02),H-.45,zf+.2,-.5,0,0));addGeo(A,new THREE.BoxGeometry(.12,.34,.1),'#1b1b1b',mx(sd*(W+.04),H-.85,zf+.42))}
+    // parabrisas y vidrios laterales de la cabina (vidrio de verdad: se ve el conductor)
+    glass.push(new THREE.PlaneGeometry(W*2-.14,H-1.65).applyMatrix4(mx(0,(H+1.23)/2-.1,zf-.05,-.06,0,0)));
+    for(const sd of [-1,1])glass.push(new THREE.PlaneGeometry(cab-.1,H-1.6).applyMatrix4(mx(sd*(W-.01),(H+1.23)/2-.1,z0+cab/2,0,sd*Math.PI/2,0)));
+    // frente bajo pintado y letrero LED
+    const ft=tcFrontTex(o.W,o.route);const fm=dmat(ft),r=.32/1.27;
+    extra.push({geo:quad([[-W,.3,zf+.005],[W,.3,zf+.005],[W,1.23,zf+.005],[-W,1.23,zf+.005]],[0,0,1,1-r]),mat:fm});
+    extra.push({geo:quad([[-W+.12,H-.42,zf+.02],[W-.12,H-.42,zf+.02],[W-.12,H-.1,zf+.02],[-W+.12,H-.1,zf+.02]],[0,1-r,1,1]),mat:fm})}
+  // costados pintados (sobre la caja y la parte baja de la cabina)
+  const so={doors:o.doors,num:o.num,art:o.art,cab};const sides=[[1,tcSideTex(L,H,true,Object.assign({},so,{doors:o.doorsL}))],[-1,tcSideTex(L,H,false,Object.assign({},so,{doors:o.doorsR}))]];
+  for(const [sd,t] of sides){const x=sd*(W+.012),m=dmat(t);const u=z=>sd>0?(zf-z)/L:(z-zb)/L,v=y=>(y-.3)/(H-.3);
+    const seg=(za,zb2,y0,y1)=>{const p=sd>0?[[x,y0,zb2],[x,y0,za],[x,y1,za],[x,y1,zb2]]:[[x,y0,za],[x,y0,zb2],[x,y1,zb2],[x,y1,za]];
+      const ua=u(sd>0?zb2:za),ub=u(sd>0?za:zb2);extra.push({geo:quad(p,[ua,v(y0),ub,v(y1)]),mat:m})};
+    const zs=zb+(o.art==='rear'?.02:.12);seg(zs,zf-cab-(cab?0:.12),.3,H-.04);if(cab)seg(zf-cab,zf-.02,.3,1.23)}
+  // cola
+  if(o.art!=='front'){const m=dmat(tcRearTex(o.W,H));extra.push({geo:quad([[W*.98,.3,zb-.012],[-W*.98,.3,zb-.012],[-W*.98,H-.06,zb-.012],[W*.98,H-.06,zb-.012]],[0,0,1,1]),mat:m})}
+  for(const z of o.wz)for(const s of [-1,1]){const arch=new THREE.CylinderGeometry(o.wr+.08,o.wr+.08,.24,14,1,true,0,Math.PI);arch.rotateZ(Math.PI/2);addGeo(A,arch,'#121212',mx(s*(W-.11),o.wr+.03,z))}
+  addGeo(A,new THREE.BoxGeometry(W*2,.22,.12),'#1e1f21',mx(0,.42,zf+.03))}
+function tcBus(o){const A=B(),glass=[],extra=[];tcSection(A,glass,extra,o);const W=o.W/2,zf=(o.zc||0)+o.L/2,head=[],tail=[];
+  for(const s of [-1,1])head.push(new THREE.BoxGeometry(.32,.06,.03).applyMatrix4(mx(s*(W-.48),.77,zf+.02,0,0,s*-.18)));
+  return{A,glass,extra,head,tail,plates:[],wheels:o.wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.14),z,r:o.wr,w:.3,front:i===0,spokes:8,style:'steel'}))).flat(),
+    seat:{x:W-.62,y:1.0,z:zf-1.05},len:o.Ltot||o.L,wid:W*2,roof:o.H}}
+// alimentador (padrón de 12 m, piso bajo, dos ejes)
+SPEC.bus=()=>{const s=tcBus({L:12,W:2.55,H:3.2,cab:true,wz:[3.45,-2.75],wr:.5,route:'A7 · TERMINAL - CENTRO',num:'TC32001',doorsR:[[.25,1.05],[5.6,1.25]],doorsL:[]});
+  for(const sd of [-1,1])s.tail.push(new THREE.BoxGeometry(.2,.5,.04).applyMatrix4(mx(sd*1.08,1.25,-6.02)));return s};
+// articulado de la troncal (18 m): cuerpo delantero de 11,2 m con dos ejes, fuelle y cuerpo trasero de 5,9 m con un eje que gira en la articulación
+SPEC.busart=()=>{const Ltot=18,Lf=11.2,Lr=5.9,gap=.9,W=2.6,H=3.25,zcF=Ltot/2-Lf/2,hz=Ltot/2-Lf-gap/2;
+  const s=tcBus({L:Lf,zc:zcF,Ltot,W,H,cab:true,art:'front',wz:[Ltot/2-2.6,hz+1.75],wr:.5,route:'T100E · PORTAL - CENTRO',num:'TC11001',doorsL:[[2.2,1.25],[6.6,1.25]],doorsR:[[.25,1.05],[7.0,1.25]]});
+  // medio fuelle en el cuerpo delantero
+  addGeo(s.A,new THREE.BoxGeometry(W-.16,H-.6,gap/2+.02),'#3b3d40',mx(0,(H+.45)/2,hz+gap/4));
+  // cuerpo trasero: su origen es la articulación
+  const A=B(),glass=[],extra=[];tcSection(A,glass,extra,{L:Lr,zc:-gap/2-Lr/2,W,H,art:'rear',wz:[-gap/2-Lr+1.6],wr:.5,num:'TC11001',doorsL:[[1.2,1.25]],doorsR:[[1.4,1.25]]});
+  addGeo(A,new THREE.BoxGeometry(W-.16,H-.6,gap/2+.02),'#3b3d40',mx(0,(H+.45)/2,-gap/4));
+  for(let k=0;k<5;k++)addGeo(A,new THREE.BoxGeometry(W-.1,H-.55,.04),'#24262a',mx(0,(H+.45)/2,-k*.1));
+  const tail=[];for(const sd of [-1,1])tail.push(new THREE.BoxGeometry(.2,.5,.04).applyMatrix4(mx(sd*1.1,1.25,-gap/2-Lr-.02)));
+  const az=-gap/2-Lr+1.6;
+  s.trailer={A,glass,extra,tail,hz,Lt:-az,wheels:[-1,1].map(sd=>({x:sd*(W/2-.14),z:az,r:.5,w:.3,front:false,spokes:8,style:'steel'}))};return s};
 // chiva rumbera: open-sided wooden party bus painted in bright stripes, truck nose in front
 SPEC.chiva=()=>{const A=B();const L=8.2,W=1.2,H=3.05,cols=['#e4572e','#f0b429','#1f9aa6','#2e7d32','#d32f2f','#7b1fa2','#f28c28','#1565c0'];const wood='#8a5a36';
   addGeo(A,new THREE.BoxGeometry(W*2,.35,L-.3),'#1e1f21',mx(0,.62,0));
@@ -241,6 +352,7 @@ function woodWheel(r,w,spokes){const key='wood|'+r;if(WG.has(key))return WG.get(
 const CACHE=new Map();
 function design(type,col,alt){const key=type+col+(alt||'');if(CACHE.has(key))return CACHE.get(key);const d=SPEC[type](col,alt||['#e4572e','#1565c0']);
   d.bodyGeo=toGeo(d.A);d.wgeo=d.wheels.map(w=>w.style==='wood'?woodWheel(w.r,w.w,w.spokes):wheelGeo(w.r,w.w,w.spokes,w.style));
+  if(d.trailer){const t=d.trailer;t.bodyGeo=toGeo(t.A);t.wgeo=t.wheels.map(w=>wheelGeo(w.r,w.w,w.spokes,w.style));t.tailGeo=t.tail.length?mergeG(t.tail):null}
   // far-away version: everything merged into one mesh
   const L=B();addGeo(L,d.bodyGeo,'#ffffff',null,(x,y,z)=>null);for(let i=0;i<L.c.length;i++)L.c[i]=d.bodyGeo.attributes.color.array[i];
   for(const g of d.glass)addGeo(L,g,'#26343e');for(const g of d.head)addGeo(L,g,'#d9d6c8');for(const g of d.tail)addGeo(L,g,'#7a1010');
@@ -280,8 +392,14 @@ function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.G
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(d.wid+.7,d.len+.8),M.shadow);sh.rotation.x=-Math.PI/2;sh.position.y=.04;sh.renderOrder=1;root.add(sh);
   const lod=new THREE.Mesh(d.lodGeo,M.lod);lod.visible=false;lod.castShadow=true;root.add(lod);
   // far-away riders for two-wheelers (driver and the one behind), so a distant motorcycle never looks empty
+  // articulated bus: the rear body hangs from the joint and turns on its own (see trailerStep)
+  let trailer=null;if(d.trailer){const t=d.trailer,g=new THREE.Group();g.position.z=t.hz;near.add(g);const pm=new THREE.Mesh(t.bodyGeo,M.paint);pm.castShadow=true;g.add(pm);
+    for(const q of t.glass){const m=new THREE.Mesh(q,M.glass);m.renderOrder=2;g.add(m)}for(const e of t.extra)g.add(new THREE.Mesh(e.geo,e.mat));
+    const tm2=t.tailGeo?new THREE.Mesh(t.tailGeo,M.tail):null;if(tm2)g.add(tm2);
+    t.wheels.forEach((w,i)=>{const piv=new THREE.Group();piv.position.set(w.x,w.r,w.z);const m=new THREE.Mesh(t.wgeo[i],M.wheel);if(w.x<0)m.rotation.y=Math.PI;piv.add(m);g.add(piv);wheels.push({piv,m,r:w.r,front:false,flip:w.x<0})});
+    trailer={g,hz:t.hz,Lt:t.Lt,ax:null,az:0,tail:tm2}}
   let lodR=null;if(d.moto){lodR=[riderGeo(type,d.seat,false),riderGeo(type,d.seat,true)].map(g=>{const m=new THREE.Mesh(g,M.lod);m.visible=false;root.add(m);return m})}
-  return{root,near,body,paint,wheels,lod,lodR,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
+  return{root,near,body,paint,wheels,lod,lodR,trailer,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
 // per-frame animation: wheel spin & steering, suspension pitch/roll, brake lights
 function animateRig(R,speed,yawRate,dt,opt){opt=opt||{};const near=!R.lod.visible;
   R.spin+=speed*dt;const acc=(speed-R.lastSpeed)/Math.max(dt,1e-3);R.lastSpeed=speed;
@@ -291,6 +409,12 @@ function animateRig(R,speed,yawRate,dt,opt){opt=opt||{};const near=!R.lod.visibl
     R.pv+=((tp-R.pitch)*60-R.pv*9)*dt;R.pitch+=R.pv*dt;R.rv+=((tr-R.roll)*(R.moto?30:55)-R.rv*(R.moto?10:8))*dt;R.roll+=R.rv*dt;
     R.bounce+=Math.abs(speed)*dt;const bump=opt.cobble?Math.sin(R.bounce*9)*.012*Math.min(1,Math.abs(speed)/6):0;
     if(R.moto){R.near.rotation.z=R.roll}else{R.body.rotation.x=R.pitch;R.body.rotation.z=R.roll;R.body.position.y=bump+Math.abs(R.pitch)*.2}}
-  if(R.tailMesh)R.tailMesh.material=acc<-2.5||opt.braking?M.brake:M.tail}
+  const bm=acc<-2.5||opt.braking?M.brake:M.tail;if(R.tailMesh)R.tailMesh.material=bm;if(R.trailer&&R.trailer.tail)R.trailer.tail.material=bm}
+// articulated bus: the rear axle is dragged by the joint (like a trailer), so the rear body follows the front one's path around corners
+function trailerStep(R,x,z,yaw){const T=R.trailer;if(!T)return;const sn=Math.sin(yaw),cs=Math.cos(yaw),hx=x+sn*T.hz,hz=z+cs*T.hz;
+  if(T.ax===null||Math.abs(Math.hypot(T.ax-hx,T.az-hz)-T.Lt)>3){T.ax=hx-sn*T.Lt;T.az=hz-cs*T.Lt}
+  let dx=T.ax-hx,dz=T.az-hz;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
+  let rel=Math.atan2(-dx,-dz)-yaw;rel=((rel+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;rel=Math.max(-.8,Math.min(.8,rel));
+  const ty=yaw+rel;T.ax=hx-Math.sin(ty)*T.Lt;T.az=hz-Math.cos(ty)*T.Lt;T.g.rotation.y=rel}
 function setNear(R,on){R.near.visible=on;R.lod.visible=!on}
-return{build,animateRig,setNear,M,sirenMat,design}};
+return{build,animateRig,setNear,trailerStep,M,sirenMat,design}};

@@ -91,13 +91,13 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js"></script>
-<script src="ciudad.js"></script>
-<script src="modelos.js"></script>
-<script src="carga.js"></script>
-<script src="gente.js"></script>
-<script src="lugares.js"></script>
-<script src="vehiculos.js"></script><script src="extra.js"></script><script src="celular.js"></script><script src="animales.js"></script>
+<script src="mapa.js?v=20261113"></script>
+<script src="ciudad.js?v=20261113"></script>
+<script src="modelos.js?v=20261113"></script>
+<script src="carga.js?v=20261113"></script>
+<script src="gente.js?v=20261113"></script>
+<script src="lugares.js?v=20261113"></script>
+<script src="vehiculos.js?v=20261113"></script><script src="extra.js?v=20261113"></script><script src="celular.js?v=20261113"></script><script src="animales.js?v=20261113"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -863,23 +863,23 @@ const PLANE=(function(){const parts=[],col=[];const W=colObj('#f4f6f8'),B=colObj
 function planeAt(x,z,yaw){const y=ground(x,z);PLANE.parts.forEach((g,i)=>{const c=g.clone();geoInto('plain',c,PLANE.col[i],place(x,y,z,0,yaw,0))});
   addSolidPoly(rectPts(x,z,4.2,34,yaw));addSolidPoly(rectPts(...lc(x,z,yaw,0,1.5),30,5,yaw))}
 (function(){
-  const A=CD.AIRPORT,adx=A.dx,adz=A.dz,lx=-adz,lz=adx;const ap=(s,l)=>[A.x+adx*s+lx*l,A.z+adz*s+lz*l];
+  const A=CD.AIRPORT,adx=A.dx,adz=A.dz,sd=A.side||1,lx=-adz*sd,lz=adx*sd,T0=A.t||700;const ap=(s,l)=>[A.x+adx*s+lx*l,A.z+adz*s+lz*l];
   // aeropuerto: pista, calle de rodaje, plataforma, terminal, torre de control y aviones
   {const r0=ap(0,0),r1=ap(A.len,0);ribbonP([r0,r1],46,.09,'asphalt',colObj('#7c7873'),0,0,false);
     for(const o of [-21.5,21.5])ribbonP([r0,r1],.8,.1,'paint',WHT,o,0,false);dashed([...r0,...r1],.9,.1,WHT,16);
     for(const s of [30,A.len-30]){const a=ap(s,0);for(let k=-8;k<=8;k+=2){const p=ap(s-12,k*2.3),q=ap(s+12,k*2.3);ribbonP([p,q],1.2,.1,'paint',WHT,0,0,false)}}
     ribbonP([ap(140,110),ap(A.len-140,110)],22,.085,'asphalt',colObj('#86817b'),0,0,false);dashed([...ap(140,110),...ap(A.len-140,110)],.3,.095,YEL,4);
-    for(const s of [140,A.len-140,900])ribbonP([ap(s,0),ap(s,110)],22,.085,'asphalt',colObj('#86817b'),0,0,false);
-    const apron=[...ap(420,120),...ap(1020,120),...ap(1020,300),...ap(420,300)];flatPoly(signedArea(apron)<0?[apron[6],apron[7],apron[4],apron[5],apron[2],apron[3],apron[0],apron[1]]:apron,'asphalt',.08,8,colObj('#8d8882'));
-    const tc=ap(700,335),tyaw=Math.atan2(-lx,-lz);const T=boxBuilding(tc[0],tc[1],230,40,tyaw,1,'mod','#f4f1ea');
+    for(const s of [140,A.len-140,T0+200])ribbonP([ap(s,0),ap(s,110)],22,.085,'asphalt',colObj('#86817b'),0,0,false);
+    const apron=[...ap(T0-280,120),...ap(T0+320,120),...ap(T0+320,300),...ap(T0-280,300)];flatPoly(signedArea(apron)<0?[apron[6],apron[7],apron[4],apron[5],apron[2],apron[3],apron[0],apron[1]]:apron,'asphalt',.08,8,colObj('#8d8882'));
+    const tc=ap(T0,335),tyaw=Math.atan2(-lx,-lz);const T=boxBuilding(tc[0],tc[1],230,40,tyaw,1,'mod','#f4f1ea');
     // glass front towards the runway
-    band(rectPts(...ap(700,312),200,.6,tyaw),T.gy+1,T.gy+9,'tow_c',colObj('#ffffff'),T.gy,22,22,false);
-    signAt(txtSign('AEROPUERTO RAFAEL NÚÑEZ','CARTAGENA DE INDIAS','#1f5fa8','#ffffff'),...(()=>{const p=ap(700,356);return[p[0],T.gy+11,p[1]]})(),Math.atan2(lx,lz),24,6);
-    const tw=ap(1080,330),ty=ground(tw[0],tw[1]);geoInto('stone',new THREE.CylinderGeometry(3.2,4,30,12),colObj('#efe9dc'),place(tw[0],ty+15,tw[1]));geoInto('tow_c',new THREE.CylinderGeometry(5.2,4.2,4.5,12),colObj('#ffffff'),place(tw[0],ty+32,tw[1]));
+    band(rectPts(...ap(T0,312),200,.6,tyaw),T.gy+1,T.gy+9,'tow_c',colObj('#ffffff'),T.gy,22,22,false);
+    signAt(txtSign('AEROPUERTO RAFAEL NÚÑEZ','CARTAGENA DE INDIAS','#1f5fa8','#ffffff'),...(()=>{const p=ap(T0,356);return[p[0],T.gy+11,p[1]]})(),Math.atan2(lx,lz),24,6);
+    const tw=ap(T0+380,330),ty=ground(tw[0],tw[1]);geoInto('stone',new THREE.CylinderGeometry(3.2,4,30,12),colObj('#efe9dc'),place(tw[0],ty+15,tw[1]));geoInto('tow_c',new THREE.CylinderGeometry(5.2,4.2,4.5,12),colObj('#ffffff'),place(tw[0],ty+32,tw[1]));
     geoInto('plain',new THREE.CylinderGeometry(5.6,5.6,.8,12),colObj('#d9d4c8'),place(tw[0],ty+34.6,tw[1]));addSolidPoly(rectPts(tw[0],tw[1],8,8,0));
-    planeAt(...ap(560,215),Math.atan2(-lx,-lz));planeAt(...ap(820,215),Math.atan2(-lx,-lz));planeAt(...ap(260,110),Math.atan2(adx,adz));
-    const all=[...ap(-130,-200),...ap(A.len+130,-200),...ap(A.len+130,380),...ap(-130,380)];addSpecial(signedArea(all)<0?[all[6],all[7],all[4],all[5],all[2],all[3],all[0],all[1]]:all);
-    const door=ap(700,372);addLM('Aeropuerto Rafael Núñez',tc[0],tc[1],22,1,door[0],door[1]);icon('airport',tc[0],tc[1],'Aeropuerto Rafael Núñez');
+    planeAt(...ap(T0-140,215),Math.atan2(-lx,-lz));planeAt(...ap(T0+120,215),Math.atan2(-lx,-lz));planeAt(...ap(260,110),Math.atan2(adx,adz));
+    for(const all of [[...ap(-130,-200),...ap(A.len+130,-200),...ap(A.len+130,200),...ap(-130,200)],[...ap(T0-340,0),...ap(T0+440,0),...ap(T0+440,380),...ap(T0-340,380)]])addSpecial(signedArea(all)<0?[all[6],all[7],all[4],all[5],all[2],all[3],all[0],all[1]]:all);
+    const door=ap(T0,372);addLM('Aeropuerto Rafael Núñez',tc[0],tc[1],22,1,door[0],door[1]);icon('airport',tc[0],tc[1],'Aeropuerto Rafael Núñez');
     for(let s=200;s<A.len;s+=300)for(const l of [-26,26]){const p=ap(s,l);XGLOW.push([p[0],ground(p[0],p[1])+.5,p[1],l<0?0x6fb0ff:0x6fb0ff])}}
   for(const L of CD.LUGARES){const k=L.kind;
     if(k==='aeropuerto')continue;
@@ -1441,13 +1441,13 @@ function addHorse(rig){const h=new THREE.Mesh(HORSE.mesh.geometry,HORSE.mesh.mat
   const holder=new THREE.Group();holder.add(h);h.scale.setScalar(HORSE.s);if(HORSE.alongX)h.rotation.y=-Math.PI/2;holder.position.set(0,HORSE.yoff,rig.horse.z);h.castShadow=true;rig.root.add(holder);
   const mixer=new THREE.AnimationMixer(h);const a=mixer.clipAction(HORSE.clip);a.play();rig.horseMixer=mixer;rig.horseAct=a;rig.horseMesh=h}
 const VSPEC={car:{r:1.6,len:4.5,top:38,acc:16,turn:2.1,cruise:1},taxi:{r:1.6,len:4.5,top:38,acc:16,turn:2.1,cruise:1},police:{r:.85,len:2.4,top:42,acc:20,turn:2.8,cruise:1.08},transito:{r:.85,len:2.4,top:40,acc:19,turn:2.8,cruise:1.1},
-  buseta:{r:2.1,len:7,top:25,acc:9,turn:1.5,cruise:.85},bus:{r:2.6,len:12,top:22,acc:7,turn:1.2,cruise:.8},moto:{r:.8,len:2,top:34,acc:18,turn:2.8,cruise:1.05},mototaxi:{r:.8,len:2,top:32,acc:17,turn:2.8,cruise:1.0},coche:{r:1.5,len:5,top:6,acc:3,turn:1.6,cruise:.32},chiva:{r:2.3,len:8.2,top:19,acc:6,turn:1.3,cruise:.7},
+  buseta:{r:2.1,len:7,top:25,acc:9,turn:1.5,cruise:.85},bus:{r:2.6,len:12,top:22,acc:7,turn:1.2,cruise:.8},busart:{r:2.7,len:18,top:20,acc:6,turn:1,cruise:.75},moto:{r:.8,len:2,top:34,acc:18,turn:2.8,cruise:1.05},mototaxi:{r:.8,len:2,top:32,acc:17,turn:2.8,cruise:1.0},coche:{r:1.5,len:5,top:6,acc:3,turn:1.6,cruise:.32},chiva:{r:2.3,len:8.2,top:19,acc:6,turn:1.3,cruise:.7},
   camion:{r:2.3,len:7.2,top:24,acc:6,turn:1.3,cruise:.78},camioneta:{r:1.7,len:5.1,top:37,acc:14,turn:1.9,cruise:.97},motocarro:{r:1.1,len:2.7,top:15,acc:7,turn:2.2,cruise:.62},bici:{r:.7,len:1.8,top:8,acc:4,turn:2.6,cruise:.42}};
 const carColors=['#f2efe6','#2b6cb0','#3a3a3a','#8a1c1c','#1f9aa6','#c0c0c0','#e4572e','#244a2e','#d9d9d9','#111'];
-let VID=0;function newVehicle(x,z,yaw,type,color){type=type||'car';const col=color||(type==='taxi'?'#f2c01e':type==='police'?'#b5e61d':type==='transito'?'#f4f4f2':type==='bus'?'#ffffff':type==='coche'?pick(['#1b1b1b','#f2efe6','#5a1a1a']):type==='buseta'?pick(['#f2efe6','#f0b429','#e4572e','#1f9aa6']):type==='camion'?pick(['#d32f2f','#1565c0','#f2efe6','#2e7d32','#f0b429']):type==='motocarro'?pick(['#2e7d32','#f0b429','#d32f2f','#1565c0']):type==='bici'?pick(['#d32f2f','#1565c0','#111','#2e7d32','#f28c28','#7b1fa2']):pick(carColors));
+let VID=0;function newVehicle(x,z,yaw,type,color){type=type||'car';const col=color||(type==='taxi'?'#f2c01e':type==='police'?'#b5e61d':type==='transito'?'#f4f4f2':type==='bus'||type==='busart'?'#ffffff':type==='coche'?pick(['#1b1b1b','#f2efe6','#5a1a1a']):type==='buseta'?pick(['#f2efe6','#f0b429','#e4572e','#1f9aa6']):type==='camion'?pick(['#d32f2f','#1565c0','#f2efe6','#2e7d32','#f0b429']):type==='motocarro'?pick(['#2e7d32','#f0b429','#d32f2f','#1565c0']):type==='bici'?pick(['#d32f2f','#1565c0','#111','#2e7d32','#f28c28','#7b1fa2']):pick(carColors));
   const design=type==='police'?'motopol':type==='transito'?'mototra':type==='mototaxi'?'moto':type==='car'?pick(['car','car','hatch','hatch','suv']):type==='camion'?pick(['camion','estacas']):type==='camioneta'?pick(['pickup','pickup','suv']):type;const alt=type==='buseta'?[pick(['#e4572e','#1f9aa6','#f0b429','#2e7d32']),pick(['#d32f2f','#1565c0','#7b1fa2','#f57c00'])]:null;
   const rig=VK.build(design,col,alt);rig.root.rotation.order='YXZ';if(rig.horse)addHorse(rig);scene.add(rig.root);const S=VSPEC[type];
-  const v={vid:VID++,mesh:rig.root,rig,x,z,yaw,py:yaw,speed:0,ai:false,r:S.r,len:S.len,type,taxi:type==='taxi',bus:type==='bus'||type==='buseta'||type==='chiva'||type==='camion',hp:100,spec:S,col};vehicles.push(v);syncCar(v);return v}
+  const v={vid:VID++,mesh:rig.root,rig,x,z,yaw,py:yaw,speed:0,ai:false,r:S.r,len:S.len,type,taxi:type==='taxi',bus:type==='bus'||type==='busart'||type==='buseta'||type==='chiva'||type==='camion',hp:100,spec:S,col};vehicles.push(v);syncCar(v);return v}
 const vehY=v=>v.tc?ground(v.x,v.z)+RLIFT[0]+.03:v.ai&&v.e>=0&&GRAPH.edges[v.e]&&!v.chase?ground(v.x,v.z)+RLIFT[GRAPH.edges[v.e].ty]:standY(v.x,v.z);
 // on the hill the vehicle tilts with the ground: pitch from the wheels in front and behind, roll from both sides (motorcycles stay upright)
 function syncCar(v){let y=vehY(v),pitch=0,roll=0;
@@ -1558,7 +1558,7 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   aiPos(v,dt)}
 // wheels, steering, suspension and level of detail for every visible vehicle
 function updateRigs(dt){const nd=Q.view>600?100:Q.view>450?75:60;const night=NIGHT.value>.5;
-  for(const v of vehicles){if(!v.mesh.visible)continue;const d=dist2(v.x,v.z,player.x,player.z);const near=d<nd||v===player.car;VK.setNear(v.rig,near);
+  for(const v of vehicles){if(!v.mesh.visible)continue;const d=dist2(v.x,v.z,player.x,player.z);const near=d<nd||v===player.car;VK.setNear(v.rig,near);if(v.rig.trailer)VK.trailerStep(v.rig,v.x,v.z,v.yaw);
     // far away, motorcycles show a simple rider (and the one behind on mototaxis and police patrols)
     if(v.rig.lodR){const show=!near&&(v.ai||v.chase)&&!v.agent;v.rig.lodR[0].visible=show;v.rig.lodR[1].visible=show&&(!!v.pax||v.type==='police')}
     let dy=v.yaw-v.py;dy=((dy+Math.PI)%TAU+TAU)%TAU-Math.PI;v.py=v.yaw;const yr=dy/Math.max(dt,1e-3);
@@ -1753,8 +1753,8 @@ function tcPlace(v){const T=v.tc,p=tcAt(T.s),off=3.05*T.dir;const yaw=Math.atan2
 // next station in the bus's direction (null = the terminal at the end of the line)
 function tcNext(T){const st=TCW.stations;if(T.dir>0){for(const q of st)if(q.s>T.s+.5)return q}else{for(let i=st.length-1;i>=0;i--)if(st[i].s<T.s-.5)return st[i]}return null}
 // door of a docked bus: on the median side (its local +x), towards the front
-function tcDoor(v){const sy=Math.sin(v.yaw),cy=Math.cos(v.yaw),w=v.rig.wid/2+.35,f=v.len/2-1.6;return{x:v.x+cy*w+sy*f,z:v.z-sy*w+cy*f}}
-if(TCW.path){const NTB=Math.max(8,2*Math.round(TCW.L/1200));for(let i=0;i<NTB;i++){const dir=i%2?-1:1,sv=TCW.L*(i+.5)/NTB;const v=newVehicle(0,0,0,'bus');v.tc={s:sv,dir,st:'run',dw:0};v.ai=false;v.speed=8;const p0=tcAt(sv);v.yaw=Math.atan2(p0.tx*dir,p0.tz*dir);tcPlace(v);TC.buses.push(v)}
+function tcDoor(v){const sy=Math.sin(v.yaw),cy=Math.cos(v.yaw),w=v.rig.wid/2+.35,f=v.len/2-(v.type==='busart'?2.8:1.6);return{x:v.x+cy*w+sy*f,z:v.z-sy*w+cy*f}}
+if(TCW.path){const NTB=Math.max(8,2*Math.round(TCW.L/1200));for(let i=0;i<NTB;i++){const dir=i%2?-1:1,sv=TCW.L*(i+.5)/NTB;const v=newVehicle(0,0,0,'busart');v.tc={s:sv,dir,st:'run',dw:0};v.ai=false;v.speed=8;const p0=tcAt(sv);v.yaw=Math.atan2(p0.tx*dir,p0.tz*dir);tcPlace(v);TC.buses.push(v)}
   // people waiting on every platform
   for(const st of TCW.stations){st.ppl=[];for(let i=0;i<6;i++){const q=makePed(rand()<.3?'tourist':'local',0,0);q.static=true;q.noFace=true;q.pose=rand()<.5?'hips':'';
       const a=tcAt(st.s+rr(-12,12));q.x=a.x+st.tz*rr(-.5,.5);q.z=a.z-st.tx*rr(-.5,.5);q.ang=st.yaw+(rand()<.5?Math.PI/2:-Math.PI/2);STAY.push(q);ALLP.push(q);st.ppl.push(q)}}}
@@ -1769,7 +1769,7 @@ function updateTC(dt){if(!TCW.path)return;
   for(const v of TC.buses){const T=v.tc;if(!T)continue;if(v===player.car){v.tc=null;continue}
     if(T.st==='dwell'){v.speed=0;T.dw-=dt;if(T.dw<=0&&!(TC.board&&TC.board.v===v)){T.st='run';if(T.term){T.dir=-T.dir;T.term=false}}}
     else{const nx=tcNext(T);const goal=nx?nx.s:(T.dir>0?TCW.L-6:6);const rem=(goal-T.s)*T.dir;let want=Math.min(13,Math.sqrt(2*1.5*Math.max(0,rem-.3)));
-      for(const o of TC.buses){if(o===v||!o.tc||o.tc.dir!==T.dir)continue;const gap=(o.tc.s-T.s)*T.dir;if(gap>0&&gap<40)want=Math.min(want,Math.max(0,(gap-15)*.6))}
+      for(const o of TC.buses){if(o===v||!o.tc||o.tc.dir!==T.dir)continue;const gap=(o.tc.s-T.s)*T.dir;if(gap>0&&gap<52)want=Math.min(want,Math.max(0,(gap-24)*.6))}
       v.speed=lerp(v.speed,want,Math.min(1,dt*(want<v.speed?2.2:.7)));T.s+=v.speed*dt*T.dir;
       if(rem<.8&&v.speed<.6){T.st='dwell';v.speed=0;if(nx){T.dw=rr(7,10);onDock(v,nx);if(TC.ride&&TC.ride.v===v&&TC.ride.dest===nx)tcAlight()}else{T.dw=6;T.term=true}}}
     tcPlace(v)}

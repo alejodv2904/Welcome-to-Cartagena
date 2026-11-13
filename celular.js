@@ -17,6 +17,7 @@ const FIN={cuenta:null,nequi:null,mov:[],pago:{uber:'efectivo',didi:'efectivo'}}
 function mov(where,txt,n){FIN.mov.unshift({h:hhmm(),w:where,t:txt,n});if(FIN.mov.length>30)FIN.mov.length=30}
 const AVAL=new Set(['Banco de Bogotá','Banco de Occidente','Banco Popular','Banco AV Villas','Grupo Aval (ATH)']);
 // en las tiendas, si no alcanza el efectivo se paga con Nequi o con la tarjeta débito
+if(!EX.HOOK)throw new Error("El navegador mezcló archivos viejos y nuevos del juego: recarga con Ctrl+F5");
 EX.HOOK.altPay=n=>{const N=FIN.nequi,A=FIN.cuenta;const where=EX.inside&&EX.shop?EX.shop.name:'Pago';
   if(N&&N.saldo>=n){N.saldo-=n;mov('Nequi',where,-n);return'Nequi'}
   if(A&&A.saldo>=n){A.saldo-=n;mov(A.banco,'Compra con tarjeta · '+where,-n);return'tu tarjeta '+A.banco}return null};

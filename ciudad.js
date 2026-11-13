@@ -9,31 +9,60 @@ window.CIUDAD=(function(){
 const WORLD=[-3400,-7600,11600,10600];
 const OSMR=[-1800,-1470,3420,4160];
 // costa del Caribe al norte del mapa detallado (Crespo → La Boquilla) y orilla oriental de la bahía al sur (Mamonal)
-const COAST_N=[[3222,-3041],[3550,-3350],[4050,-3800],[4450,-4300],[5000,-4950],[5600,-5600],[6300,-6350],[7000,-7100],[7700,-7800]];
+const COAST_N=[[3222,-3041],[3380,-3400],[3650,-3850],[4100,-4300],[4700,-4900],[5400,-5550],[6300,-6350],[7000,-7100],[7700,-7800]];
 const COAST_S=[[4438,5806],[4350,6500],[4150,7400],[4050,8300],[4150,9200],[4450,10000],[4700,10700]];
 const CIENAGA=[[5450,-1500],[5420,-2600],[5350,-3500],[5650,-4300],[6150,-5100],[6750,-5900],[7350,-6700],[7900,-7700],[9000,-7700],[9900,-6400],[10400,-5000],[10600,-3500],[10600,-2000],[10300,-900],[9500,-450],[8500,-350],[7500,-500],[6700,-700],[6100,-900],[5700,-1100]];
 const TBOMBA=[[-3362,5806],[-1650,5806],[-1550,6400],[-1800,7200],[-2400,7900],[-3400,8300],[-3400,5806]];
-// aeropuerto Rafael Núñez: pista paralela a la costa en Crespo
-const AIRPORT={x:3050,z:-2420,dx:Math.SQRT1_2,dz:-Math.SQRT1_2,len:2500,w0:-190,w1:360};
+// aeropuerto Rafael Núñez: pista casi norte-sur (01/19) desde el sur, junto a San Francisco y 7 de Agosto, hasta la costa;
+// la terminal queda del lado de Crespo (oeste). side=-1: la terminal va a la izquierda de la pista mirando al norte. t: distancia de la terminal
+const AIRPORT=(()=>{const x0=3990,z0=-1400,x1=4130,z1=-3796,len=Math.hypot(x1-x0,z1-z0);return{x:x0,z:z0,dx:(x1-x0)/len,dz:(z1-z0)/len,len:2400,side:-1,t:1060,w0:-190,w1:190,tw:380}})();
 
-// barrios fuera del área detallada: nombre, x, z, población, tipo, radio (m)
+// barrios fuera del área detallada: nombre, x, z, población, tipo[, radio (m)]. Posiciones reales (centro de cada barrio,
+// convertido de latitud/longitud con el mismo origen de mapa.js); el radio, si falta, sale de la distancia a los vecinos
 const BARRIOS=[
-  ['Crespo',2900,-1750,14000,'medio',650],['Villa Gloria',4700,-3000,18000,'popular',750],['Cielo Mar',5450,-5050,9000,'medio',650],['La Boquilla',6450,-6150,16000,'playa',850],
-  ['San Francisco',4500,-1550,40000,'popular',650],['La María',4100,-650,26000,'popular',560],['Boston',4750,-150,22000,'popular',520],['Tesca',5650,-500,20000,'popular',520],
-  ['La Esperanza',4800,550,24000,'popular',520],['La Candelaria',5550,250,22000,'popular',520],['Nuevo Paraíso',6200,600,26000,'popular',520],['Olaya Herrera',7150,350,120000,'popular',950],
-  ['Fredonia',8350,1050,38000,'popular',700],['El Pozón',9900,1500,95000,'popular',1050],['Chiquinquirá',4250,1150,15000,'popular',460],['Zaragocilla',5150,1450,20000,'medio',520],
-  ['España',3900,1800,14000,'medio',460],['María Auxiliadora',4650,2050,15000,'medio',460],['Los Ejecutivos',5100,2650,9000,'alto',460],['La Castellana',5850,2950,12000,'medio',520],
-  ['Los Alpes',6500,2050,16000,'medio',520],['Las Gaviotas',7400,2300,28000,'medio',620],['Villa Olímpica',8300,2300,10000,'medio',520],['San José de los Campanos',9900,3700,38000,'popular',850],
-  ['Blas de Lezo',3950,3800,30000,'popular',620],['Los Corales',4700,3350,14000,'medio',480],['San Fernando',5300,4600,24000,'popular',600],['El Socorro',6150,4200,28000,'popular',560],
-  ['Los Caracoles',4980,3880,14000,'popular',420],['El Carmelo',5640,3880,13000,'popular',420],
-  ['Ternera',7300,3900,26000,'popular',650],['La Consolata',8600,4500,24000,'popular',650],['Santa Lucía',6500,5300,30000,'popular',620],['Villa Estrella',9300,5700,26000,'popular',720],
-  ['Ceballos',4750,5850,14000,'popular',520],['Albornoz',4600,6900,9000,'industrial',650],['Henequén',6200,6500,22000,'popular',620],['Nelson Mandela',7700,6700,65000,'popular',1000],
-  ['Policarpa',4950,8500,18000,'popular',650],['Mamonal',5700,9700,4000,'industrial',1200],['Rosedal',8800,7200,20000,'popular',750],
+  // norte: Crespo, aeropuerto, Anillo Vial y La Boquilla
+  ['Crespo',3416,-2665,14000,'medio'],['Daniel Lemaitre',3164,-1659,20000,'popular'],['Canapote',2660,-1847,22000,'popular'],['Santa María',3526,-1967,9000,'popular'],
+  ['7 de Agosto',3728,-1818,9000,'popular'],['San Francisco',3657,-1394,40000,'popular'],['20 de Julio',3350,-1548,8000,'popular'],['El Paraíso',3657,-763,12000,'popular'],
+  ['Villa Gloria',4450,-4150,15000,'popular'],['Cielo Mar',4950,-4700,9000,'medio'],['La Boquilla',5507,-5220,16000,'playa',800],
+  // La María, Boston y la orilla de la Ciénaga
+  ['La María',3650,200,26000,'popular'],['Boston',4700,-350,22000,'popular'],['La Candelaria',5300,-450,22000,'popular'],['Tesca',5650,300,20000,'popular'],['Alcibia',3624,763,8000,'medio'],
+  ['Líbano',4653,1084,9000,'popular'],['Rafael Núñez',4817,1283,10000,'popular'],['Costa Linda',5277,1106,9000,'popular'],['Castillete',5288,1559,8000,'popular'],['Villa Olímpica',5671,1659,10000,'medio'],
+  ['Olaya Herrera',6876,1471,120000,'popular',900],['San Antonio',6821,1659,12000,'popular'],['La Magdalena',7664,1526,14000,'popular'],['Ricaurte',7368,2101,12000,'popular'],
+  ['13 de Junio',6959,2085,10000,'popular'],['Las Américas',8529,2090,16000,'popular'],['Nuevo Paraíso',8618,1589,26000,'popular'],['Fredonia',8299,1371,38000,'popular',700],
+  ['El Pozón',9394,698,95000,'popular',1000],['Villas de La Candelaria',9555,1947,12000,'popular'],['Ciudad del Bicentenario',11035,-202,30000,'popular',650],['Flor del Campo',11215,445,15000,'popular'],
+  // Avenida Pedro de Heredia y alrededores
+  ['María Auxiliadora',3952,1250,15000,'medio'],['Amberes',3679,1637,9000,'medio'],['España',4094,1748,14000,'medio'],['Armenia',4489,1836,8000,'medio'],['Monserrate',3810,1980,7000,'medio'],
+  ['Junín',4007,2256,7000,'medio'],['Juan XXIII',3701,2400,9000,'popular'],['Piedra de Bolívar',4598,2400,9000,'popular'],['José Antonio Galán',4134,2550,8000,'popular'],
+  ['9 de Abril',4434,2599,8000,'popular'],['Andalucía',4767,2594,7000,'popular'],['Progreso',5408,2179,8000,'popular'],['Zaragocilla',4817,2831,20000,'medio'],
+  ['Los Ejecutivos',5350,2780,9000,'alto'],['Escallón Villa',5737,2500,9000,'medio'],['Venezuela',6076,2389,9000,'popular'],['Chiquinquirá',6241,2068,15000,'popular'],
+  ['Las Gaviotas',6500,2380,28000,'medio'],['La Floresta',6733,2654,8000,'medio'],['Los Alpes',7193,2411,16000,'medio'],['El Nuevo Porvenir',7970,2267,12000,'popular'],
+  ['Las Palmeras',8426,2438,12000,'popular'],['Villa Rosita',9087,2931,10000,'popular'],['La Carolina',9304,2804,9000,'popular'],['Ciudad Jardín',10009,2919,10000,'medio'],
+  ['San José de los Campanos',10222,3495,38000,'popular',700],['Ciudadela 11 de Noviembre',10127,4004,14000,'popular'],['Juan Pablo II',10788,3795,12000,'popular'],
+  // El Bosque, Los Cerros y el sur de la bahía
+  ['Nuevo Paraguay',3646,2677,8000,'popular'],['República de Chile',3635,2865,8000,'popular'],['Loma de Marion',3646,3030,6000,'popular'],['Divino Niño',4149,3008,8000,'popular'],
+  ['Las Brisas',4456,2887,9000,'popular'],['Los Cerros',3977,3335,6000,'popular'],['Bosquecito',3755,3373,7000,'popular'],['San Isidro',4314,3329,12000,'popular'],['Nuevo Bosque',4478,3628,12000,'popular'],
+  ['Libertador',5124,3064,9000,'popular'],['La Campiña',5233,3263,8000,'medio'],['El Country',5613,3355,8000,'medio'],['Calamares',5658,3073,9000,'medio'],['Camagüey',5945,3108,8000,'popular'],
+  ['Los Ángeles',6361,3086,9000,'popular'],['La Castellana',6626,3056,12000,'medio'],['Contadora',6908,2887,8000,'medio'],['Santa Lucía',7653,3185,30000,'popular'],
+  ['Santa Mónica',7500,3783,9000,'popular'],['La Plazuela',7883,3893,10000,'medio'],['El Recreo',8452,3683,12000,'medio'],['Beirut',8802,4004,8000,'popular'],['Ternera',9269,4064,26000,'popular'],
+  ['La Princesa',9258,4531,9000,'popular'],['Medellín',8868,5121,10000,'popular'],['Villa Corelca',8917,5424,9000,'popular'],['El Rodeo',9580,5696,12000,'popular'],
+  // suroriente
+  ['Los Corales',5286,3908,14000,'medio'],['Almirante Colón',5803,3971,10000,'popular'],['Los Caracoles',6262,3882,14000,'popular'],['La Central',6416,4136,9000,'popular'],
+  ['Blas de Lezo',6952,3838,30000,'popular'],['El Socorro',7587,4170,28000,'popular'],['Ceballos',4773,4114,14000,'popular'],['Santa Clara',4960,4413,9000,'popular'],
+  ['La Fragata',5485,4247,8000,'popular'],['El Campestre',5792,4347,10000,'medio'],['El Carmelo',6558,4501,13000,'popular'],['Vista Hermosa',5360,4669,9000,'popular'],
+  ['Nuevo Campestre',5299,4811,9000,'popular'],['La Gloria',6230,4922,10000,'popular'],['San Fernando',7771,4895,24000,'popular'],['La Consolata',7511,5021,24000,'popular'],
+  ['La Victoria',7040,5099,12000,'popular'],['María Cano',7489,5442,10000,'popular'],['La Esmeralda',7369,5669,10000,'popular'],['El Silencio',7642,5818,10000,'popular'],
+  ['Bellavista',5113,5187,10000,'popular'],['Luis Carlos Galán',6019,5386,10000,'popular'],['San Pedro Mártir',6295,5618,12000,'popular'],
+  ['El Libertador',5770,5818,10000,'popular'],['Villa Barraza',5003,6171,8000,'popular'],['Sucre',5912,6282,8000,'popular'],['Henequén',6285,6115,22000,'popular'],
+  ['El Reposo',6952,6249,9000,'popular'],['Simón Bolívar',8026,6078,12000,'popular'],['Los Olivos',7852,6361,10000,'popular'],['La Conquista',7526,6536,9000,'popular'],
+  ['Nelson Mandela',7935,6691,65000,'popular',800],['Bayao',7281,6857,9000,'popular'],['Arroz Barato',6109,7222,9000,'popular',550],['Albornoz',4928,6617,9000,'industrial',650],
+  ['Puerta de Hierro',6306,7731,8000,'popular',550],['Policarpa',6394,8417,18000,'popular',650],['Mamonal',5500,9700,4000,'industrial',1200],
 ];
+// radio de cada barrio: algo más de la mitad de la distancia al vecino más cercano
+BARRIOS.forEach(b=>{if(b[5])return;let nn=1e9;for(const q of BARRIOS)if(q!==b)nn=Math.min(nn,Math.hypot(q[1]-b[1],q[2]-b[2]));b[5]=Math.round(Math.max(300,Math.min(700,nn*.62)))});
 // barrios del área detallada (los nombres de las zonas del juego) con su población
 const INNER_POP={'Centro Histórico':6000,'San Diego':5000,'Getsemaní':6000,'La Matuna':2500,'Manga':26000,'Bocagrande':22000,'El Laguito':3500,'Castillogrande':7000,'Pie de la Popa':16000,
-  'El Cabrero':4500,'Torices':32000,'Chambacú':9000,'Cerro de La Popa':3000,'Pie del Cerro':11000,'Marbella':9000,'Lo Amador':12000,'Bazurto':9000,'El Bosque':30000,'Alto Bosque':18000,'Daniel Lemaitre':20000,'Canapote':22000};
-const INNER_ZONES=[['Lo Amador',1700,600],['Bazurto',2300,900],['El Bosque',2850,2050],['Alto Bosque',3200,2900],['Daniel Lemaitre',2700,-1050],['Canapote',3350,-650]];
+  'El Cabrero':4500,'Torices':32000,'Chambacú':9000,'Cerro de La Popa':3000,'Pie del Cerro':11000,'Marbella':9000,'Lo Amador':12000,'Bazurto':9000,'El Bosque':30000,'Alto Bosque':18000};
+const INNER_ZONES=[['Lo Amador',1883,11],['Bazurto',2150,850],['El Bosque',2934,2500],['Alto Bosque',3197,3429]];
 const STYLE_DENS={popular:1,medio:.75,alto:.6,playa:.65,industrial:.25};
 
 // avenidas principales (ty: 0 autopista/avenida, 1 avenida, 2 vía principal). dual = dos calzadas de un solo sentido
@@ -42,7 +71,7 @@ const AVENIDAS=[
     pts:[[3420,1380],[3880,1690],[4400,1980],[4950,2280],[5600,2560],[6300,2620],[7000,2600],[7700,2620],[8400,2700],[9100,2800],[9600,2880]]},
   {name:'Troncal de Occidente',ty:0,lanes:2,pts:[[9600,2880],[10200,3450],[10800,4300],[11500,5250]]},
   {name:'Avenida Santander',ty:1,lanes:2,dual:{off:5.5,eStart:[1218.7,-1448.9],wEnd:[1212.7,-1458.7]},pts:[[1215.7,-1453.8],[1560,-1650],[1950,-1800],[2200,-2000],[2400,-2200]]},
-  {name:'Anillo Vial',ty:1,lanes:2,pts:[[2400,-2200],[2640,-2400],[2840,-2600],[3050,-2800],[3340,-3041],[3640,-3420],[4150,-3880],[4560,-4370],[5100,-5000],[5700,-5650],[6380,-6380],[7050,-7100],[7550,-7550]]},
+  {name:'Anillo Vial',ty:1,lanes:2,pts:[[2400,-2200],[2640,-2400],[2840,-2600],[3050,-2800],[3340,-3041],[3560,-3400],[3800,-3850],[4060,-4100],[4450,-4400],[5000,-5000],[5700,-5650],[6380,-6380],[7050,-7100],[7550,-7550]]},
   {name:'Avenida Perimetral',ty:1,lanes:2,pts:[[3950,-1150],[4600,-1150],[5250,-1050],[5800,-750],[6600,-450],[7500,-250],[8500,-100],[9500,-200],[10350,-600],[11000,-1100]]},
   {name:'Avenida El Consulado',ty:1,lanes:2,pts:[[3371,1679.3],[3900,2250],[4600,2900],[5400,3350],[6300,3550],[7300,3700],[8300,3800],[9300,3600],[10100,3350]]},
   {name:'Corredor Vial de Cartagena',ty:1,lanes:2,dual:{off:4.6,eStart:[3638.6,3761.1],wEnd:[3632.7,3753.8]},pts:[[3635.6,3757.4],[4100,4500],[4750,5600],[4850,6600],[4700,7600],[4800,8600],[5100,9700],[5400,10500]]},
@@ -51,35 +80,35 @@ const AVENIDAS=[
   {name:'Variante Mamonal - Gambote',ty:1,lanes:2,pts:[[5700,9450],[7000,9100],[8300,8600],[9600,8000],[11500,7300]]},
   {name:'Avenida Pedro Romero',ty:2,lanes:2,pts:[[6900,3100],[6950,1600],[7000,700],[7050,-350]]},
   {name:'Avenida Crisanto Luque',ty:2,lanes:2,pts:[[3700,700],[4300,1300],[4700,1900],[5300,3300],[5900,4900],[6500,6300],[7300,7700]]},
-  {name:'Avenida del Aeropuerto',ty:2,lanes:2,pts:[[4300,-1150],[4250,-1900],[4050,-2500],[3700,-2900]]},
-  // Crespo: de la Avenida Santander al aeropuerto por el lado de la terminal (empieza entre las dos calzadas y termina en la Avenida del Aeropuerto)
-  {name:'Calle 70 (Crespo)',ty:2,lanes:2,pts:[[2048.8,-1881.6],[2200,-1700],[2700,-1850],[3150,-2050],[3500,-2300],[3800,-2520],[4030,-2560]]},
+  {name:'Avenida del Aeropuerto',ty:2,lanes:2,pts:[[4300,-1150],[4350,-1900],[4420,-2700],[4480,-3500],[4450,-4400]]},
+  // Crespo: de la Avenida Santander a la terminal del aeropuerto (empieza entre las dos calzadas) y sigue por Crespo hasta el Anillo Vial
+  {name:'Calle 70 (Crespo)',ty:2,lanes:2,pts:[[2048.8,-1881.6],[2200,-1700],[2700,-1850],[3150,-2050],[3480,-2330],[3610,-2560],[3560,-2900],[3340,-3041]]},
 ];
 
 // lugares: aeropuerto, terminal, hospitales, centros comerciales, estadios, CAI, gasolineras, iglesias, parques, playas
 // kind: aeropuerto, terminal, hospital, salud, mall, estadio, universidad, cai, gasolinera, iglesia, parque, playa, mercado
 const LUGARES=[
-  {name:'Aeropuerto Rafael Núñez',kind:'aeropuerto',x:3700,z:-2950,mission:1},
+  {name:'Aeropuerto Rafael Núñez',kind:'aeropuerto',x:3700,z:-2480,mission:1},
   {name:'Terminal de Transportes',kind:'terminal',x:9500,z:3080,w:130,d:45,mission:1},
-  {name:'Hospital Universitario del Caribe',kind:'hospital',x:5250,z:1250,w:60,d:40,mission:1},
-  {name:'Centro de Salud Olaya',kind:'salud',x:7000,z:250,w:30,d:20},
-  {name:'Centro de Salud El Pozón',kind:'salud',x:9800,z:1350,w:30,d:20},
-  {name:'Centro de Salud Nelson Mandela',kind:'salud',x:7650,z:6600,w:30,d:20},
-  {name:'Centro de Salud Blas de Lezo',kind:'salud',x:4000,z:3700,w:30,d:20},
-  {name:'Centro Comercial Los Ejecutivos',kind:'mall',x:5050,z:2460,w:70,d:48,mission:1},
-  {name:'Centro Comercial La Castellana',kind:'mall',x:5900,z:2760,w:70,d:48,mission:1},
-  {name:'Estadio de Béisbol Once de Noviembre',kind:'estadio',x:8200,z:2380,r:62,mission:1},
-  {name:'Universidad de Cartagena · Zaragocilla',kind:'universidad',x:5050,z:1600,w:70,d:35,mission:1},
+  {name:'Hospital Universitario del Caribe',kind:'hospital',x:4550,z:2600,w:60,d:40,mission:1},
+  {name:'Centro de Salud Olaya',kind:'salud',x:6726,z:1371,w:30,d:20},
+  {name:'Centro de Salud El Pozón',kind:'salud',x:9294,z:548,w:30,d:20},
+  {name:'Centro de Salud Nelson Mandela',kind:'salud',x:7885,z:6591,w:30,d:20},
+  {name:'Centro de Salud Blas de Lezo',kind:'salud',x:7000,z:3800,w:30,d:20},
+  {name:'Centro Comercial Los Ejecutivos',kind:'mall',x:5300,z:2590,w:70,d:48,mission:1},
+  {name:'Centro Comercial La Castellana',kind:'mall',x:6676,z:2866,w:70,d:48,mission:1},
+  {name:'Estadio de Béisbol Once de Noviembre',kind:'estadio',x:5750,z:1850,r:62,mission:1},
+  {name:'Universidad de Cartagena · Zaragocilla',kind:'universidad',x:4900,z:2700,w:70,d:35,mission:1},
   {name:'Mercado de Bazurto',kind:'mercado',x:2050,z:1000,label:true,mission:1},
-  {name:'Playa de Crespo',kind:'playa',x:2150,z:-2150,mission:1},{name:'Playa de La Boquilla',kind:'playa',x:6200,z:-6500,mission:1},{name:'Playa de Marbella',kind:'playa',x:1200,z:-1600,mission:0},
-  {name:'Parque de Olaya',kind:'parque',x:7300,z:500,mission:1},{name:'Parque de El Pozón',kind:'parque',x:10000,z:1700,mission:1},{name:'Parque de Las Gaviotas',kind:'parque',x:7350,z:2150,mission:1},
-  {name:'Parque de Blas de Lezo',kind:'parque',x:3900,z:3950,mission:0},{name:'Parque de Ternera',kind:'parque',x:7250,z:4050,mission:1},{name:'Parque de San Fernando',kind:'parque',x:5350,z:4700,mission:0},
-  {name:'Parque de Crespo',kind:'parque',x:2950,z:-1650,mission:1},{name:'Parque de La María',kind:'parque',x:4150,z:-600,mission:0},
-  {name:'Parroquia de Olaya Herrera',kind:'iglesia',x:7050,z:450},{name:'Parroquia de El Pozón',kind:'iglesia',x:9750,z:1650},{name:'Parroquia de Crespo',kind:'iglesia',x:2800,z:-1850},
-  {name:'Parroquia de San Fernando',kind:'iglesia',x:5200,z:4500},{name:'Parroquia de La Boquilla',kind:'iglesia',x:6500,z:-6100},{name:'Parroquia de Nelson Mandela',kind:'iglesia',x:7800,z:6850},
-  {name:'CAI Crespo',kind:'cai',x:2700,z:-1700},{name:'CAI La Boquilla',kind:'cai',x:6350,z:-6250},{name:'CAI Olaya',kind:'cai',x:7250,z:150},{name:'CAI El Pozón',kind:'cai',x:10050,z:1350},
-  {name:'CAI Los Ejecutivos',kind:'cai',x:5200,z:2350},{name:'CAI Las Gaviotas',kind:'cai',x:7600,z:2450},{name:'CAI Blas de Lezo',kind:'cai',x:4100,z:3900},{name:'CAI El Socorro',kind:'cai',x:6100,z:4300},
-  {name:'CAI Nelson Mandela',kind:'cai',x:7600,z:6800},{name:'CAI San Francisco',kind:'cai',x:4400,z:-1650},{name:'CAI Ternera',kind:'cai',x:7350,z:3800},{name:'CAI Mamonal',kind:'cai',x:5500,z:9400},
+  {name:'Playa de Crespo',kind:'playa',x:2150,z:-2150,mission:1},{name:'Playa de La Boquilla',kind:'playa',x:5250,z:-5650,mission:1},{name:'Playa de Marbella',kind:'playa',x:1200,z:-1600,mission:0},
+  {name:'Parque de Olaya',kind:'parque',x:7150,z:1650,mission:1},{name:'Parque de El Pozón',kind:'parque',x:9494,z:898,mission:1},{name:'Parque de Las Gaviotas',kind:'parque',x:6450,z:2230,mission:1},
+  {name:'Parque de Blas de Lezo',kind:'parque',x:6902,z:3988,mission:0},{name:'Parque de Ternera',kind:'parque',x:9219,z:4214,mission:1},{name:'Parque de San Fernando',kind:'parque',x:7821,z:4995,mission:0},
+  {name:'Parque de Crespo',kind:'parque',x:3466,z:-2565,mission:1},{name:'Parque de La María',kind:'parque',x:3700,z:250,mission:0},
+  {name:'Parroquia de Olaya Herrera',kind:'iglesia',x:6776,z:1571},{name:'Parroquia de El Pozón',kind:'iglesia',x:9244,z:848},{name:'Parroquia de Crespo',kind:'iglesia',x:3316,z:-2765},
+  {name:'Parroquia de San Fernando',kind:'iglesia',x:7671,z:4795},{name:'Parroquia de La Boquilla',kind:'iglesia',x:5557,z:-5170},{name:'Parroquia de Nelson Mandela',kind:'iglesia',x:8035,z:6841},
+  {name:'CAI Crespo',kind:'cai',x:3216,z:-2615},{name:'CAI La Boquilla',kind:'cai',x:5480,z:-5280},{name:'CAI Olaya',kind:'cai',x:6850,z:1250},{name:'CAI El Pozón',kind:'cai',x:9544,z:548},
+  {name:'CAI Los Ejecutivos',kind:'cai',x:5420,z:2700},{name:'CAI Las Gaviotas',kind:'cai',x:6700,z:2450},{name:'CAI Blas de Lezo',kind:'cai',x:7102,z:3938},{name:'CAI El Socorro',kind:'cai',x:7537,z:4270},
+  {name:'CAI Nelson Mandela',kind:'cai',x:7835,z:6791},{name:'CAI San Francisco',kind:'cai',x:3557,z:-1494},{name:'CAI Ternera',kind:'cai',x:9319,z:3964},{name:'CAI Mamonal',kind:'cai',x:5300,z:9400},
   {name:'CAI Bocagrande',kind:'cai',x:-1050,z:2350,inner:1},{name:'CAI Manga',kind:'cai',x:800,z:800,inner:1},{name:'CAI Getsemaní',kind:'cai',x:420,z:120,inner:1},{name:'CAI Pie de la Popa',kind:'cai',x:1750,z:350,inner:1},
 ];
 // gasolineras sobre las avenidas: [avenida, fracción del recorrido]
@@ -95,8 +124,9 @@ function lineX(L,z){// x of a polyline (monotonic in z) at height z, extrapolate
 function outerLand(x,z){if(x<WORLD[0]||x>WORLD[2]||z<WORLD[1]||z>WORLD[3])return false;if(inPolyA(CIENAGA,x,z))return false;
   if(z<-3041)return x>lineX(COAST_N,z);if(z>5806)return x>lineX(COAST_S,z)||inPolyA(TBOMBA,x,z);return x>5366}
 function waterName(x,z){if(inPolyA(CIENAGA,x,z))return'Ciénaga de la Virgen';if(z<-600||x<-1300||(x<-600&&z<1600))return'Mar Caribe';return'Bahía de Cartagena'}
-const inAirport=(x,z,m)=>{m=m||0;const rx=x-AIRPORT.x,rz=z-AIRPORT.z,s=rx*AIRPORT.dx+rz*AIRPORT.dz;const lat=rx*(-AIRPORT.dz)+rz*AIRPORT.dx;
-  return s>-120-m&&s<AIRPORT.len+120+m&&lat>AIRPORT.w0-m&&lat<AIRPORT.w1+m};
+// pista con su franja (±190 m) y, del lado de la terminal, el bloque de la terminal y la plataforma
+const inAirport=(x,z,m)=>{m=m||0;const A=AIRPORT,rx=x-A.x,rz=z-A.z,s=rx*A.dx+rz*A.dz;const lat=(rx*(-A.dz)+rz*A.dx)*A.side;
+  if(s>-120-m&&s<A.len+120+m&&lat>A.w0-m&&lat<A.w1+m)return true;return s>A.t-340-m&&s<A.t+440+m&&lat>0&&lat<A.tw+m};
 function hashI(a,b){let h=Math.imul(a|0,374761393)^Math.imul(b|0,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
 function vnoise(x,z,seed){const xi=Math.floor(x),zi=Math.floor(z),tx=x-xi,tz=z-zi,sx=tx*tx*(3-2*tx),sz=tz*tz*(3-2*tz);
   const a=hashI(xi+seed*101,zi),b=hashI(xi+1+seed*101,zi),c=hashI(xi+seed*101,zi+1),d=hashI(xi+1+seed*101,zi+1);return(a*(1-sx)+b*sx)*(1-sz)+(c*(1-sx)+d*sx)*sz}

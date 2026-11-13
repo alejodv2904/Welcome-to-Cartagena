@@ -14,9 +14,9 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 
 ## La ciudad completa
 
-- **Toda Cartagena:** además del Centro, Getsemaní, Manga, Bocagrande y La Popa (con datos reales de OpenStreetMap), se puede recorrer el resto de la ciudad: Crespo y el aeropuerto, La Boquilla, la Ciénaga de la Virgen, Olaya Herrera, El Pozón, Las Gaviotas, Los Ejecutivos, Ternera, Blas de Lezo, Nelson Mandela, hasta Mamonal. Esos barrios se generan a partir de la geografía aproximada de la ciudad (`ciudad.js`): costa, ciénaga, avenidas principales y barrios con su población. Las casas, locales y postes se construyen por bloques cerca del jugador.
+- **Toda Cartagena:** además del Centro, Getsemaní, Manga, Bocagrande y La Popa (con datos reales de OpenStreetMap), se puede recorrer el resto de la ciudad: Crespo y el aeropuerto, La Boquilla, la Ciénaga de la Virgen, Olaya Herrera, El Pozón, Las Gaviotas, Los Ejecutivos, Ternera, Blas de Lezo, Nelson Mandela, hasta Mamonal. Esos barrios se generan a partir de la geografía de la ciudad (`ciudad.js`): costa, ciénaga, avenidas principales y unos 120 barrios puestos en su ubicación real (centro de cada barrio en latitud y longitud), con su población. El aeropuerto tiene la pista casi norte-sur, con San Francisco y 7 de Agosto al sur y la terminal del lado de Crespo. Las casas, locales y postes se construyen por bloques cerca del jugador.
 - **1.500.000 habitantes** repartidos por barrio: el recuadro de zona muestra los habitantes del barrio donde estás y el mapa grande los muestra todos. La cantidad de gente en la calle depende del tipo de barrio.
-- **Transcaribe** por toda la Avenida Pedro de Heredia hasta el Portal, con 17 estaciones.
+- **Transcaribe** por toda la Avenida Pedro de Heredia hasta el Portal, con 17 estaciones. La troncal la recorren buses articulados de 18 m (dos cuerpos con fuelle: el de atrás dobla siguiendo al de adelante) y por las avenidas pasan los alimentadores de 12 m, los dos con los colores del sistema (blanco, franja negra de ventanas y faldón naranja), letrero de ruta y parabrisas donde se ve al conductor.
 - **Mapa (M)** de toda la ciudad con símbolos: tiendas y locales, centros comerciales, paraderos de bus, estaciones de Transcaribe, CAI de la Policía, hospitales y centros de salud, gasolineras, aeropuerto y terminal, iglesias, parques, playas y encargos. Toca un símbolo de la leyenda para mostrarlo u ocultarlo.
 - **Policía en moto:** las patrullas son motos verdes con dos policías, y hay muchas: andan por los alrededores y pasan a cada rato.
 - **Mototaxis por todas partes:** más o menos uno de cada cuatro vehículos de la calle es un mototaxi, y la mayoría lleva un pasajero atrás. En las carreras en moto, tu pasajero también va sentado atrás.
@@ -46,5 +46,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 - **Perros y gatos:** perros criollos repartidos por la ciudad que deambulan, se echan y mueven la cola (ninguno te sigue); gatos que se sientan en los andenes y salen corriendo si te acercas.
 - **Mapa ampliado (M):** además de los símbolos de la ciudad, todos los lugares reales aparecen con su icono; la lista de la derecha muestra u oculta cada tipo, y al hacer clic en un lugar queda marcado en el GPS. En las tiendas de ropa venden la camiseta de la Selección, camisas de flores, bermudas, chanclas y gafas.
 - **Truco de la plata:** escribe `DINERO` mientras juegas, o marca `75282` (P-L-A-T-A) en el Teléfono del celular. Suma $ 1.000.000 contando de a pesos.
+
+Los scripts se cargan con `?v=fecha` en `index.html`: al publicar cambios hay que subir ese número para que el navegador no mezcle archivos viejos con nuevos.
 
 Para actualizar los barrios y lugares desde OpenStreetMap: `node herramientas/lugares-osm.js` (regenera `lugares.js`). Datos © colaboradores de OpenStreetMap, licencia ODbL. Nequi, Uber, DiDi y los bancos son marcas de sus dueños.
