@@ -91,13 +91,13 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113b"></script>
-<script src="ciudad.js?v=20261113b"></script>
-<script src="modelos.js?v=20261113b"></script>
-<script src="carga.js?v=20261113b"></script>
-<script src="gente.js?v=20261113b"></script>
-<script src="lugares.js?v=20261113b"></script>
-<script src="vehiculos.js?v=20261113b"></script><script src="extra.js?v=20261113b"></script><script src="celular.js?v=20261113b"></script><script src="animales.js?v=20261113b"></script>
+<script src="mapa.js?v=20261113c"></script>
+<script src="ciudad.js?v=20261113c"></script>
+<script src="modelos.js?v=20261113c"></script>
+<script src="carga.js?v=20261113c"></script>
+<script src="gente.js?v=20261113c"></script>
+<script src="lugares.js?v=20261113c"></script>
+<script src="vehiculos.js?v=20261113c"></script><script src="extra.js?v=20261113c"></script><script src="celular.js?v=20261113c"></script><script src="animales.js?v=20261113c"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -143,13 +143,14 @@ const LOWEND=window.matchMedia('(pointer:coarse)').matches||(navigator.hardwareC
 // res: how many of the ~1000 Centro residents exist at this level
 // vd: how far vehicles are drawn (there are ~330 of them)
 // grp: how far the sitting / chatting street groups (full animated people) are drawn
+// shPpl: only animated people closer than this (m) cast shadows
 // peds: people walking around the player; skin: how many of the closest are drawn as full skinned models (the rest are cheap instanced figures)
 // maxPix caps the drawing-buffer size so big / high-DPI screens don't render millions of extra pixels
-const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:16,drivers:28,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
-  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:13,drivers:20,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
-  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:10,drivers:14,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
+const QL={alta:{shPpl:40,pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:16,drivers:28,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
+  media:{shPpl:28,pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:13,drivers:20,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
+  baja:{shPpl:20,pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:10,drivers:14,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
   // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
-  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:7,drivers:10,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
+  minima:{shPpl:15,pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:7,drivers:10,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
 // resScale: extra resolution drop that 'auto' applies below the lowest level when the computer still can't keep up
 let resScale=1;
 const prFor=q=>resScale*Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
@@ -1312,11 +1313,13 @@ const CROWD=(function(){const P=[],Nn=[],PL=[],PV=[];
   m.customProgramCacheKey=()=>'crowd1';
   const mesh=new THREE.InstancedMesh(g,m,MAX);mesh.count=0;mesh.frustumCulled=false;mesh.castShadow=true;mesh.receiveShadow=true;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
   let n=0;const me=mesh.instanceMatrix.array;
-  function push(p,speed){if(n>=MAX)return;const L=p.look,s=L.scale,c=Math.cos(p.ang),sn=Math.sin(p.ang),o=n*16;
-    me[o]=c*s;me[o+1]=0;me[o+2]=-sn*s;me[o+3]=0;me[o+4]=0;me[o+5]=s;me[o+6]=0;me[o+7]=0;me[o+8]=sn*s;me[o+9]=0;me[o+10]=c*s;me[o+11]=0;me[o+12]=p.x;me[o+13]=standY(p.x,p.z);me[o+14]=p.z;me[o+15]=1;
+  // only the figures the camera can see go to the GPU (the sphere is generous so shadows don't pop at the screen edges)
+  const FR=new THREE.Frustum(),PM=new THREE.Matrix4(),SPH=new THREE.Sphere(new THREE.Vector3(),3);
+  function push(p,speed){if(n>=MAX)return;const y=standY(p.x,p.z);SPH.center.set(p.x,y+.9,p.z);if(!FR.intersectsSphere(SPH))return;const L=p.look,s=L.scale,c=Math.cos(p.ang),sn=Math.sin(p.ang),o=n*16;
+    me[o]=c*s;me[o+1]=0;me[o+2]=-sn*s;me[o+3]=0;me[o+4]=0;me[o+5]=s;me[o+6]=0;me[o+7]=0;me[o+8]=sn*s;me[o+9]=0;me[o+10]=c*s;me[o+11]=0;me[o+12]=p.x;me[o+13]=y;me[o+14]=p.z;me[o+15]=1;
     for(const k of ['aSkin','aTop','aBot','aHair','aHat']){const a=att[k].array,cc=L[k];a[n*3]=cc.r;a[n*3+1]=cc.g;a[n*3+2]=cc.b}
     const ai=att.aInfo.array;ai[n*4]=L.phase;ai[n*4+1]=speed;ai[n*4+2]=L.flags;n++}
-  return{push,begin(t){n=0;U.uTime.value=t},end(){mesh.count=n;mesh.instanceMatrix.needsUpdate=true;for(const k in att){att[k].needsUpdate=true}},mesh}})();
+  return{push,begin(t){n=0;U.uTime.value=t;camera.updateMatrixWorld();PM.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);FR.setFromProjectionMatrix(PM)},end(){mesh.count=n;mesh.instanceMatrix.needsUpdate=true;for(const k in att){att[k].needsUpdate=true}},mesh}})();
 function crowdLook(sp){const ms=modelSpec(sp);const f=ms.model==='f';const C=c=>new THREE.Color(c);
   const hatC=sp.bowl?'#e8a33a':sp.hat==='vueltiao'?'#efe6cc':sp.hat==='police'?'#3d4a2a':sp.hat==='scarf'?'#e53935':sp.hat?(sp.hatC||'#f2e6c4'):'#000';
   const flags=(sp.shorts||sp.skirt==='short'?1:0)+(sp.skirt?2:0)+(sp.hat||sp.bowl?4:0)+(sp.longSleeve?8:0);
@@ -2457,7 +2460,7 @@ function frame(now){requestAnimationFrame(frame);const rawDt=(now-last)/1000;con
   {const r=camera.far*.92;skyDome.scale.set(-r,r,r);skyDome.position.copy(camera.position)}
   renderer.render(EX.inside?EX.IS:scene,camera)}
 function step(dt,now){simT+=dt;
-  updateDay(started?dt:0);placeSun(player.x,player.z);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
+  updateDay(started?dt:0);placeSun(player.x,player.z);PPL.setShadowCenter(player.x,player.z,Q.shPpl);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
   window.__water.offset.x+=dt*.004;window.__water.offset.y+=dt*.0025;
   if(started&&EX.inside){EX.updateInside(dt,EX.menu?{ix:0,iz:0,run:false}:readInput());updateDay(0);EX.update(dt,now/1000)}
   else if(started){const lock=EX.menu||EX.busy||rideOpen()||tcOpen()||!!TC.board;const inp=lock?{ix:0,iz:0,run:false}:readInput();

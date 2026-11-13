@@ -121,6 +121,8 @@ function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(tru
     keep.geometry=variants[key];keep.morphTargetInfluences=undefined;keep.morphTargetDictionary=undefined;keep.updateMorphTargets&&keep.updateMorphTargets();
     tpl[key]={root,meshName:keep.name}}
   for(const k of ['hat','hatB','nohatB'])if(!variants[k])variants[k]=variants.nohat;
+  // volumen de recorte holgado (la pose animada se sale de la pose de reposo): así no se dibuja a quien está detrás de la cámara
+  for(const k in variants){const g=variants[k];if(g.userData.cullR)continue;if(!g.boundingSphere)g.computeBoundingSphere();g.boundingSphere.radius*=2;g.userData.cullR=true}
   let hips=null;scene.traverse(o=>{if(!hips&&strip(o.name)==='Hips')hips=o});
   // hombro, codo, cadera y rodilla en el espacio de la malla: desde ahí la ropa se vuelve piel (manga corta, sin mangas, pantaloneta)
   const bb=bonesOf(scene),lp=n=>{const b=bb[n];if(!b)return null;return first.worldToLocal(b.getWorldPosition(new THREE.Vector3()))};
@@ -173,7 +175,7 @@ function create(sp){const M=models[sp.model||'m'];const T=M.tpl[(sp.hat&&M.kind=
   const cols=[skinRatio,col(sp.top||'#ffffff'),col(sp.bottom||'#333333'),col(sp.shoes||'#222222'),col(sp.hatC||(M.kind==='f'?'#141414':'#e9dcb0')),col(sp.hairC||'#1b1310'),col('#ffffff'),col(sp.hairC||'#1b1310')];
   const modes=[1,sp.top?2:0,sp.bottom?2:0,sp.shoes?2:0,2,M.kind==='m'?2:(sp.hairC?2:0),0,2];
   if(M.kind==='f'){modes[1]=sp.top?1:0;cols[1]=col(sp.top||'#ffffff').multiplyScalar(4)}// the dark top only takes a hint of colour
-  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,patB:sp.patB,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=false;
+  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,patB:sp.patB,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
   const bones=bonesOf(root);
   const mixer=new THREE.AnimationMixer(root);const A={};for(const k in M.clips){A[k]=mixer.clipAction(M.clips[k]);A[k].play();A[k].setEffectiveWeight(0)}
   A.idle.setEffectiveWeight(1);
@@ -182,6 +184,11 @@ function create(sp){const M=models[sp.model||'m'];const T=M.tpl[(sp.hat&&M.kind=
   const ch0={props:[]};if(sp.hair&&M.headBox&&bones.Head)makeHair(g,root,mesh,bones.Head,M.headBox,sp.hair,ch0);
   return{mesh:g,root,skin:mesh,mixer,A,bones,rest,sp,model:M.kind,hairMesh:ch0.props[0]||null,phase:Math.random()*10,talk:0,talkT:0,w:{idle:1,walk:0,run:0},props:[]}}
 
+/* ---------- sombras solo para la gente cercana: cada persona animada pesa unos 16.000 triángulos y la sombra la dibuja otra vez ---------- */
+const SHC={x:0,z:0,d2:Infinity};
+function setShadowCenter(x,z,d){SHC.x=x;SHC.z=z;SHC.d2=d*d}
+function shadowByDistance(ch){const e=ch.skin.matrixWorld.elements,dx=e[12]-SHC.x,dz=e[14]-SHC.z;const on=dx*dx+dz*dz<SHC.d2;
+  if(ch.skin.castShadow!==on){ch.skin.castShadow=on;if(ch.hairMesh)ch.hairMesh.castShadow=on}}
 /* ---------- pose overrides on top of the captured motion: aim bones along directions in character space ---------- */
 const _a=new THREE.Vector3(),_b=new THREE.Vector3(),_pw=new THREE.Quaternion(),_mq=new THREE.Quaternion(),_sw=new THREE.Quaternion();
 function aim(ch,name,x,y,z,blend){const b=ch.bones[name];if(!b)return;const c=b.children.find(o=>o.isBone);if(!c)return;
@@ -205,6 +212,7 @@ const POSES={
 };
 // blend idle / walk / run by speed (m/s); clips are time-scaled so the feet match the ground speed
 function animate(ch,speed,dt,pose,far){const A=ch.A,t=(ch.clock=(ch.clock||0)+dt);
+  shadowByDistance(ch);
   if(pose==='sit'||pose==='car'){for(const k in A)A[k].setEffectiveWeight(k==='idle2'?1:0);ch.mixer.update(dt);POSES[pose](ch);return}
   const walkW=Math.min(1,Math.max(0,(speed-.15)/.9)),runW=Math.min(1,Math.max(0,(speed-2.6)/2));
   const wi=1-walkW,ww=walkW*(1-runW),wr=walkW*runW;
@@ -238,4 +246,4 @@ function attachAt(ch,boneName,obj,X,Y,Z){const b=ch.bones[boneName];if(!b)return
 function attach(ch,boneName,obj,x,y,z,rx,ry,rz){const b=ch.bones[boneName];if(!b)return;ch.root.updateMatrixWorld(true);const ws=b.getWorldScale(new THREE.Vector3()).x/ch.root.scale.x;
   const holder=new THREE.Group();holder.scale.setScalar(1/ws);b.add(holder);obj.position.set(x,y,z);obj.rotation.set(rx||0,ry||0,rz||0);holder.add(obj);ch.props.push(obj);return obj}
 
-return{create,animate,attach,attachAt,models,POSES,aim}};
+return{create,animate,attach,attachAt,models,POSES,aim,setShadowCenter}};
