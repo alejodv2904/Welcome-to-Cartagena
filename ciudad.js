@@ -86,15 +86,30 @@ const LUGARES=[
 const GAS=[['Avenida Pedro de Heredia',.18],['Avenida Pedro de Heredia',.55],['Avenida Pedro de Heredia',.85],['Anillo Vial',.15],['Anillo Vial',.7],['Avenida Perimetral',.4],
   ['Avenida El Consulado',.35],['Avenida El Consulado',.75],['Corredor Vial de Cartagena',.3],['Corredor Vial de Cartagena',.7],['Transversal 54',.45],['Carretera de La Cordialidad',.5],['Troncal de Occidente',.5]];
 
+// con ciudad-osm.js los barrios y sus lugares quedan donde están de verdad (las posiciones de arriba son aproximadas)
+const OSM0=window.CIUDAD_OSM;
+if(OSM0&&OSM0.centros)for(const b of BARRIOS){const c=OSM0.centros[b[0]];if(c){b[1]=c[0];b[2]=c[1];b[5]=c[2]}}
+if(OSM0&&OSM0.lugares)for(const L of LUGARES){const p=OSM0.lugares[L.name];if(p){L.x=p[0];L.z=p[1]}}
+const CIEN=OSM0&&OSM0.cienaga?OSM0.cienaga.reduce((a,v,i)=>{if(i%2)a[a.length-1].push(v);else a.push([v]);return a},[]):CIENAGA;
+
 /* ---------- geometría ---------- */
 function inPolyA(P,x,z){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const xi=P[i][0],zi=P[i][1],xj=P[j][0],zj=P[j][1];if(((zi>z)!==(zj>z))&&(x<(xj-xi)*(z-zi)/(zj-zi)+xi))c=!c}return c}
 function lineX(L,z){// x of a polyline (monotonic in z) at height z, extrapolated past the ends
   const up=L[L.length-1][1]>L[0][1];for(let i=0;i<L.length-1;i++){const a=L[i],b=L[i+1];if(up?(z>=a[1]&&z<=b[1]):(z<=a[1]&&z>=b[1])){const t=(z-a[1])/((b[1]-a[1])||1);return a[0]+(b[0]-a[0])*t}}
   const a=(up?z<L[0][1]:z>L[0][1])?[L[0],L[1]]:[L[L.length-2],L[L.length-1]];const t=(z-a[0][1])/((a[1][1]-a[0][1])||1);return a[0][0]+(a[1][0]-a[0][0])*t}
+// calles, edificios y agua reales de toda la ciudad (ciudad-osm.js, de OpenStreetMap); sin ese archivo se usa la geografía aproximada
+const OSM=window.CIUDAD_OSM||null;
+const OW=(function(){if(!OSM||!OSM.water)return null;const W=OSM.water,a=new Uint8Array(W.w*W.h);
+  W.runs.forEach((row,j)=>{let i=0,w=false;for(const n of row){if(w)a.fill(1,j*W.w+i,j*W.w+i+n);i+=n;w=!w}});return{x0:W.x0,z0:W.z0,cell:W.cell,w:W.w,h:W.h,a}})();
 // land outside the detailed mask
-function outerLand(x,z){if(x<WORLD[0]||x>WORLD[2]||z<WORLD[1]||z>WORLD[3])return false;if(inPolyA(CIENAGA,x,z))return false;
+function outerLand(x,z){if(x<WORLD[0]||x>WORLD[2]||z<WORLD[1]||z>WORLD[3])return false;
+  if(OW){const i=Math.floor((x-OW.x0)/OW.cell),j=Math.floor((z-OW.z0)/OW.cell);return i>=0&&j>=0&&i<OW.w&&j<OW.h&&OW.a[j*OW.w+i]===0}
+  if(inPolyA(CIENAGA,x,z))return false;
   if(z<-3041)return x>lineX(COAST_N,z);if(z>5806)return x>lineX(COAST_S,z)||inPolyA(TBOMBA,x,z);return x>5366}
-function waterName(x,z){if(inPolyA(CIENAGA,x,z))return'Ciénaga de la Virgen';if(z<-600||x<-1300||(x<-600&&z<1600))return'Mar Caribe';return'Bahía de Cartagena'}
+function waterName(x,z){if(inPolyA(CIEN,x,z))return'Ciénaga de la Virgen';if(z<-600||x<-1300||(x<-600&&z<1600))return'Mar Caribe';return'Bahía de Cartagena'}
+// la pista real, con la terminal (+lateral) del lado donde está de verdad (hacia Crespo)
+if(OSM&&OSM.runway){const [x0,z0,x1,z1]=OSM.runway,L=Math.hypot(x1-x0,z1-z0);if(L>800){let A={x:x0,z:z0,dx:(x1-x0)/L,dz:(z1-z0)/L};
+  const T=OSM.terminal||[(x0+x1)/2-A.dz*-300,(z0+z1)/2+A.dx*-300];if((T[0]-x0)*(-A.dz)+(T[1]-z0)*A.dx<0)A={x:x1,z:z1,dx:-A.dx,dz:-A.dz};Object.assign(AIRPORT,A,{len:L})}}
 const inAirport=(x,z,m)=>{m=m||0;const rx=x-AIRPORT.x,rz=z-AIRPORT.z,s=rx*AIRPORT.dx+rz*AIRPORT.dz;const lat=rx*(-AIRPORT.dz)+rz*AIRPORT.dx;
   return s>-120-m&&s<AIRPORT.len+120+m&&lat>AIRPORT.w0-m&&lat<AIRPORT.w1+m};
 function hashI(a,b){let h=Math.imul(a|0,374761393)^Math.imul(b|0,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
@@ -108,7 +123,7 @@ function segX(a,b,c,d){// intersection of segments ab and cd: [t,u] or null
 
 /* ---------- generador: calles de los barrios, cruces con las avenidas y empalmes con el mapa detallado ---------- */
 // C: {isWater(x,z), hillR(x,z), roads (MAP.roads del área detallada)}
-function generar(C){const t0=Date.now();
+function generar(C){if(OSM&&OSM.roads)return generarReal(C);const t0=Date.now();
   // 1. zonas cubiertas por calles de OpenStreetMap (celdas de 40 m a menos de ~70 m de una calle)
   const CV=40,cw=Math.ceil((WORLD[2]-WORLD[0])/CV),ch=Math.ceil((WORLD[3]-WORLD[1])/CV),cov=new Uint8Array(cw*ch);
   const mark=(x,z,r)=>{const i0=Math.floor((x-r-WORLD[0])/CV),i1=Math.floor((x+r-WORLD[0])/CV),j0=Math.floor((z-r-WORLD[1])/CV),j1=Math.floor((z+r-WORLD[1])/CV);
@@ -197,6 +212,25 @@ function generar(C){const t0=Date.now();
   // roads in the MAP.roads format: [ty, oneway, lanes, bridge, name, pts]
   const roads=avs.map(a=>[a.ty,a.ow,a.lanes,0,a.name,a.pts.flat()]);
   return{roads,segs,avs,ms:Date.now()-t0,joins,nodes:NX.length,grid:{TH,SU,SV,i0,j0,NI,NJ,ux,uz,vx,vz}}}
+/* calles reales (ciudad-osm.js): troncales, primarias y secundarias van con el mapa detallado (se construyen al inicio);
+   el resto queda en tramos (pl) que se construyen por bloques cerca del jugador. Comparten vértices con mapa.js, así que el tránsito pasa de uno a otro. */
+function generarReal(C){const t0=Date.now();const roads=[],segs=[];
+  for(const r of OSM.roads){const [ty,ow,lanes,br,name,p]=r;
+    if(ty>=4&&inAirport(p[0],p[1])&&inAirport(p[p.length-2],p[p.length-1]))continue;
+    if(ty<=2){roads.push([ty,ow,lanes,br,name,p.slice()]);continue}
+    const nb=nearestBarrio(p[0],p[1]),bi=nb.d>nb.b[5]*1.75?-1:BARRIOS.indexOf(nb.b);const pl={pts:p,ty,ow,lanes,name};let own=true;
+    for(let i=0;i<p.length-2;i+=2){if(Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1])<.05)continue;segs.push({ax:p[i],az:p[i+1],bx:p[i+2],bz:p[i+3],ty,name,barrio:bi,ow,lanes,pl,own});own=false}}
+  // tránsito solo por lo que está conectado con el resto de la ciudad (no por calles sueltas ni por Tierra Bomba)
+  const key=(x,z)=>Math.round(x*10)+','+Math.round(z*10);const par=new Map();
+  const find=k=>{let r=k;while(par.get(r)!==r)r=par.get(r);let c=k;while(par.get(c)!==r){const n=par.get(c);par.set(c,r);c=n}return r};
+  const uni=(a,b)=>{if(!par.has(a))par.set(a,a);if(!par.has(b))par.set(b,b);const ra=find(a),rb=find(b);if(ra!==rb)par.set(ra,rb)};
+  const line=p=>{for(let i=0;i<p.length-2;i+=2)uni(key(p[i],p[i+1]),key(p[i+2],p[i+3]))};
+  let root=null;for(const r of C.roads)if(r[0]<=4){line(r[5]);if(root===null&&r[0]<=1)root=key(r[5][0],r[5][1])}
+  for(const r of roads)line(r[5]);for(const s of segs)if(s.ty<=4)uni(key(s.ax,s.az),key(s.bx,s.bz));
+  let cut=0;if(root!==null){const R=find(root);for(const r of roads)if(find(key(r[5][0],r[5][1]))!==R){r[7]=1;cut++}
+    for(const s of segs)if(s.ty<=4&&find(key(s.ax,s.az))!==R){s.nograph=true;cut++}}
+  segs.forEach((s,i)=>{s.id=i});
+  return{roads,segs,avs:[],ms:Date.now()-t0,joins:0,cut,nodes:0,real:true,grid:{TH:.55}}}
 
 // estilos de construcción por tipo de barrio
 const STYLES={
@@ -225,5 +259,5 @@ function lotsFor(s,styleKey,H){const ST=STYLES[styleKey]||STYLES.popular;const d
 // población total (los barrios suman ~1,5 millones)
 const TOTAL=1500000;
 (function(){let s=0;for(const b of BARRIOS)s+=b[3];for(const k in INNER_POP)s+=INNER_POP[k];const f=TOTAL/s;for(const b of BARRIOS)b[3]=Math.round(b[3]*f/10)*10;for(const k in INNER_POP)INNER_POP[k]=Math.round(INNER_POP[k]*f/10)*10})();
-return{WORLD,OSMR,COAST_N,COAST_S,CIENAGA,TBOMBA,AIRPORT,BARRIOS,INNER_POP,INNER_ZONES,STYLE_DENS,AVENIDAS,LUGARES,GAS,STYLES,TOTAL,
+return{OSM,WORLD,OSMR,COAST_N,COAST_S,CIENAGA:CIEN,TBOMBA,AIRPORT,BARRIOS,INNER_POP,INNER_ZONES,STYLE_DENS,AVENIDAS,LUGARES,GAS,STYLES,TOTAL,
   outerLand,waterName,inAirport,inPolyA,nearestBarrio,hashI,vnoise,segDist,generar,lotsFor}})();
