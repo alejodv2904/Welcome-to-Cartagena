@@ -142,11 +142,11 @@ const LOWEND=window.matchMedia('(pointer:coarse)').matches||(navigator.hardwareC
 // grp: how far the sitting / chatting street groups (full animated people) are drawn
 // peds: people walking around the player; skin: how many of the closest are drawn as full skinned models (the rest are cheap instanced figures)
 // maxPix caps the drawing-buffer size so big / high-DPI screens don't render millions of extra pixels
-const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:16,drivers:20,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
-  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:13,drivers:15,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
-  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:10,drivers:9,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
+const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:16,drivers:28,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
+  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:13,drivers:20,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
+  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:10,drivers:14,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
   // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
-  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:7,drivers:6,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
+  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:7,drivers:10,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
 // resScale: extra resolution drop that 'auto' applies below the lowest level when the computer still can't keep up
 let resScale=1;
 const prFor=q=>resScale*Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
@@ -1217,7 +1217,7 @@ function laneOf(e,v){const k=v&&EDGE[v.type];return e.two?(e.ty<=2?3.2:1.9)+(k?k
 function edgeAround(r0,r1){const a=rand()*TAU,r=Math.sqrt(rr(r0*r0,r1*r1)),x=player.x+Math.sin(a)*r,z=player.z+Math.cos(a)*r;const l=EGR.get(Math.floor(x/EG)+','+Math.floor(z/EG));return l&&l.length?pick(l):-1}
 // near: 30–420 m from the player (start of the game), 'mid': 170–420 m (comes back just out of sight), otherwise 240–620 m
 function placeAI(v,near){const r0=near==='mid'?170:near?30:240,r1=near?420:620;for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(r0,r1);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
-    if(d<r0||d>r1)continue;v.e=ei;v.t=rr(0,e.len);v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
+    if(d<r0||d>r1)continue;v.e=ei;v.t=rr(0,e.len);v.pax=v.type==='mototaxi'&&!v.hail&&rand()<.7;v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
 // how far a car can pull over towards the kerb (to pick up or drop off a passenger)
 function pullRoom(e,v){return Math.max(0,RW[e.ty]/2-1.05-laneOf(e,v))}
 function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull=lerp(v.pull||0,v.pullT||0,Math.min(1,dt*1.4));v.dodge=lerp(v.dodge||0,v.dodgeT||0,Math.min(1,dt*1.3))}const ln=laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*2.7;const tx=A.x+e.dx*v.t-e.dz*ln,tz=A.z+e.dz*v.t+e.dx*ln;
@@ -1287,8 +1287,10 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise}
   aiPos(v,dt)}
 // wheels, steering, suspension and level of detail for every visible vehicle
-function updateRigs(dt){const nd=Q.view>600?80:55;const night=NIGHT.value>.5;
+function updateRigs(dt){const nd=Q.view>600?100:Q.view>450?75:60;const night=NIGHT.value>.5;
   for(const v of vehicles){if(!v.mesh.visible)continue;const d=dist2(v.x,v.z,player.x,player.z);const near=d<nd||v===player.car;VK.setNear(v.rig,near);
+    // far away, motorcycles show a simple rider (and the one behind on mototaxis and police patrols)
+    if(v.rig.lodR){const show=!near&&(v.ai||v.chase)&&!v.agent;v.rig.lodR[0].visible=show;v.rig.lodR[1].visible=show&&(!!v.pax||v.type==='police')}
     let dy=v.yaw-v.py;dy=((dy+Math.PI)%TAU+TAU)%TAU-Math.PI;v.py=v.yaw;const yr=dy/Math.max(dt,1e-3);
     if(near)VK.animateRig(v.rig,v.speed,yr,dt,{cobble:v.type==='coche'||inCentroF(v),braking:v===player.car&&readInput().iz<-.05&&v.speed>.5||v.ai&&v.speed<1&&v.speed>0.05});
     if(v.rig.horseMixer&&d<120){const s=Math.abs(v.speed);v.rig.horseAct.timeScale=s<.2?0:clamp(s/6,.35,1);v.rig.horseMixer.update(dt)}}}
@@ -1298,13 +1300,14 @@ const DRV=[];
 function seatIn(ch,v,rear){const s=v.rig.seat;const hipY=ch.model==='f'?.93:1.0;ch.mesh.position.set(rear?-s.x:s.x,s.y-hipY+(v.rig.moto?.06:.12)+(rear&&v.rig.moto?.04:0),EX.seatZ(v,rear));ch.mesh.rotation.set(0,0,0);v.rig.body.add(ch.mesh);ch.mesh.visible=true}
 function unseat(ch){if(ch.mesh.parent)ch.mesh.parent.remove(ch.mesh);ch.mesh.visible=false}
 // every vehicle close to the player has someone at the wheel (police cars get an officer)
-for(let i=0;i<QL.alta.drivers+22;i++){const cop=i<22;const ch=buildCharacter(archetype(cop?'policeMoto':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop})}
+for(let i=0;i<QL.alta.drivers+34;i++){const cop=i<22;const ch=buildCharacter(archetype(cop?'policeMoto':rand()<.15?'vendor':'local'));ch.mesh.visible=false;DRV.push({ch,v:null,cop})}
 let drvT=0;
 function updateDrivers(dt){drvT-=dt;if(drvT<=0){drvT=.3;const pd=v=>(v.hail?-1e5:0)+dist2(v.x,v.z,player.x,player.z);
     const cand=vehicles.filter(v=>v.mesh.visible&&v.rig.near.visible&&v!==player.car&&!v.agent&&(v.ai||v.chase||v.hail||v.tc)).sort((a,b)=>pd(a)-pd(b)).slice(0,Q.drivers);
-    for(const d of DRV)if(d.v&&!d.busy&&!cand.includes(d.v)){unseat(d.ch);d.v=null;d.rear=false}
+    for(const d of DRV)if(d.v&&!d.busy&&(!cand.includes(d.v)||d.rear&&!d.cop&&!d.v.pax)){unseat(d.ch);d.v=null;d.rear=false}
     // the police always ride in pairs on their motorcycles
-    for(const v of cand){if(DRV.some(d=>d.v===v))continue;if(v.type==='police'){const ds=DRV.filter(d=>!d.v&&!d.busy&&d.cop).slice(0,2);if(ds.length<2)continue;ds[0].v=v;seatIn(ds[0].ch,v);ds[1].v=v;ds[1].rear=true;seatIn(ds[1].ch,v,true);continue}
+    for(const v of cand){if(v.pax&&!DRV.some(d=>d.v===v&&d.rear)){const d=DRV.find(d=>!d.v&&!d.busy&&!d.cop);if(d){d.v=v;d.rear=true;seatIn(d.ch,v,true)}}
+      if(DRV.some(d=>d.v===v&&!d.rear))continue;if(v.type==='police'){const ds=DRV.filter(d=>!d.v&&!d.busy&&d.cop).slice(0,2);if(ds.length<2)continue;ds[0].v=v;seatIn(ds[0].ch,v);ds[1].v=v;ds[1].rear=true;seatIn(ds[1].ch,v,true);continue}
       const d=DRV.find(d=>!d.v&&!d.busy&&!d.cop);if(!d)continue;d.v=v;seatIn(d.ch,v)}}
   for(const d of DRV)if(d.v&&!d.busy&&d.ch.mesh.visible)animate(d.ch,0,dt,sitPose(d.v))}
 // cars: legs forward under the dashboard; motorcycles, buses, trucks and open vehicles: shins down
@@ -1356,7 +1359,7 @@ function hail(){if(!started||player.car||player.ride||EX.inside||EX.entering||EX
   let best=null;for(const v of list){const r=routeFor(v,pk);if(r&&r.len<1400&&(!best||r.len<best.r.len))best={v,r}}
   for(let k=0;k<8&&!best;k++){const v=spawnAI(true,rand()<.5?'taxi':rand()<.7?'mototaxi':'buseta');if(!v)continue;const r=routeFor(v,pk);if(r&&r.len<1600)best={v,r};else{scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}}
   if(!best){toast('No pasa ningún taxi por aquí, prueba en otra calle',1900);return}
-  const v=best.v;Object.assign(SV,{v,state:'coming',t:0,dest:null});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;
+  const v=best.v;v.pax=false;Object.assign(SV,{v,state:'coming',t:0,dest:null});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;
   toast((v.type==='taxi'?'¡Taxiii!':v.type==='mototaxi'?'¡Mototaxi!':'¡Buseta!')+' Ya viene a recogerte',1900);horn()}
 function releaseService(){const v=SV.v;if(v){v.hail=null;v.route=null;v.pullT=0;v.next=-1;if(!v.ai&&v!==player.car){v.ai=true}}Object.assign(SV,{v:null,state:'',dest:null});svMark.visible=false}
 function onHailArrive(v){if(v.agent){TRA.arrived=true;return}if(v.hail&&v.hail.npc){if(!v.hail.boarding){v.hail.boarding=true;paxBoard(v)}return}if(v!==SV.v){v.hail=null;return}
@@ -1543,7 +1546,7 @@ function act(){if(!started||rideOpen()||tcOpen()||PAUSE.open||BIG.open)return;if
       if(drv){drv.busy=true;drv.v=null;victim=drv;if(v.type==='police')crime(2,'¡Sacaste a un policía de su patrulla!');else if(policeNear(v.x,v.z,60))crime(2,'¡Robaste un carro frente a la policía!');else if(rand()<.45)setTimeout(()=>{if(started)crime(1,'La víctima llamó a la policía')},4500)}
       else if(policeNear(v.x,v.z,55))crime(1,'¡Robaste un vehículo frente a la policía!')}
     if(v.chase){v.chase=false;cops.splice(cops.indexOf(v),1);if(!drv)crime(1,'¡Te robaste una patrulla!')}
-    for(const d of DRV)if(d.v===v){unseat(d.ch);d.v=null}v.speed*=.3;
+    for(const d of DRV)if(d.v===v){unseat(d.ch);d.v=null;d.rear=false}v.pax=false;v.speed*=.3;
     EX.enterCar(v,()=>{player.car=v;seatIn(player.ch,v);toast(VNAME[v.type]||'Vehículo',900)},victim?{victim:victim.ch,onVictimDone:()=>{victim.busy=false;unseat(victim.ch)}}:{})}
   else{const v=player.car;if(Math.abs(v.speed)>11){toast('Frena para bajar',900);return}
     player.car=null;unseat(player.ch);scene.add(player.mesh);player.mesh.visible=true;player.yaw=v.yaw;EX.exitCar(v,{quick:Math.abs(v.speed)>3},()=>{})}}
@@ -1626,7 +1629,7 @@ function updateMission(dt){updateOffers(dt);
     if(M.pi<M.pts.length-1){M.pi++;M.to=M.pts[M.pi];tone(880,.12,'square',.08);toast('¡Punto '+M.pi+'! Sigue al '+(M.pi+1),1300);renderMission();return}}
   if(near&&rq&&!rq.ok(player.car)){if(M.nag<=0){toast(rq.msg,1600);M.nag=4}return}
   if(near&&(!player.car||Math.abs(player.car.speed)<(fare?3:14))){
-    if(M.stage===0){M.stage=1;M.t=0;bMat.color.set(0xe4572e);chime();if(M.pax){scene.remove(M.pax.mesh);if(player.car&&!player.car.rig.moto){seatIn(M.pax,player.car,true);M.pax.riding=true}else M.pax=null}toast(fare?'Pasajero a bordo':'Pedido recogido',1500);renderMission()}
+    if(M.stage===0){M.stage=1;M.t=0;bMat.color.set(0xe4572e);chime();if(M.pax){scene.remove(M.pax.mesh);if(player.car&&player.car.type!=='bici'){seatIn(M.pax,player.car,true);M.pax.riding=true}else M.pax=null}toast(fare?'Pasajero a bordo':'Pedido recogido',1500);renderMission()}
     else{const tip=fare?Math.round(Math.max(0,(M.limit-M.t)/M.limit)*M.reward*.5/500)*500:0;money+=M.reward+tip;$('money').textContent=fmt(money);chime();
       toast(fare?'¡Carrera completada! +'+fmt(M.reward)+(tip?' · propina '+fmt(tip):''):M.type==='pique'?'¡Ganaste el pique! +'+fmt(M.reward):M.type==='trasteo'?'¡Trasteo entregado! +'+fmt(M.reward):'¡Entregado! +'+fmt(M.reward),2600);if(M.pax){unseat(M.pax);M.pax=null}M.stage=2;M.wait=3.5;renderMission()}}}
 

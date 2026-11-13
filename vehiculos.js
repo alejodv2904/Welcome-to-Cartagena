@@ -253,6 +253,18 @@ function design(type,col,alt){const key=type+col+(alt||'');if(CACHE.has(key))ret
       if(big)addGeo(S,new THREE.BoxGeometry(Wd*.99,R-yb,d.len*.96),'#2a3640',mx(0,(yb+R)/2,0));else{addGeo(S,new THREE.BoxGeometry(Wd*.86,R-yb,d.len*.5),'#26343e',mx(0,(yb+R)/2,-d.len*.05));addGeo(S,new THREE.BoxGeometry(Wd*.8,.04,d.len*.42),bc,mx(0,R,-d.len*.05))}
       for(const w of d.wheels)addGeo(S,new THREE.BoxGeometry(.22,w.r*1.9,w.r*1.9),'#151515',mx(w.x,w.r,w.z))}
     d.lodGeo=toGeo(S)}d.head=d.head.length?mergeG(d.head):null;d.tail=d.tail.length?mergeG(d.tail):null;CACHE.set(key,d);return d}
+// a seated person made of a few boxes (used only far away): shirt, trousers, skin and helmet colours vary a little
+const RG=new Map();
+function riderGeo(type,seat,rear){const pol=type==='motopol',tra=type==='mototra';const shirts=['#f4f1ea','#d32f2f','#1565c0','#2e7d32','#f0b429','#111111','#7b1fa2','#1f9aa6'];
+  const k=Math.floor(Math.random()*6);const key=type+(rear?'r':'f')+k;if(RG.has(key))return RG.get(key);
+  const shirt=pol?'#b5e61d':tra?'#f4f4f2':shirts[(k*3+(rear?5:0))%shirts.length],pants=pol||tra?'#20262c':['#2b3a55','#3a3a3a','#c8b89a','#1d1d1d'][k%4],skin=['#8d5a3c','#c68b5e','#5c3a24','#e0b08a'][(k+(rear?1:0))%4],helm=pol?'#0f3d1e':tra?'#1f4fa8':['#111111','#d32f2f','#f4f4f2','#1565c0'][k%4];
+  const A=B(),z=rear?seat.z-.42:seat.z,y=seat.y+.18+(rear?.04:0),f=rear?.85:1;
+  addGeo(A,new THREE.BoxGeometry(.32,.15,.4),pants,mx(0,y,z+.18));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.11,.42,.12),pants,mx(sd*.14,y-.2,z+.38,-.25,0,0));
+  addGeo(A,new THREE.BoxGeometry(.36,.52,.22),shirt,mx(0,y+.32,z-.02,.18*f,0,0));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.09,.09,.42),shirt,mx(sd*.21,y+.42,z+.2,.55,0,0));
+  addGeo(A,new THREE.BoxGeometry(.18,.2,.2),skin,mx(0,y+.7,z+.06));addGeo(A,new THREE.BoxGeometry(.25,.17,.27),helm,mx(0,y+.82,z+.05));
+  const g=toGeo(A);RG.set(key,g);return g}
 function mergeG(list){const A=B();list.forEach(g=>addGeo(A,g,'#fff'));const g=toGeo(A);g.deleteAttribute('color');return g}
 const sirenMat=[new THREE.MeshBasicMaterial({color:0xff2a1a}),new THREE.MeshBasicMaterial({color:0x2a5bff})];
 function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.Group();const near=new THREE.Group();root.add(near);
@@ -267,7 +279,9 @@ function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.G
   const wheels=d.wheels.map((w,i)=>{const piv=new THREE.Group();piv.position.set(w.x,w.r,w.z);const m=new THREE.Mesh(d.wgeo[i],M.wheel);m.castShadow=false;if(w.x<0&&w.style!=='wood')m.rotation.y=Math.PI;piv.add(m);near.add(piv);return{piv,m,r:w.r,front:w.front,flip:w.x<0&&w.style!=='wood'}});
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(d.wid+.7,d.len+.8),M.shadow);sh.rotation.x=-Math.PI/2;sh.position.y=.04;sh.renderOrder=1;root.add(sh);
   const lod=new THREE.Mesh(d.lodGeo,M.lod);lod.visible=false;lod.castShadow=true;root.add(lod);
-  return{root,near,body,paint,wheels,lod,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
+  // far-away riders for two-wheelers (driver and the one behind), so a distant motorcycle never looks empty
+  let lodR=null;if(d.moto){lodR=[riderGeo(type,d.seat,false),riderGeo(type,d.seat,true)].map(g=>{const m=new THREE.Mesh(g,M.lod);m.visible=false;root.add(m);return m})}
+  return{root,near,body,paint,wheels,lod,lodR,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
 // per-frame animation: wheel spin & steering, suspension pitch/roll, brake lights
 function animateRig(R,speed,yawRate,dt,opt){opt=opt||{};const near=!R.lod.visible;
   R.spin+=speed*dt;const acc=(speed-R.lastSpeed)/Math.max(dt,1e-3);R.lastSpeed=speed;
