@@ -1257,7 +1257,7 @@ function archetype(kind){const sp={sex:rand()<.5?'F':'M',skin:pick(rand()<.85?SK
   if(sp.sex==='M'){sp.beard=rand()<.35;if(!sp.hat&&rand()<.35){sp.hat='cap';sp.hatC=pick(T_COL)}}
   if(!sp.topReg)styleLocal(sp);return sp}
 const startL=LM.byName('Plaza de los Coches')||LM[0];
-const HERO_SPEC={sex:'M',skin:'#a86f48',hairC:'#1b1310',hairStyle:'short',beard:true,top:'#161616',sleeve:0,bottom:'#141414',shoes:'#c9ced3',hat:'cap',hatC:'#f2b8c6',crossbag:true,scale:1.02};const hero=buildCharacter(HERO_SPEC);
+const HERO_SPEC={sex:'M',skin:'#a86f48',hairC:'#1b1310',hairStyle:'short',beard:true,top:'#161616',sleeve:0,bottom:'#141414',shoes:'#c9ced3',crossbag:true,scale:1.02};const hero=buildCharacter(HERO_SPEC);
 const player={x:INDIA?INDIA.px:startL.mx,z:INDIA?INDIA.pz:startL.mz,yaw:INDIA?INDIA.yaw:0,mesh:hero.mesh,ch:hero,car:null,walk:0,cy:INDIA?INDIA.yaw:0,cp:.38,spd:0};
 scene.add(player.mesh);
 
