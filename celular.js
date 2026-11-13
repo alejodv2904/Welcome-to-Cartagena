@@ -97,29 +97,11 @@ const ICON={banco:['🏦','#0d47a1','Bancos'],cajero:['🏧','#1565c0','Cajeros'
   drogueria:['💊','#00897b','Farmacias'],clinica:['🏥','#00838f','Clínicas'],supermercado:['🛒','#c62828','Supermercados'],tienda:['🏪','#f0b429','Tiendas'],mall:['🛍️','#f0b429','Centros comerciales'],
   ropa:['👕','#7b1fa2','Ropa'],joyeria:['💍','#0b5d3b','Joyerías'],recuerdos:['🎁','#1f9aa6','Artesanías'],hotel:['🏨','#5d1a1a','Hoteles'],universidad:['🎓','#1b5e20','Universidades'],
   taller:['🔧','#37474f','Talleres'],gimnasio:['🏋️','#212121','Gimnasios']};
-const OFF=new Set();try{(JSON.parse(localStorage.getItem('cl_map_off')||'[]')).forEach(k=>OFF.add(k))}catch(e){}
+const OFF=new Set();
 const mapPlaces=()=>EX.SHOPS.map(s=>({name:s.name,x:s.x,z:s.z,cat:s.mall?'mall':s.type,type:s.type,mall:s.mall,real:s.real})).concat(ATMS.map(a=>({name:'Cajero '+a.brand.name,x:a.x,z:a.z,cat:'cajero',type:'cajero'})));
 let MP=null;const EMOJI='"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
-function drawBig(g,u,sc){if(!MP)MP=mapPlaces();const icons=sc>=.5;const vis=MP.filter(p=>ICON[p.cat]&&!OFF.has(p.cat));
-  if(!icons){for(const p of vis){g.fillStyle=ICON[p.cat][1];g.beginPath();g.arc(p.x,p.z,3.4*u,0,TAU);g.fill()}}
-  else{g.textAlign='center';g.textBaseline='middle';g.font=`${12*u}px ${EMOJI}`;
-    for(const p of vis){const I=ICON[p.cat];g.fillStyle='#fffaf0';g.strokeStyle=I[1];g.lineWidth=2.6*u;g.beginPath();g.arc(p.x,p.z,10*u,0,TAU);g.fill();g.stroke();g.fillStyle='#000';g.fillText(I[0],p.x,p.z+.5*u)}
-    if(sc>2.2){g.font=`700 ${11*u}px Barlow Condensed, sans-serif`;g.lineWidth=3*u;g.strokeStyle='rgba(23,19,15,.9)';g.fillStyle='#fff6d8';for(const p of vis){g.strokeText(p.name,p.x,p.z+18*u);g.fillText(p.name,p.x,p.z+18*u)}}}
-  if(WP){g.fillStyle='#4fc3f7';g.strokeStyle='#0b2533';g.lineWidth=3*u;g.beginPath();g.arc(WP.x,WP.z,12*u,0,TAU);g.fill();g.stroke()}}
-if(C.bigEl){const st2=document.createElement('style');st2.textContent=`#bigmap .bmcats{position:absolute;right:12px;top:64px;width:230px;max-height:calc(100vh - 150px);overflow:auto;background:rgba(23,19,15,.86);color:#f5ead7;border-radius:8px;padding:8px;font:14px var(--body,system-ui)}
-#bigmap .bmcats.min .cl{display:none}#bigmap .bmcats .hd{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}#bigmap .bmcats .hd b{font:400 18px var(--display,Georgia);color:#f0b429}
-#bigmap .bmcats .cl{display:flex;flex-direction:column;gap:3px}#bigmap .bmcats .c{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:4px 6px;border-radius:6px;background:none;border:0;color:inherit;font:inherit;cursor:pointer}
-#bigmap .bmcats .c:hover{background:rgba(255,255,255,.08)}#bigmap .bmcats .c.off{opacity:.38}#bigmap .bmcats .c i{font-style:normal;width:24px;height:24px;border-radius:50%;background:#fffaf0;display:inline-flex;align-items:center;justify-content:center;font-size:13px;border:2px solid}
-#bigmap .bmcats .c small{margin-left:auto;opacity:.6}#bigmap .bmcats .tg{padding:3px 8px;font-size:12px}
-@media (max-width:700px){#bigmap .bmcats{top:auto;bottom:58px;width:auto;left:12px;max-height:40vh}}`;document.head.appendChild(st2);
-  const box=document.createElement('div');box.className='bmcats'+(window.innerWidth<700?' min':'');C.bigEl.appendChild(box);
-  const renderCats=()=>{if(!MP)MP=mapPlaces();const cnt={};for(const p of MP)cnt[p.cat]=(cnt[p.cat]||0)+1;
-    box.innerHTML=`<div class="hd"><b>Lugares</b><span><button class="tg" data-k="__all">Todos</button> <button class="tg" data-k="__min">${box.classList.contains('min')?'Ver':'Ocultar'}</button></span></div><div class="cl">`+
-      Object.keys(ICON).filter(k=>cnt[k]).map(k=>`<button class="c${OFF.has(k)?' off':''}" data-k="${k}"><i style="border-color:${ICON[k][1]}">${ICON[k][0]}</i>${ICON[k][2]}<small>${cnt[k]}</small></button>`).join('')+'</div>'};
-  box.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
-    if(k==='__min')box.classList.toggle('min');else if(k==='__all'){if(OFF.size)OFF.clear();else Object.keys(ICON).forEach(q=>OFF.add(q))}else OFF.has(k)?OFF.delete(k):OFF.add(k);
-    try{localStorage.setItem('cl_map_off',JSON.stringify([...OFF]))}catch(err){}renderCats();C.redrawBig()});
-  setTimeout(renderCats,0);
+function drawBig(g,u,sc){if(WP){g.fillStyle='#4fc3f7';g.strokeStyle='#0b2533';g.lineWidth=3*u;g.beginPath();g.arc(WP.x,WP.z,12*u,0,TAU);g.fill();g.stroke()}}
+if(C.bigEl){
   // clic (sin arrastrar) sobre un lugar: marcarlo en el GPS
   const cv=C.bigEl.querySelector('canvas');let down=null;
   cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY}});
@@ -162,7 +144,7 @@ function closePhone(){open=false;el.classList.remove('on')}
 function go(s,a,noPush){if(!noPush&&screen!==s)hist.push([screen,arg]);if(s==='home')hist.length=0;screen=s;arg=a;render()}
 function back(){const h=hist.pop();if(h){screen=h[0];arg=h[1];render()}else go('home')}
 el.querySelector('.hb').addEventListener('click',()=>go('home'));
-window.addEventListener('keydown',e=>{if(!C.started)return;
+window.addEventListener('keydown',e=>{if(!C.started)return;const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA')return;
   if(open){if(e.code==='Escape'){e.preventDefault();if(screen==='home')closePhone();else back()}else if(e.code==='KeyP'&&!e.repeat)closePhone();return}
   if(e.code==='KeyP'&&!e.repeat&&!EX.menu)openPhone()});
 // botón táctil
@@ -253,9 +235,9 @@ function call(){const n=dial;dial='';if(n==='75282'){cheatMoney();closePhone();r
    5. TRUCO DE LA PLATA: +$1.000.000 que se van sumando hasta el último peso
    ========================================================================================= */
 // el contador arranca de a pesos, se acelera y frena al final hasta el último peso (12 segundos por millón)
-const CHEATS=[],CHEAT_T=12,ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;let typed='';
+const CHEATS=[],CHEAT_T=12,ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function cheatMoney(){CHEATS.push({t:0,added:0});C.toast('Truco activado: +'+fmt(1000000),1800)}
-window.addEventListener('keydown',e=>{if(!C.started||open||EX.menu||e.repeat)return;if(e.key&&e.key.length===1){typed=(typed+e.key.toUpperCase()).slice(-5);if(typed==='LUKAS'){typed='';cheatMoney()}}});
+// escribir DINERO (en index.html) también llama a cheatMoney
 
 /* ---------- bucle propio: reloj del celular, llegada al GPS y conteo del truco ---------- */
 let last=performance.now(),uiT=0,tickT=0;

@@ -72,7 +72,7 @@ function sedan(col,o){o=o||{};const L=o.L||4.45,W=(o.W||1.76)/2,A=B();const hood
   const f={w:z=>W*interp([[-L/2,.86],[-L/2+.35,.98],[L/2-.45,.98],[L/2,.84]],z),y0:z=>interp([[-L/2,.42],[-L/2+.5,.3],[L/2-.6,.3],[L/2,.4]],z),
     yb:z=>interp([[-L/2,deck-.1],[-L/2+.6,deck],[L/2-1.3,hood+.04],[L/2,hood-.12]],z),yt:z=>interp([[-L/2,deck-.06],[-L/2+.5,deck+.02],[L/2-1.4,hood+.07],[L/2-.3,hood],[L/2,hood-.1]],z)};
   addGeo(A,bodyLoft(L,f),col);
-  const roof=o.roof||1.43,zf=o.zf!==undefined?o.zf:L/2-1.4,zr=o.zr!==undefined?o.zr:-L/2+.95;const cz0=zf-.95,cz1=zr+.75;// windshield base at zf, roof between cz0..cz1
+  const roof=o.roof||1.47,zf=o.zf!==undefined?o.zf:L/2-1.4,zr=o.zr!==undefined?o.zr:-L/2+.95;const cz0=zf-(o.ws||.8),cz1=zr+(o.rw||.6);// windshield base at zf, roof between cz0..cz1 (upright glass: room for two rows of seats)
   const cf={wb:z=>W*.93,wt:z=>W*.74,yb:z=>interp([[zr,deck+.01],[zf,hood+.06]],z),yt:z=>interp([[zr,deck+.02],[cz1,roof],[cz0,roof],[zf,hood+.07]],z)};
   const cab=cabinLoft(cf,zr,zf,18);
   // roof panel painted, the rest is glass: split by normal
@@ -89,16 +89,23 @@ function sedan(col,o){o=o||{};const L=o.L||4.45,W=(o.W||1.76)/2,A=B();const hood
   const wz=o.wz||[L/2-.95,-L/2+.85];for(const z of wz)for(const s of [-1,1]){const arch=new THREE.CylinderGeometry(.4,.4,.2,14,1,true,0,Math.PI);arch.rotateZ(Math.PI/2);addGeo(A,arch,'#121212',mx(s*(W-.09),.36,z))}
   const head=[],tail=[];for(const s of [-1,1]){head.push(new THREE.BoxGeometry(.36,.11,.05).applyMatrix4(mx(s*(W-.28),hood-.2,L/2-.03,-.25,0,0)));tail.push(new THREE.BoxGeometry(.34,.12,.05).applyMatrix4(mx(s*(W-.25),deck-.18,-L/2+.02)))}
   const plates=[new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.5,L/2+.115)),new THREE.PlaneGeometry(.34,.17).applyMatrix4(mx(0,.62,-L/2-.085,0,Math.PI,0))];
-  return{A,glass:[toGeo(glass)],head,tail,plates,wheels:wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.12),z,r:o.wr||.31,w:.21,front:i===0,spokes:o.spokes||5,style:o.rim||'alloy'}))).flat(),seat:{x:.36,y:.38,z:(cz0+zr)/2+.2},len:L,wid:W*2,roof}}
+  return{A,glass:[toGeo(glass)],head,tail,plates,wheels:wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.12),z,r:o.wr||.31,w:.21,front:i===0,spokes:o.spokes||5,style:o.rim||'alloy'}))).flat(),seat:cabinSeats(roof,hood,deck,zf,zr,cz0,cz1),len:L,wid:W*2,roof,cz0,cz1}}
+// seats that fit the cabin: the head (hip + .87 m when seated) clears the roof and the glass, the front seat leaves the legs under the dashboard,
+// the rear seat leaves knee room behind the front one (z: front seat, rz: rear seat)
+function cabinSeats(roof,hood,deck,zf,zr,cz0,cz1){const y=hood>1?hood-.6:.35,top=y+.15+.9;
+  const h=z=>z>=cz0?roof-(z-cz0)/(zf-cz0)*(roof-hood-.07):z<=cz1?roof-(cz1-z)/(cz1-zr)*(roof-deck-.02):roof;
+  const ok=hz=>{for(let z=hz-.13;z<=hz+.11;z+=.02)if(h(z)<top)return false;return h(hz-.22)>=y+.7};
+  let f=null,r=null;for(let z=zf;z>zr;z-=.01)if(ok(z)){f=z;break}for(let z=zr;z<zf;z+=.01)if(ok(z)){r=z;break}
+  if(f===null){f=(cz0+cz1)/2;r=f}f=Math.min(f-.03,zf-.75);const rz=Math.min(f,Math.max(r+.03,f-.85));return{x:.36,y,z:f,rz}}
 SPEC.car=(col)=>sedan(col);
-SPEC.hatch=(col)=>sedan(col,{L:3.7,W:1.66,roof:1.5,zr:-1.65,zf:.45,deck:1.0,hood:.9,wz:[1.18,-1.2],wr:.29,spokes:4,rim:'steel'});
-SPEC.taxi=(col)=>{const s=sedan(col,{L:3.65,W:1.64,roof:1.52,zr:-1.62,zf:.42,deck:1.0,hood:.88,wz:[1.16,-1.18],wr:.28,spokes:4,rim:'steel',bumper:'#2a2a2a'});
-  s.extra=[{geo:new THREE.BoxGeometry(.56,.16,.22).applyMatrix4(mx(0,s.roof+.1,-.45)),mat:M.taxiSign}];
+SPEC.hatch=(col)=>sedan(col,{L:3.7,W:1.66,roof:1.52,zr:-1.65,zf:.5,deck:1.0,hood:.9,wz:[1.18,-1.2],wr:.29,spokes:4,rim:'steel'});
+SPEC.taxi=(col)=>{const s=sedan(col,{L:3.65,W:1.64,roof:1.54,zr:-1.66,zf:.6,deck:1.0,hood:.88,wz:[1.16,-1.18],wr:.28,spokes:4,rim:'steel',bumper:'#2a2a2a'});
+  s.extra=[{geo:new THREE.BoxGeometry(.56,.16,.22).applyMatrix4(mx(0,s.roof+.1,(s.cz0+s.cz1)/2)),mat:M.taxiSign}];
   // number on the doors (company stripe) in black checks
   for(const sd of [-1,1])for(let k=0;k<8;k++)addGeo(s.A,new THREE.BoxGeometry(.01,.06,.12),k%2?'#111':'#f2c01e',mx(sd*(1.64/2+.004),.62,-.9+k*.24));return s};
-SPEC.police=(col)=>{const s=sedan('#f4f4f2',{L:4.5,W:1.78,roof:1.44,bumper:'#1f1f1f'});
+SPEC.police=(col)=>{const s=sedan('#f4f4f2',{L:4.5,W:1.78,roof:1.48,bumper:'#1f1f1f'});
   for(const sd of [-1,1]){addGeo(s.A,new THREE.BoxGeometry(.012,.16,3.6),'#0f6b33',mx(sd*(1.78/2+.006),.66,0));addGeo(s.A,new THREE.BoxGeometry(.012,.04,3.6),'#f2c01e',mx(sd*(1.78/2+.007),.56,0))}
-  const bar=new THREE.BoxGeometry(1.0,.1,.24).applyMatrix4(mx(0,s.roof+.07,-.25));s.extra=[{geo:bar,mat:'siren'}];
+  const bar=new THREE.BoxGeometry(1.0,.1,.24).applyMatrix4(mx(0,s.roof+.07,(s.cz0+s.cz1)/2));s.extra=[{geo:bar,mat:'siren'}];
   s.extra.push({geo:new THREE.PlaneGeometry(1.4,.26).applyMatrix4(mx(1.78/2+.012,.86,-.2,0,Math.PI/2,0)),mat:M.police},{geo:new THREE.PlaneGeometry(1.4,.26).applyMatrix4(mx(-1.78/2-.012,.86,-.2,0,-Math.PI/2,0)),mat:M.police});return s};
 SPEC.suv=(col)=>sedan(col,{L:4.6,W:1.86,roof:1.72,hood:1.08,deck:1.12,zr:-2.1,zf:.95,wz:[1.4,-1.42],wr:.36,spokes:6});
 // minibus (buseta) and city bus share a boxy rounded loft
@@ -164,6 +171,16 @@ SPEC.moto=(col)=>{const A=B();const dark='#1c1c1e',chrome='#b9bcc1';
   const head=[new THREE.CylinderGeometry(.08,.07,.06,12).applyMatrix4(mx(0,.9,.62,Math.PI/2,0,0))],tail=[new THREE.BoxGeometry(.12,.05,.03).applyMatrix4(mx(0,.66,-.89))];
   const plates=[new THREE.PlaneGeometry(.2,.1).applyMatrix4(mx(0,.56,-.9,-.3,Math.PI,0))];
   return{A,glass:[],head,tail,plates,wheels:[{x:0,z:.68,r:.3,w:.11,front:true,spokes:6,style:'black'},{x:0,z:-.66,r:.3,w:.13,front:false,spokes:6,style:'black'}],seat:{x:0,y:.82,z:-.25},len:2,wid:.7,roof:1.2,moto:true}};
+// motos de la Policía (verde neón, baúl con letrero y luces) y de Tránsito (blanca y azul), con espacio para dos
+function motoKit(col,box,trim,txt,fg){const s=SPEC.moto(col);const A=s.A;
+  addGeo(A,new THREE.BoxGeometry(.5,.4,.46),box,mx(0,1.0,-1.02));addGeo(A,new THREE.BoxGeometry(.52,.05,.48),trim,mx(0,1.22,-1.02));
+  addGeo(A,new THREE.BoxGeometry(.06,.34,.6),'#1c1c1e',mx(0,.98,-.7));addGeo(A,new THREE.BoxGeometry(.28,.3,.05),'#9fb3bf',mx(0,1.12,.5,-.35,0,0));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.05,.26,.5),trim,mx(sd*.17,.62,-.4));addGeo(A,new THREE.BoxGeometry(.3,.06,.36),trim,mx(0,.86,.18));
+  const tm=new THREE.MeshLambertMaterial({map:signTex(txt,box,fg,256,64)});s.extra=[{geo:new THREE.BoxGeometry(.18,.06,.12).applyMatrix4(mx(0,1.27,-1.02)),mat:'siren'}];
+  for(const sd of [-1,1])s.extra.push({geo:new THREE.PlaneGeometry(.42,.14).applyMatrix4(mx(sd*.253,1.0,-1.02,0,sd*Math.PI/2,0)),mat:tm});s.extra.push({geo:new THREE.PlaneGeometry(.42,.14).applyMatrix4(mx(0,1.0,-1.253,0,Math.PI,0)),mat:tm});
+  s.sirenSmall=true;s.len=2.4;return s}
+SPEC.motopol=()=>motoKit('#b5e61d','#b5e61d','#1c1c1e','POLICÍA','#0f3d1e');
+SPEC.mototra=()=>motoKit('#f4f4f2','#1f4fa8','#1f4fa8','TRÁNSITO','#ffffff');
 // cargo truck: square cab, chassis and either a closed box (furgón) or a wooden stake bed (estacas) loaded with sacks
 function truck(col,kind){const A=B();const L=7.2,W=1.15,dark='#1e1f21',gl='#1f2b33',cz=L/2-1.0;
   addGeo(A,new THREE.BoxGeometry(W*2-.25,.28,L-.4),dark,mx(0,.72,0));
@@ -236,6 +253,18 @@ function design(type,col,alt){const key=type+col+(alt||'');if(CACHE.has(key))ret
       if(big)addGeo(S,new THREE.BoxGeometry(Wd*.99,R-yb,d.len*.96),'#2a3640',mx(0,(yb+R)/2,0));else{addGeo(S,new THREE.BoxGeometry(Wd*.86,R-yb,d.len*.5),'#26343e',mx(0,(yb+R)/2,-d.len*.05));addGeo(S,new THREE.BoxGeometry(Wd*.8,.04,d.len*.42),bc,mx(0,R,-d.len*.05))}
       for(const w of d.wheels)addGeo(S,new THREE.BoxGeometry(.22,w.r*1.9,w.r*1.9),'#151515',mx(w.x,w.r,w.z))}
     d.lodGeo=toGeo(S)}d.head=d.head.length?mergeG(d.head):null;d.tail=d.tail.length?mergeG(d.tail):null;CACHE.set(key,d);return d}
+// a seated person made of a few boxes (used only far away): shirt, trousers, skin and helmet colours vary a little
+const RG=new Map();
+function riderGeo(type,seat,rear){const pol=type==='motopol',tra=type==='mototra';const shirts=['#f4f1ea','#d32f2f','#1565c0','#2e7d32','#f0b429','#111111','#7b1fa2','#1f9aa6'];
+  const k=Math.floor(Math.random()*6);const key=type+(rear?'r':'f')+k;if(RG.has(key))return RG.get(key);
+  const shirt=pol?'#b5e61d':tra?'#f4f4f2':shirts[(k*3+(rear?5:0))%shirts.length],pants=pol||tra?'#20262c':['#2b3a55','#3a3a3a','#c8b89a','#1d1d1d'][k%4],skin=['#8d5a3c','#c68b5e','#5c3a24','#e0b08a'][(k+(rear?1:0))%4],helm=pol?'#0f3d1e':tra?'#1f4fa8':['#111111','#d32f2f','#f4f4f2','#1565c0'][k%4];
+  const A=B(),z=rear?seat.z-.42:seat.z,y=seat.y+.18+(rear?.04:0),f=rear?.85:1;
+  addGeo(A,new THREE.BoxGeometry(.32,.15,.4),pants,mx(0,y,z+.18));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.11,.42,.12),pants,mx(sd*.14,y-.2,z+.38,-.25,0,0));
+  addGeo(A,new THREE.BoxGeometry(.36,.52,.22),shirt,mx(0,y+.32,z-.02,.18*f,0,0));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.09,.09,.42),shirt,mx(sd*.21,y+.42,z+.2,.55,0,0));
+  addGeo(A,new THREE.BoxGeometry(.18,.2,.2),skin,mx(0,y+.7,z+.06));addGeo(A,new THREE.BoxGeometry(.25,.17,.27),helm,mx(0,y+.82,z+.05));
+  const g=toGeo(A);RG.set(key,g);return g}
 function mergeG(list){const A=B();list.forEach(g=>addGeo(A,g,'#fff'));const g=toGeo(A);g.deleteAttribute('color');return g}
 const sirenMat=[new THREE.MeshBasicMaterial({color:0xff2a1a}),new THREE.MeshBasicMaterial({color:0x2a5bff})];
 function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.Group();const near=new THREE.Group();root.add(near);
@@ -245,12 +274,14 @@ function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.G
   const hm=d.head?new THREE.Mesh(d.head,M.head):null;if(hm)body.add(hm);const tm=d.tail?new THREE.Mesh(d.tail,M.tail):null;if(tm)body.add(tm);
   const plate=PLATES[Math.floor(Math.random()*PLATES.length)];for(const g of d.plates)body.add(new THREE.Mesh(g,plate));
   let siren=null;for(const e of d.extra||[]){if(e.mat==='siren'){const bb=e.geo.clone();bb.computeBoundingBox();const c=bb.boundingBox.getCenter(new THREE.Vector3());
-      const l=new THREE.Mesh(new THREE.BoxGeometry(.46,.1,.22),sirenMat[0]),r=new THREE.Mesh(new THREE.BoxGeometry(.46,.1,.22),sirenMat[1]);l.position.set(c.x-.25,c.y,c.z);r.position.set(c.x+.25,c.y,c.z);body.add(l,r);siren=[l,r]}
+      const sm=d.sirenSmall,sw=sm?.1:.46,so=sm?.07:.25,l=new THREE.Mesh(new THREE.BoxGeometry(sw,sm?.08:.1,sm?.1:.22),sirenMat[0]),r=new THREE.Mesh(new THREE.BoxGeometry(sw,sm?.08:.1,sm?.1:.22),sirenMat[1]);l.position.set(c.x-so,c.y,c.z);r.position.set(c.x+so,c.y,c.z);body.add(l,r);siren=[l,r]}
     else body.add(new THREE.Mesh(e.geo,e.mat))}
   const wheels=d.wheels.map((w,i)=>{const piv=new THREE.Group();piv.position.set(w.x,w.r,w.z);const m=new THREE.Mesh(d.wgeo[i],M.wheel);m.castShadow=false;if(w.x<0&&w.style!=='wood')m.rotation.y=Math.PI;piv.add(m);near.add(piv);return{piv,m,r:w.r,front:w.front,flip:w.x<0&&w.style!=='wood'}});
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(d.wid+.7,d.len+.8),M.shadow);sh.rotation.x=-Math.PI/2;sh.position.y=.04;sh.renderOrder=1;root.add(sh);
   const lod=new THREE.Mesh(d.lodGeo,M.lod);lod.visible=false;lod.castShadow=true;root.add(lod);
-  return{root,near,body,paint,wheels,lod,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
+  // far-away riders for two-wheelers (driver and the one behind), so a distant motorcycle never looks empty
+  let lodR=null;if(d.moto){lodR=[riderGeo(type,d.seat,false),riderGeo(type,d.seat,true)].map(g=>{const m=new THREE.Mesh(g,M.lod);m.visible=false;root.add(m);return m})}
+  return{root,near,body,paint,wheels,lod,lodR,headMesh:hm,tailMesh:tm,siren,seat:d.seat,len:d.len,wid:d.wid,horse:d.horse,moto:!!d.moto,open:!!d.open,spin:0,steer:0,pitch:0,roll:0,pv:0,rv:0,lastSpeed:0,bounce:0}}
 // per-frame animation: wheel spin & steering, suspension pitch/roll, brake lights
 function animateRig(R,speed,yawRate,dt,opt){opt=opt||{};const near=!R.lod.visible;
   R.spin+=speed*dt;const acc=(speed-R.lastSpeed)/Math.max(dt,1e-3);R.lastSpeed=speed;
