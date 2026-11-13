@@ -91,13 +91,14 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113c"></script>
-<script src="ciudad.js?v=20261113c"></script>
-<script src="modelos.js?v=20261113c"></script>
-<script src="carga.js?v=20261113c"></script>
-<script src="gente.js?v=20261113c"></script>
-<script src="lugares.js?v=20261113c"></script>
-<script src="vehiculos.js?v=20261113c"></script><script src="extra.js?v=20261113c"></script><script src="celular.js?v=20261113c"></script><script src="animales.js?v=20261113c"></script>
+<script src="mapa.js?v=20261113d"></script>
+<script src="ciudad-osm.js?v=20261113d"></script>
+<script src="ciudad.js?v=20261113d"></script>
+<script src="modelos.js?v=20261113d"></script>
+<script src="carga.js?v=20261113d"></script>
+<script src="gente.js?v=20261113d"></script>
+<script src="lugares.js?v=20261113d"></script>
+<script src="vehiculos.js?v=20261113d"></script><script src="extra.js?v=20261113d"></script><script src="celular.js?v=20261113d"></script><script src="animales.js?v=20261113d"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -281,9 +282,14 @@ const ZINFO=new Map();CD.BARRIOS.forEach(b=>ZINFO.set(b[0],{pop:b[3],style:b[4]}
 const zonePop=n=>(ZINFO.get(n)||{pop:0}).pop,zoneStyle=n=>(ZINFO.get(n)||{style:'centro'}).style;
 // dentro del área detallada manda el barrio real (OpenStreetMap); afuera, el barrio generado más cercano
 // barrios reales: límites de OpenStreetMap (lugares.js), consultados en una cuadrícula de 12 m que se llena a medida que se pide
-const BARRIOS=(window.LUGARES&&LUGARES.barrios)||[],BPTS=((window.LUGARES&&LUGARES.puntosBarrio)||[]);
+const BARRIOS=((window.LUGARES&&LUGARES.barrios)||[]).slice(),BPTS=((window.LUGARES&&LUGARES.puntosBarrio)||[]);
+// con ciudad-osm.js: también los barrios reales del resto de la ciudad (los que lugares.js no trae)
+const NB0=BARRIOS.length;if(CD.OSM&&CD.OSM.barrios){const have=new Set(BARRIOS.map(b=>b[0]));for(const b of CD.OSM.barrios)if(!have.has(b[0]))BARRIOS.push(b)}
 const BAR_BB=BARRIOS.map(b=>{const p=b[2];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}return[x0,x1,z0,z1]});
-const BG={c:12,x0:MAP.box[0]-400,z0:MAP.box[1]-400};BG.w=Math.ceil((MAP.box[2]-BG.x0+400)/BG.c);BG.h=Math.ceil((MAP.box[3]-BG.z0+400)/BG.c);BG.a=new Int16Array(BG.w*BG.h).fill(-2);
+// los barrios agregados toman habitantes según su área y el tipo de barrio que los rodea
+{const DENS={popular:26000,medio:15000,alto:9000,playa:9000,industrial:400};for(let i=NB0;i<BARRIOS.length;i++){const b=BARRIOS[i];if(ZINFO.has(b[0]))continue;const bb=BAR_BB[i],nb=CD.nearestBarrio((bb[0]+bb[1])/2,(bb[2]+bb[3])/2),st=nb.b[4];
+  ZINFO.set(b[0],{pop:Math.round(Math.abs(signedArea(b[2]))/1e6*(DENS[st]||15000)/10)*10,style:st})}}
+const BG=CD.OSM?{c:12,x0:WB[0],z0:WB[1]}:{c:12,x0:MAP.box[0]-400,z0:MAP.box[1]-400};BG.w=Math.ceil(((CD.OSM?WB[2]:MAP.box[2]+400)-BG.x0)/BG.c);BG.h=Math.ceil(((CD.OSM?WB[3]:MAP.box[3]+400)-BG.z0)/BG.c);BG.a=new Int16Array(BG.w*BG.h).fill(-2);
 function barrioAt(x,z){const i=Math.floor((x-BG.x0)/BG.c),j=Math.floor((z-BG.z0)/BG.c);if(i<0||j<0||i>=BG.w||j>=BG.h)return null;const k=j*BG.w+i;let v=BG.a[k];
   if(v===-2){v=-1;const cx=BG.x0+(i+.5)*BG.c,cz=BG.z0+(j+.5)*BG.c;
     // el barrio de nivel 10 (más pequeño) gana sobre el de nivel 9
@@ -425,18 +431,31 @@ function roadGeo(ty,ow,w,pts){const P=densify(pts);
 MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);roadGeo(ty,ow,w,pts);
   if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,outerAv:r[6]===1});
   else for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,walk:true});
-  if(ty<=4){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name);if(ow<=0)gedge(b,a,ty,two,name)}}});
+  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name);if(ow<=0)gedge(b,a,ty,two,name)}}});
 // streets of the generated barrios: in the street index and the traffic graph now; their pavement and houses are built near the player
-const GSEGS=GEN.segs;for(const s of GSEGS){s.w=RW[s.ty];s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);const a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,true,s.name);gedge(b,a,s.ty,true,s.name)}
+// (con ciudad-osm.js son las calles reales: respetan el sentido único y las de servicio no llevan tránsito)
+const GSEGS=GEN.segs;for(const s of GSEGS){s.w=s.pl?roadW(s.ty,s.ow,s.lanes,s.name):RW[s.ty];s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);
+  if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name);if(two)gedge(b,a,s.ty,two,s.name)}
 /* ---------- Transcaribe: exclusive two-way busway down the middle of Avenida Pedro de Heredia, with raised stations ---------- */
 const TCW={path:null,S:null,L:0,stations:[]};
-(function(){const segs=MAP.roads.filter(r=>r[4]===TC_ROAD&&r[0]===0&&r[1]===1);if(segs.length<4)return;
-  const chain=list=>{const pl=list.map(r=>r[5].slice());const out=pl.shift();while(pl.length){const ex=out[out.length-2],ez=out[out.length-1];let bi=-1,bd=60;pl.forEach((p,i)=>{const d=Math.hypot(p[0]-ex,p[1]-ez);if(d<bd){bd=d;bi=i}});if(bi<0)break;out.push(...pl.splice(bi,1)[0].slice(2))}return out};
+(function(){const segs=CD.OSM
+    // con las vías reales: la troncal va por la Pedro de Heredia hasta la Avenida de La Cordialidad y por ella al Portal (El Gallo)
+    ?MAP.roads.filter(r=>r[1]===1&&(r[4]===TC_ROAD&&r[0]===0&&r[5][0]<7260||r[4]==='Avenida de La Cordialidad'&&r[0]<=1&&r[5][0]>7150&&r[5][0]<8600))
+    :MAP.roads.filter(r=>r[4]===TC_ROAD&&r[0]===0&&r[1]===1);if(segs.length<4)return;
+  // (con las vías reales se salta hasta 300 m hacia adelante: en las glorietas la calzada cambia de nombre)
+  const chain1=(list,s0)=>{const pl=list.map(r=>r[5].slice());const out=pl.splice(s0,1)[0];while(pl.length){const ex=out[out.length-2],ez=out[out.length-1];let bi=-1,bd=60;pl.forEach((p,i)=>{const d=Math.hypot(p[0]-ex,p[1]-ez);if(d<bd){bd=d;bi=i}});
+      if(bi<0&&CD.OSM&&out.length>=4){const dx=ex-out[out.length-4],dz=ez-out[out.length-3];bd=300;pl.forEach((p,i)=>{const vx=p[0]-ex,vz=p[1]-ez,d=Math.hypot(vx,vz);if(d<bd&&vx*dx+vz*dz>.7*d*Math.hypot(dx,dz)){bd=d;bi=i}})}
+      if(bi<0)break;out.push(...pl.splice(bi,1)[0].slice(bd<60?2:0))}return out};
+  // la calzada viene en muchos tramos (cortados en cada cruce): se arma desde cada tramo inicial y queda la cadena más larga
+  const plen=p=>{let s=0;for(let i=0;i<p.length-2;i+=2)s+=Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1]);return s};
+  const chain=list=>{if(list.length<40)return chain1(list,0);let best=null,bl=-1;list.forEach((r,i)=>{const p=r[5];if(list.some(q=>q!==r&&Math.hypot(q[5][q[5].length-2]-p[0],q[5][q[5].length-1]-p[1])<1))return;const c=chain1(list,i),l=plen(c);if(l>bl){bl=l;best=c}});return best||chain1(list,0)};
   const E=chain(segs.filter(r=>r[5][r[5].length-2]>r[5][0]).sort((a,b)=>a[5][0]-b[5][0])),Wc=chain(segs.filter(r=>r[5][r[5].length-2]<r[5][0]).sort((a,b)=>b[5][0]-a[5][0]));
   const near=(x,z)=>{let bd=1e18,bx=x,bz=z;for(let i=0;i<Wc.length-2;i+=2){const ax=Wc[i],az=Wc[i+1],ex=Wc[i+2]-ax,ez=Wc[i+3]-az,l2=ex*ex+ez*ez;let t=l2?((x-ax)*ex+(z-az)*ez)/l2:0;t=clamp(t,0,1);const qx=ax+ex*t,qz=az+ez*t,d=(x-qx)**2+(z-qz)**2;if(d<bd){bd=d;bx=qx;bz=qz}}return[bx,bz,Math.sqrt(bd)]};
   // midpoints between the two carriageways, every 8 m, while they run side by side
-  const raw=[];for(let i=0;i<E.length-2;i+=2){const ax=E[i],az=E[i+1],bx=E[i+2],bz=E[i+3],L=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(L/8));
-    for(let k=0;k<n;k++){const x=ax+(bx-ax)*k/n,z=az+(bz-az)*k/n;const [wx,wz,d]=near(x,z);if(d>40){if(raw.length>20){i=E.length;break}continue}raw.push([(x+wx)/2,(z+wz)/2])}}
+  const raw=[];let gap=0;for(let i=0;i<E.length-2;i+=2){const ax=E[i],az=E[i+1],bx=E[i+2],bz=E[i+3],L=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(L/8));
+    for(let k=0;k<n;k++){const x=ax+(bx-ax)*k/n,z=az+(bz-az)*k/n;const [wx,wz,d]=near(x,z);if(d>(CD.OSM?75:40)){if(raw.length>20&&++gap>(CD.OSM?50:0)){i=E.length;break}continue}gap=0;raw.push([(x+wx)/2,(z+wz)/2])}}
+  // con las vías reales la troncal sigue hacia Turbaco: el Transcaribe llega hasta el Portal (El Gallo, según OpenStreetMap)
+  if(CD.OSM){const PT=[8359,2973];let bi=-1,bd=400;raw.forEach((q,i)=>{const d=Math.hypot(q[0]-PT[0],q[1]-PT[1]);if(d<bd){bd=d;bi=i}});if(bi>0)raw.length=bi+1}
   if(raw.length<30)return;
   const P=raw.map((q,i)=>{let sx=0,sz=0,n=0;for(let k=-3;k<=3;k++){const r=raw[clamp(i+k,0,raw.length-1)];sx+=r[0];sz+=r[1];n++}return[sx/n,sz/n]});
   const S=[0];for(let i=1;i<P.length;i++)S.push(S[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));Object.assign(TCW,{path:P,S,L:S[S.length-1]});
@@ -447,15 +466,20 @@ const TCW={path:null,S:null,L:0,stations:[]};
   for(let i=0;i<P.length-1;i++)addRoadSeg({ax:P[i][0],az:P[i][1],bx:P[i+1][0],bz:P[i+1][1],ty:0,name:'Carril exclusivo de Transcaribe',w:9.8,walk:true,bw:true});
   // stations on the median: raised platform, teal roof on pillars, glass back panels and the name at both ends
   const NST=Math.max(8,Math.round((TCW.L-300)/600)+1),TSTEP=(TCW.L-300)/(NST-1),OLDN=['Chambacú','La Popa','El Prado','Bazurto','Delicias'],usedN=new Set(OLDN);let k=0;
-  const stName=(k,x,z)=>{if(k===NST-1)return'Portal de Transcaribe';if(k<OLDN.length)return OLDN[k];let n=zoneName(x,z);if(usedN.has(n))n=n+' Sur';usedN.add(n);return n};
+  const stName=(k,x,z)=>{if(k===NST-1)return'Portal de Transcaribe';if(k>=0&&k<OLDN.length)return OLDN[k];let n=zoneName(x,z);if(usedN.has(n))n=n+' Sur';if(usedN.has(n))n=n.replace(/ Sur$/,' Norte');usedN.add(n);return n};
   const roofM=new THREE.MeshLambertMaterial({color:'#1f9aa6'}),platM=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#d8d2c4'}),pilM=mat('#e9e6dc'),glassM=new THREE.MeshPhongMaterial({color:'#cfe8f0',transparent:true,opacity:.3,shininess:90,depthWrite:false,side:THREE.DoubleSide});
-  for(let sAt=160;sAt<TCW.L-100&&k<NST;sAt+=TSTEP){let i=0;while(i<S.length-2&&S[i+1]<sAt)i++;const a=P[i],b=P[i+1],tl=Math.hypot(b[0]-a[0],b[1]-a[1])||1,tx=(b[0]-a[0])/tl,tz=(b[1]-a[1])/tl,f=(sAt-S[i])/tl,x=a[0]+(b[0]-a[0])*f,z=a[1]+(b[1]-a[1])*f;
+  // estaciones: con ciudad-osm.js, las reales (con su nombre) y, donde quedan más de 900 m sin estación, otras en medio; el Portal al final
+  let STS=null;if(CD.OSM&&CD.OSM.transcaribe){const at=[];for(const [nm,x,z] of CD.OSM.transcaribe){let bi=-1,bd=160;P.forEach((q,i)=>{const d=Math.hypot(q[0]-x,q[1]-z);if(d<bd){bd=d;bi=i}});if(bi>=0&&S[bi]>100&&S[bi]<TCW.L-150)at.push({s:S[bi],name:nm})}
+    at.sort((a,b)=>a.s-b.s);const A=[];for(const q of at)if(!A.length||q.s-A[A.length-1].s>250)A.push(q);
+    STS=[];let prev=0;for(const q of A.concat([{s:TCW.L-60,name:'Portal de Transcaribe'}])){const gap=q.s-prev,n=Math.floor(gap/650);if(gap>900)for(let j=1;j<=n;j++)STS.push({s:prev+gap*j/(n+1)});STS.push(q);prev=q.s}
+    STS=STS.filter(q=>q.s>=120);for(const q of A)usedN.add(q.name)}
+  for(let sAt=STS?STS[0].s:160,si=0;STS?si<STS.length:sAt<TCW.L-100&&k<NST;STS?(sAt=STS[++si]&&STS[si].s):sAt+=TSTEP){let i=0;while(i<S.length-2&&S[i+1]<sAt)i++;const a=P[i],b=P[i+1],tl=Math.hypot(b[0]-a[0],b[1]-a[1])||1,tx=(b[0]-a[0])/tl,tz=(b[1]-a[1])/tl,f=(sAt-S[i])/tl,x=a[0]+(b[0]-a[0])*f,z=a[1]+(b[1]-a[1])*f;
     const y=ground(x,z)+LIFT,yaw=Math.atan2(tx,tz),g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=yaw;scene.add(g);const H=.42;
     const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
     add(new THREE.BoxGeometry(2.6,H,34),platM,0,H/2,0);add(new THREE.BoxGeometry(2.62,.06,34.02),mat('#f0b429'),0,H-.02,0);
     for(let zz=-15;zz<=15;zz+=6)add(new THREE.BoxGeometry(.16,2.9,.16),pilM,0,H+1.45,zz);add(new THREE.BoxGeometry(3.4,.18,35),roofM,0,H+2.95,0);
     for(const e of [-1,1])add(new THREE.PlaneGeometry(30,1.6),glassM,0,H+1.05,0).rotation.y=Math.PI/2*e;
-    const nm='Estación '+stName(k,x,z);const sg=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.8),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const q=c.getContext('2d');q.fillStyle='#1f9aa6';q.fillRect(0,0,512,128);q.fillStyle='#f0b429';q.fillRect(0,96,512,32);q.fillStyle='#fff';q.font='bold 34px sans-serif';q.textAlign='center';q.fillText('Transcaribe',256,42);q.font='bold 30px sans-serif';q.fillText(nm.replace('Estación ',''),256,84);return new THREE.CanvasTexture(c)})()}));
+    const nm='Estación '+(STS&&STS[si].name||stName(STS?-1:k,x,z));const sg=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.8),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const q=c.getContext('2d');q.fillStyle='#1f9aa6';q.fillRect(0,0,512,128);q.fillStyle='#f0b429';q.fillRect(0,96,512,32);q.fillStyle='#fff';q.font='bold 34px sans-serif';q.textAlign='center';q.fillText('Transcaribe',256,42);q.font='bold 30px sans-serif';q.fillText(nm.replace('Estación ',''),256,84);return new THREE.CanvasTexture(c)})()}));
     for(const e of [-1,1]){const m=sg.clone();m.position.set(0,H+3.5,e*17.6);m.rotation.y=e>0?0:Math.PI;g.add(m)}
     TCW.stations.push({name:nm,s:sAt,x,z,tx,tz,yaw,y:y+H});TC_ST.push({x,z,tx,tz,hl:17,hw:1.3,top:LIFT+H});k++}})();
 /* ---------- buildings ---------- */
@@ -927,7 +951,10 @@ function planeAt(x,z,yaw){const y=ground(x,z);PLANE.parts.forEach((g,i)=>{const 
       LATER.push(()=>{const f=lc(sp.x,sp.z,sp.yaw,0,3.2);for(const o of [-1,1]){const p=stayAt('police',f[0]+Math.cos(sp.yaw)*o*.9,f[1]-Math.sin(sp.yaw)*o*.9,sp.yaw,o>0?'hips':'')}});
       icon('cai',sp.x,sp.z,L.name);continue}}
   // gasolineras a un lado de las avenidas
-  for(const [nm,f] of CD.GAS){const r=GEN.roads.find(q=>q[4]===nm);if(!r)continue;const p=r[5];let tot=0;const segL=[];for(let i=0;i<p.length-2;i+=2){const l=Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1]);segL.push(l);tot+=l}
+  // con ciudad-osm.js: las estaciones reales, al lado de la calle más cercana
+  const GASL=CD.OSM&&CD.OSM.fuel?CD.OSM.fuel.map(([,x,z])=>{const q=nearestRoad(x,z,80,s=>!s.walk&&s.ty<=4);if(!q)return null;const s=q.s,dx=s.bx-s.ax,dz=s.bz-s.az,L=Math.hypot(dx,dz)||1;
+      const fw=(x-q.x)*(-dz)+(z-q.z)*dx>=0,p=fw?[s.ax,s.az,s.bx,s.bz]:[s.bx,s.bz,s.ax,s.az];return[s.name,Math.hypot(q.x-p[0],q.z-p[1])/L,[s.ty,s.ow===1?1:0,s.lanes||0,0,s.name,p]]}).filter(Boolean):CD.GAS;
+  for(const [nm,f,r0] of GASL){const r=r0||GEN.roads.find(q=>q[4]===nm);if(!r)continue;const p=r[5];let tot=0;const segL=[];for(let i=0;i<p.length-2;i+=2){const l=Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1]);segL.push(l);tot+=l}
     let want=tot*f,i=0;while(i<segL.length-1&&want>segL[i]){want-=segL[i];i++}
     for(let tries=0;tries<6;tries++){const ii=Math.min(segL.length-1,i+tries);const ax=p[ii*2],az=p[ii*2+1],bx=p[ii*2+2],bz=p[ii*2+3],L=segL[ii]||1,dx=(bx-ax)/L,dz=(bz-az)/L,t=Math.min(L-12,Math.max(12,tries?L/2:want));
       const w=roadW(r[0],r[1],r[2],nm),nx=-dz,nz=dx,cx=ax+dx*t+nx*(w/2+14),cz=az+dz*t+nz*(w/2+14),yaw=Math.atan2(-dz,dx);if(!rectFree(cx,cz,28,18,yaw,.5))continue;
@@ -1022,14 +1049,49 @@ const OSMD=(function(){const C=100,m=new Map();for(const b of MAP.buildings){con
   return(x,z)=>{const i=Math.floor(x/C),j=Math.floor(z/C);let s=0;for(let a=i-1;a<=i+1;a++)for(let b=j-1;b<=j+1;b++)s+=m.get(a*100000+b)||0;return s/90000}})();
 const NOFILL=new Set(['Centro Histórico','San Diego','Getsemaní','La Matuna','Bocagrande','El Laguito','Castillogrande','Cerro de La Popa']);
 function osmSolidAt(x,z){const a=sgrid.get(skey(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;for(const s of a)if(!s.proc&&x>s.x0&&x<s.x1&&z>s.z0&&z<s.z1&&inPoly(s.pts,x,z))return true;return false}
-const LOTH={water:isWater,solid:osmSolidAt,special:inSpecial,clear:roadClear};
+/* edificios reales de OpenStreetMap en el resto de la ciudad (ciudad-osm.js): cada uno queda asignado a la calle más cercana
+   (así se construye, puede ser local y sirve de casa) y, donde ya hay muchos, no se inventan casas */
+const RB=(function(){const O=CD.OSM;if(!O||!O.bld)return null;const C=50,grid=new Map(),dens=new Map(),all=[];
+  O.bld.forEach((b,i)=>{const pts=b[2];let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9,cx=0,cz=0;const n=pts.length/2;
+    for(let k=0;k<pts.length;k+=2){x0=Math.min(x0,pts[k]);x1=Math.max(x1,pts[k]);z0=Math.min(z0,pts[k+1]);z1=Math.max(z1,pts[k+1]);cx+=pts[k];cz+=pts[k+1]}cx/=n;cz/=n;
+    const o={i,lv:b[0],kind:b[1],pts,x0,z0,x1,z1,cx,cz,ar:Math.abs(signedArea(pts))};all.push(o);
+    for(let a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(let c=Math.floor(z0/C);c<=Math.floor(z1/C);c++){const k=a*100000+c;let L=grid.get(k);if(!L){L=[];grid.set(k,L)}L.push(o)}
+    const dk=Math.floor(cx/100)*100000+Math.floor(cz/100);dens.set(dk,(dens.get(dk)||0)+o.ar)});
+  return{all,grid,dens,C,ready:false}})();
+function realSolidAt(x,z){if(!RB)return false;const a=RB.grid.get(Math.floor(x/RB.C)*100000+Math.floor(z/RB.C));if(!a)return false;for(const o of a)if(x>o.x0&&x<o.x1&&z>o.z0&&z<o.z1&&inPoly(o.pts,x,z))return true;return false}
+function realDens(x,z){if(!RB)return 0;const i=Math.floor(x/100),j=Math.floor(z/100);let s=0;for(let a=i-1;a<=i+1;a++)for(let b=j-1;b<=j+1;b++)s+=RB.dens.get(a*100000+b)||0;return s/90000}
+const REALBY=new Map(),REALORPH=new Map();
+function realLot(o,q){const P=o.pts,n=P.length/2,h=CD.hashI(o.i,77),h2=CD.hashI(o.i,78);
+  // la fachada es el lado que mira a la calle
+  let best=null,bs=-1e9;
+  for(let i=0;i<n;i++){const j=(i+1)%n,ax=P[i*2],az=P[i*2+1],bx=P[j*2],bz=P[j*2+1],L=Math.hypot(bx-ax,bz-az);if(L<2)continue;const mx=(ax+bx)/2,mz=(az+bz)/2;
+    let nx=(bz-az)/L,nz=-(bx-ax)/L;if(inPoly(P,mx+nx*.4,mz+nz*.4)){nx=-nx;nz=-nz}
+    let sc=Math.min(L,14)/14;if(q){const vx=q.x-mx,vz=q.z-mz,d=Math.hypot(vx,vz)||1;sc+=2*(vx*nx+vz*nz)/d-d/12}if(sc>bs){bs=sc;best={mx,mz,nx,nz,L}}}
+  if(!best)return null;
+  const nb=CD.nearestBarrio(o.cx,o.cz),st=nb.d>nb.b[5]*1.75?'relleno':nb.b[4],ST=CD.STYLES[st];
+  const ware=o.kind===2||(st==='industrial'&&o.ar>400);let floors;
+  if(o.lv>0)floors=o.lv-1;else if(o.kind===4)floors=2+Math.floor(h*4);else if(o.kind===16)floors=1+Math.floor(h*2);else if(o.kind===8)floors=h<.5?0:1;
+  else floors=Math.max(o.ar>500?1:0,Math.round(ST.fl[0]+h*h*ST.fl[1]));
+  const tower=!ware&&floors>=6,church=o.kind===1;
+  return{real:true,pts:P,cx:o.cx,cz:o.cz,lw:best.L,d:clamp(o.ar/best.L,4,60),r:Math.hypot(o.x1-o.x0,o.z1-o.z0)/2,k:100000+o.i,side:0,
+    fx:best.mx+best.nx*1.4,fz:best.mz+best.nz*1.4,wx:best.mx,wz:best.mz,nx:best.nx,nz:best.nz,floors:Math.min(floors,40),fl:tower?floors:0,
+    col:church?'#f4efe2':tower?['#f4f1ea','#ebe7df','#e2e9ee','#ffffff'][Math.floor(h2*4)]:ST.colors[Math.floor(h2*ST.colors.length)],tex:ST.tex[Math.floor(CD.hashI(o.i,79)*ST.tex.length)],
+    gable:!ware&&!tower&&n===4&&(church||CD.hashI(o.i,80)<ST.gable)&&floors<=1,tower,ware,style:st}}
+function realLots(){if(!RB||RB.ready)return;RB.ready=true;
+  for(const o of RB.all){if(inSpecial(o.cx,o.cz))continue;const q=nearestRoad(o.cx,o.cz,60,s=>!s.walk);const l=realLot(o,q);if(!l)continue;
+    if(q){let a=REALBY.get(q.s.rid);if(!a){a=[];REALBY.set(q.s.rid,a)}a.push(l)}
+    else{const k=Math.floor(o.cx/TILE)*10000+Math.floor(o.cz/TILE);let a=REALORPH.get(k);if(!a){a=[];REALORPH.set(k,a)}a.push(l)}}}
+const LOTH={water:isWater,solid:(x,z)=>osmSolidAt(x,z)||realSolidAt(x,z),special:inSpecial,clear:roadClear};
 function segStyle(s){if(s.walk||s.ty>5||s.ty<1&&!s.outerAv)return null;if(s.style!==undefined)return s.style;let st=null;const mx=(s.ax+s.bx)/2,mz=(s.az+s.bz)/2;
   if(s.grid){const b=CD.BARRIOS[s.barrio];st=b?b[4]:'popular'}
   else if(s.outerAv){const nb=CD.nearestBarrio(mx,mz);st=nb.d>nb.b[5]*1.8?null:nb.b[4]==='industrial'?'industrial':'avenida';s.ja=s.jb=true}
   else if(hillR(mx,mz)>1.1&&OSMD(mx,mz)<.09&&!NOFILL.has(zoneName(mx,mz))){st='relleno';s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz)}
   s.style=st;return st}
 const LOTC=new Map(),SHOPLOT=new Map();
-function lotsOf(s){let L=LOTC.get(s.rid);if(L)return L;const st=segStyle(s);L=st?CD.lotsFor(s,st,LOTH):[];
+function lotsOf(s){let L=LOTC.get(s.rid);if(L)return L;realLots();const st=segStyle(s);
+  // calles reales: casas inventadas solo en los barrios y donde OpenStreetMap casi no tiene edificios
+  const gen=st&&!(s.pl&&(s.ty>4||s.barrio<0))&&!(RB&&realDens((s.ax+s.bx)/2,(s.az+s.bz)/2)>.07);
+  L=(REALBY.get(s.rid)||[]).concat(gen?CD.lotsFor(s,st,LOTH):[]);
   for(const l of L){const sh=SHOPLOT.get(s.rid+':'+l.side+':'+l.k);if(sh){l.shop=sh;if(sh.home)homeLook(l)}}if(LOTC.size>8000)LOTC.clear();LOTC.set(s.rid,L);return L}
 // a shop on some of the blocks of every barrio (decided once, so the map can show them all)
 function pickShops(){const out=[];for(const s of ALLSEGS){const st=segStyle(s);if(!st)continue;const pr=(CD.STYLES[st].shop||.1)*.8;if(CD.hashI(s.rid,991)>pr)continue;const L=lotsOf(s);if(!L.length)continue;
@@ -1053,7 +1115,7 @@ const COLC=new Map(),colC=c=>{let v=COLC.get(c);if(!v){v=colObj(c);COLC.set(c,v)
 function lotBuilding(l){let P=l.pts;if(signedArea(P)<0){const q=[];for(let i=P.length/2-1;i>=0;i--)q.push(P[i*2],P[i*2+1]);P=q}
   let gy=1e9;for(let i=0;i<P.length;i+=2)gy=Math.min(gy,ground(P[i],P[i+1]));const C=colC(l.col);
   if(l.ware){const top=gy+5.5+l.floors*2.4;band(P,gy-2,top,'plain',C,0,1,1,false);ring(P,top-.05,top+.4,.15,TRIMC);flatRoof(P,top+.3,'roof_flat',WHITE,6)}
-  else if(l.tower){const fl=6+Math.floor(CD.hashI(l.k*7,l.side+9)*10),top=gy+GF+fl*FL,t=['tow_a','tow_b','tow_c'][Math.floor(CD.hashI(l.k,l.side*3)*3)];
+  else if(l.tower){const fl=l.fl||6+Math.floor(CD.hashI(l.k*7,l.side+9)*10),top=gy+GF+fl*FL,t=['tow_a','tow_b','tow_c'][Math.floor(CD.hashI(l.k,l.side*3)*3)];
     band(P,gy-2,top,t,C,gy+GF+1,t==='tow_c'?22:18,t==='tow_c'?22:16,false);ring(P,top,top+1.2,.3,C);flatRoof(P,top+1.2,'roof_flat',WHITE,6)}
   else{const top=gy+GF+l.floors*FL;band(P,gy-2,gy+GF,l.tex+'_gf',C,gy,GF,8,true);if(l.floors>0)band(P,gy+GF,top,l.tex+'_up',C,gy+GF,FL,8,true);ring(P,top-.05,top+.3,.18,TRIMC);
     if(!(l.gable&&gableRoof(P,top+.3,'plain',C))){ring(P,top+.3,top+.85,0,C,'plain');flatRoof(P,top+.45,'roof_flat',WHITE,6)}}
@@ -1066,14 +1128,24 @@ function chunkBuild(tx,tz){const x0=tx*TILE,z0=tz*TILE,x1=x0+TILE,z1=z0+TILE;con
   const save=batches;batches=new Map();BFIX=[tx,tz];const glow=[],pools=[];
   const set=new Set();for(let i=Math.floor((x0-60)/RS);i<=Math.floor((x1+60)/RS);i++)for(let j=Math.floor((z0-60)/RS);j<=Math.floor((z1+60)/RS);j++){const a=roadSegs.get(rkey(i,j));if(a)for(const s of a)set.add(s)}
   const list=[...set].sort((a,b)=>a.rid-b.rid);
-  for(const s of list){if(!s.grid)continue;const mx=(s.ax+s.bx)/2,mz=(s.az+s.bz)/2;if(mx<x0||mx>=x1||mz<z0||mz>=z1)continue;roadGeo(s.ty,0,s.w,[s.ax,s.az,s.bx,s.bz]);
+  for(const s of list){if(!s.grid)continue;
+    // calle real: el tramo entero (con sus curvas) se construye en el bloque donde empieza, con postes a lo largo
+    if(s.pl){if(!s.own||s.ax<x0||s.ax>=x1||s.az<z0||s.az>=z1)continue;const p=s.pl.pts;roadGeo(s.ty,s.ow===1?1:0,s.w,p);if(s.ty>4)continue;
+      const sd=s.rid%2?1:-1,off=s.w/2+.8;let acc=14;
+      for(let i=0;i<p.length-2;i+=2){const L=Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1]);if(L<.05)continue;const dx=(p[i+2]-p[i])/L,dz=(p[i+3]-p[i+1])/L,nx=-dz*sd,nz=dx*sd;
+        for(;acc<L;acc+=36){if(i===p.length-4&&acc>L-10)break;const x=p[i]+dx*acc+nx*off,z=p[i+1]+dz*acc+nz*off;if(!onLand(x,z)||osmSolidAt(x,z)||realSolidAt(x,z))continue;pushLamp(x,z,Math.atan2(-nx,-nz));const gx=x-nx*2,gz=z-nz*2;glow.push(gx,ground(gx,gz)+7.65,gz);pools.push(gx,gz)}
+        acc-=L}
+      continue}
+    const mx=(s.ax+s.bx)/2,mz=(s.az+s.bz)/2;if(mx<x0||mx>=x1||mz<z0||mz>=z1)continue;roadGeo(s.ty,0,s.w,[s.ax,s.az,s.bx,s.bz]);
     const L=Math.hypot(s.bx-s.ax,s.bz-s.az),dx=(s.bx-s.ax)/L,dz=(s.bz-s.az)/L,sd=s.rid%2?1:-1,nx=-dz*sd,nz=dx*sd,off=s.w/2+.8;
     for(let t=14;t<L-10;t+=36){const x=s.ax+dx*t+nx*off,z=s.az+dz*t+nz*off;if(!onLand(x,z)||osmSolidAt(x,z))continue;pushLamp(x,z,Math.atan2(-nx,-nz));const gx=x-nx*2,gz=z-nz*2;glow.push(gx,ground(gx,gz)+7.65,gz);pools.push(gx,gz)}}
-  const trees=[];const lots=[];for(const s of list){if(s.walk)continue;for(const l of lotsOf(s))if(l.cx>=x0&&l.cx<x1&&l.cz>=z0&&l.cz<z1){l.r=Math.hypot(l.lw,l.d)/2;lots.push(l)}}
-  lots.sort((a,b)=>(b.shop?1:0)-(a.shop?1:0));const placed=[],fac=[];
+  const trees=[];const lots=[];for(const s of list){if(s.walk)continue;for(const l of lotsOf(s))if(l.cx>=x0&&l.cx<x1&&l.cz>=z0&&l.cz<z1){if(!l.real)l.r=Math.hypot(l.lw,l.d)/2;lots.push(l)}}
+  if(RB){realLots();const o=REALORPH.get(tx*10000+tz);if(o)lots.push(...o)}
+  // primero los edificios reales, luego los locales
+  lots.sort((a,b)=>((b.real?2:0)+(b.shop?1:0))-((a.real?2:0)+(a.shop?1:0)));const placed=[],fac=[];
   for(const l of lots){let hit=false;for(const q of placed){if(Math.abs(q.cx-l.cx)>q.r+l.r||Math.abs(q.cz-l.cz)>q.r+l.r)continue;if(inPoly(q.pts,l.cx,l.cz)||inPoly(l.pts,q.cx,q.cz)||cornerIn(q,l)||cornerIn(l,q)){hit=true;break}}if(hit)continue;
     placed.push(l);c.solids.push(lotBuilding(l));if(l.shop)fac.push(l.shop);
-    if(!l.ware&&CD.hashI(l.k*13+l.side,Math.round(l.cx))<.3){const bx=(l.pts[4]+l.pts[6])/2,bz=(l.pts[5]+l.pts[7])/2,ox=bx-l.wx,oz=bz-l.wz,ol=Math.hypot(ox,oz)||1,tx=bx+ox/ol*4.5,tz=bz+oz/ol*4.5;
+    if(!l.ware&&!l.real&&CD.hashI(l.k*13+l.side,Math.round(l.cx))<.3){const bx=(l.pts[4]+l.pts[6])/2,bz=(l.pts[5]+l.pts[7])/2,ox=bx-l.wx,oz=bz-l.wz,ol=Math.hypot(ox,oz)||1,tx=bx+ox/ol*4.5,tz=bz+oz/ol*4.5;
       if(onLand(tx,tz)&&!osmSolidAt(tx,tz)&&!inSpecial(tx,tz)&&roadClear(tx,tz,2))trees.push([tx,tz,CD.hashI(l.k,l.side*7+Math.round(l.cz))])}}
   const local=batches;batches=save;BFIX=null;
   for(const b of local.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(b.p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(b.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(b.c,3));
