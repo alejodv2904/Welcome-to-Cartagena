@@ -21,7 +21,7 @@ const TYPES={
   recuerdos:{label:'Artesanías',bg:'#1f9aa6',fg:'#ffffff',names:['Artesanías Las Bóvedas','Recuerdos del Caribe','Artesanías Zenú'],wall:'#f5ead7',room:[9,10]},
   joyeria:{label:'Joyería',bg:'#0b5d3b',fg:'#f6e7a8',names:['Esmeraldas del Corralito','Joyería La Esmeralda'],wall:'#e9efe9',room:[8,8]},
 };
-const MALLS=['Centro Comercial Bahía Plaza','Centro Comercial Portal de La Popa'];
+const MALLS=['Centro Comercial Bahía Plaza','Centro Comercial Portal de La Popa','Centro Comercial Los Ejecutivos','Centro Comercial La Castellana'];
 const COLS={rojo:'#d32f2f',amarillo:'#f0b429',azul:'#1565c0',verde:'#2e7d32',negro:'#1d1d1d',blanco:'#f4f1ea',turquesa:'#1f9aa6',coral:'#e4572e'};
 const MENUS={
   tienda:[{n:'Agua en bolsa',p:1000,e:15},{n:'Gaseosa',p:2500,e:22},{n:'Paquete de galletas',p:2000,e:18},{n:'Pan de bono',p:1500,e:15},{n:'Bolis de tamarindo',p:800,e:10},{n:'Jugo de corozo',p:3000,e:28}],
@@ -66,12 +66,12 @@ const awnR={};for(const k in TYPES)awnR[k]=SA.stripes(TYPES[k].bg,'#f4f1ea');
    4. UBICAR LOCALES EN LAS FACHADAS QUE DAN A LA CALLE
    ========================================================================================= */
 const SHOPS=[];
-(function(){const B=C.MAP.buildings;const taken=new Map();const cell=(x,z,s)=>Math.floor(x/s)+','+Math.floor(z/s);
-  const typeFor=zn=>{const r=rand();
+function typeFor(zn){const r=rand();
     if(zn==='Centro Histórico'||zn==='San Diego')return r<.2?'recuerdos':r<.36?'restaurante':r<.48?'heladeria':r<.58?'ropa':r<.66?'joyeria':r<.76?'fritos':r<.86?'drogueria':'tienda';
     if(zn==='Getsemaní')return r<.3?'restaurante':r<.45?'fritos':r<.6?'tienda':r<.72?'recuerdos':r<.84?'heladeria':'panaderia';
     if(zn==='Bocagrande'||zn==='El Laguito'||zn==='Castillogrande')return r<.25?'restaurante':r<.4?'heladeria':r<.55?'ropa':r<.68?'drogueria':r<.8?'tienda':'recuerdos';
-    return r<.3?'tienda':r<.45?'fritos':r<.58?'panaderia':r<.7?'drogueria':r<.82?'ropa':r<.9?'heladeria':'restaurante'};
+    return r<.3?'tienda':r<.45?'fritos':r<.58?'panaderia':r<.7?'drogueria':r<.82?'ropa':r<.9?'heladeria':'restaurante'}
+(function(){const B=C.MAP.buildings;const taken=new Map();const cell=(x,z,s)=>Math.floor(x/s)+','+Math.floor(z/s);
   const order=B.map((b,i)=>i).sort((a,b)=>hash(a,77)-hash(b,77));
   // malls: the largest suitable building in Bocagrande and in Manga (or elsewhere outside the walls)
   const mallFor=[['Bocagrande',MALLS[0]],['Manga',MALLS[1]]];const mallB=new Set();
@@ -93,10 +93,11 @@ const SHOPS=[];
     return best}
 })();
 
-/* fachada: letrero, toldo de rayas y una puerta oscura — todo en un solo mesh */
-(function(){const P=[],U=[],N=[],Pd=[],Nd=[];
+/* fachada: letrero, toldo de rayas y una puerta oscura — todo en un solo mesh (también para los locales de los barrios que se construyen al acercarse) */
+let FM=null,FMD=null;
+function buildFacades(list){const P=[],U=[],N=[],Pd=[],Nd=[];
   function quad(arr,nrm,a,b,c,d,uv,r){const pts=[a,b,c,d];const id=[0,1,2,0,2,3];for(const i of id){arr.push(pts[i].x,pts[i].y,pts[i].z);if(nrm)nrm.push(r.n.x,r.n.y,r.n.z);if(uv)U.push(uv[i][0],uv[i][1])}}
-  for(const s of SHOPS){const n=V3(s.nx,0,s.nz),t=V3(s.nz,0,-s.nx);const w=V3(s.wx,s.gy,s.wz).addScaledVector(n,.06);
+  for(const s of list){const n=V3(s.nx,0,s.nz),t=V3(s.nz,0,-s.nx);const w=V3(s.wx,s.gy,s.wz).addScaledVector(n,.06);
     const SW=s.mall?Math.min(14,s.len*.7):3.2,SH=s.mall?2.4:.72,sy=s.mall?7.2:3.35;const r=signR[s.name];
     const uv=[[r[0],r[1]],[r[0]+r[2],r[1]],[r[0]+r[2],r[1]+r[3]],[r[0],r[1]+r[3]]];
     const p0=w.clone().addScaledVector(t,-SW/2).setY(s.gy+sy-SH/2),p1=w.clone().addScaledVector(t,SW/2).setY(s.gy+sy-SH/2);
@@ -110,10 +111,12 @@ const SHOPS=[];
     const DW=s.mall?4:1.5,DH=s.mall?3.4:2.5;const d0=w.clone().addScaledVector(n,.02).addScaledVector(t,-DW/2),d1=w.clone().addScaledVector(n,.02).addScaledVector(t,DW/2);
     const dd=[d0,d1,d1.clone().setY(s.gy+DH),d0.clone().setY(s.gy+DH)];for(const i of [0,1,2,0,2,3]){Pd.push(dd[i].x,dd[i].y,dd[i].z);Nd.push(n.x,n.y,n.z)}}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
-  const m=new THREE.MeshLambertMaterial({map:SA.tex,emissiveMap:SA.tex,emissive:0x000000,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2});C.nightMats.push(m);
-  const mesh=new THREE.Mesh(g,m);mesh.receiveShadow=true;C.scene.add(mesh);
+  if(!FM){FM=new THREE.MeshLambertMaterial({map:SA.tex,emissiveMap:SA.tex,emissive:0x000000,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2});C.nightMats.push(FM)}
+  const mesh=new THREE.Mesh(g,FM);mesh.receiveShadow=true;
   const gd=new THREE.BufferGeometry();gd.setAttribute('position',new THREE.Float32BufferAttribute(Pd,3));gd.setAttribute('normal',new THREE.Float32BufferAttribute(Nd,3));
-  const md=new THREE.MeshLambertMaterial({color:'#2a2018',emissive:0x000000,polygonOffset:true,polygonOffsetFactor:-1});C.nightMats.push(md);C.scene.add(new THREE.Mesh(gd,md))})();
+  if(!FMD){FMD=new THREE.MeshLambertMaterial({color:'#2a2018',emissive:0x000000,polygonOffset:true,polygonOffsetFactor:-1});C.nightMats.push(FMD)}
+  return[mesh,new THREE.Mesh(gd,FMD)]}
+buildFacades(SHOPS).forEach(m=>C.scene.add(m));
 
 /* marcadores de entrada (como los de los juegos de mundo abierto): solo los más cercanos */
 const MK=[];{const g=new THREE.CylinderGeometry(.75,.75,1.2,24,1,true);g.translate(0,.6,0);const ring=new THREE.RingGeometry(.55,.75,24);ring.rotateX(-Math.PI/2);ring.translate(0,.06,0);
@@ -548,7 +551,9 @@ function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of
 const TL={mats:[],t:0};
 (function trafficLights(){const G=C.GRAPH;const deg=new Map();G.edges.forEach((e,i)=>{for(const n of [e.a,e.b]){let l=deg.get(n);if(!l){l=[];deg.set(n,l)}l.push(i)}});
   const groups=[[],[]];const housing=[],poles=[];let count=0;TL.nodes=new Map();
-  for(const [n,list] of deg){if(count>220)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
+  for(const [n,list] of deg){if(count>700)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
+    // in the generated barrios only where avenues cross or an avenue meets a main street (not at every corner)
+    if(C.outer&&C.outer(N.x,N.z)&&!list.some(i=>G.edges[i].ty===3)&&main.length<6)continue;
     let wInt=0;for(const i of list)wInt=Math.max(wInt,C.RW[G.edges[i].ty]/2);
     for(const i of list){const e=G.edges[i];const o=e.a===n?G.nodes[e.b]:G.nodes[e.a];let dx=o.x-N.x,dz=o.z-N.z;const L=Math.hypot(dx,dz);if(L<wInt+6)continue;dx/=L;dz/=L;
       const mx=-dx,mz=-dz;const rx=-mz,rz=mx;const w=C.RW[e.ty]/2;const x=N.x+dx*(wInt+1.5)+rx*(w+1.1),z=N.z+dz*(wInt+1.5)+rz*(w+1.1);if(!C.onLand(x,z)||C.solidAt(x,z))continue;
@@ -633,7 +638,7 @@ function act(){if(menuOpen){closeMenu();return true}
   if(!player.car&&!player.ride&&nearShop&&!FADE.busy){const s=nearShop;ENT={kind:'shop',shop:s,t:0,ph:'walk'};return true}return false}
 
 return{
-  get inside(){return inside},get shopDef(){return CUR.def},IS,SHOPS,
+  get inside(){return inside},get shopDef(){return CUR.def},IS,SHOPS,buildFacades,typeFor,TYPES,
   setSpec(spec){P.spec=Object.assign({},spec);rebuildPlayer();if(inside)IS.add(player.mesh)},
   init(){makeGroups()},
   act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,

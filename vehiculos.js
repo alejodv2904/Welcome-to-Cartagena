@@ -164,6 +164,16 @@ SPEC.moto=(col)=>{const A=B();const dark='#1c1c1e',chrome='#b9bcc1';
   const head=[new THREE.CylinderGeometry(.08,.07,.06,12).applyMatrix4(mx(0,.9,.62,Math.PI/2,0,0))],tail=[new THREE.BoxGeometry(.12,.05,.03).applyMatrix4(mx(0,.66,-.89))];
   const plates=[new THREE.PlaneGeometry(.2,.1).applyMatrix4(mx(0,.56,-.9,-.3,Math.PI,0))];
   return{A,glass:[],head,tail,plates,wheels:[{x:0,z:.68,r:.3,w:.11,front:true,spokes:6,style:'black'},{x:0,z:-.66,r:.3,w:.13,front:false,spokes:6,style:'black'}],seat:{x:0,y:.82,z:-.25},len:2,wid:.7,roof:1.2,moto:true}};
+// motos de la Policía (verde neón, baúl con letrero y luces) y de Tránsito (blanca y azul), con espacio para dos
+function motoKit(col,box,trim,txt,fg){const s=SPEC.moto(col);const A=s.A;
+  addGeo(A,new THREE.BoxGeometry(.5,.4,.46),box,mx(0,1.0,-1.02));addGeo(A,new THREE.BoxGeometry(.52,.05,.48),trim,mx(0,1.22,-1.02));
+  addGeo(A,new THREE.BoxGeometry(.06,.34,.6),'#1c1c1e',mx(0,.98,-.7));addGeo(A,new THREE.BoxGeometry(.28,.3,.05),'#9fb3bf',mx(0,1.12,.5,-.35,0,0));
+  for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.05,.26,.5),trim,mx(sd*.17,.62,-.4));addGeo(A,new THREE.BoxGeometry(.3,.06,.36),trim,mx(0,.86,.18));
+  const tm=new THREE.MeshLambertMaterial({map:signTex(txt,box,fg,256,64)});s.extra=[{geo:new THREE.BoxGeometry(.18,.06,.12).applyMatrix4(mx(0,1.27,-1.02)),mat:'siren'}];
+  for(const sd of [-1,1])s.extra.push({geo:new THREE.PlaneGeometry(.42,.14).applyMatrix4(mx(sd*.253,1.0,-1.02,0,sd*Math.PI/2,0)),mat:tm});s.extra.push({geo:new THREE.PlaneGeometry(.42,.14).applyMatrix4(mx(0,1.0,-1.253,0,Math.PI,0)),mat:tm});
+  s.sirenSmall=true;s.len=2.4;return s}
+SPEC.motopol=()=>motoKit('#b5e61d','#b5e61d','#1c1c1e','POLICÍA','#0f3d1e');
+SPEC.mototra=()=>motoKit('#f4f4f2','#1f4fa8','#1f4fa8','TRÁNSITO','#ffffff');
 // cargo truck: square cab, chassis and either a closed box (furgón) or a wooden stake bed (estacas) loaded with sacks
 function truck(col,kind){const A=B();const L=7.2,W=1.15,dark='#1e1f21',gl='#1f2b33',cz=L/2-1.0;
   addGeo(A,new THREE.BoxGeometry(W*2-.25,.28,L-.4),dark,mx(0,.72,0));
@@ -245,7 +255,7 @@ function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.G
   const hm=d.head?new THREE.Mesh(d.head,M.head):null;if(hm)body.add(hm);const tm=d.tail?new THREE.Mesh(d.tail,M.tail):null;if(tm)body.add(tm);
   const plate=PLATES[Math.floor(Math.random()*PLATES.length)];for(const g of d.plates)body.add(new THREE.Mesh(g,plate));
   let siren=null;for(const e of d.extra||[]){if(e.mat==='siren'){const bb=e.geo.clone();bb.computeBoundingBox();const c=bb.boundingBox.getCenter(new THREE.Vector3());
-      const l=new THREE.Mesh(new THREE.BoxGeometry(.46,.1,.22),sirenMat[0]),r=new THREE.Mesh(new THREE.BoxGeometry(.46,.1,.22),sirenMat[1]);l.position.set(c.x-.25,c.y,c.z);r.position.set(c.x+.25,c.y,c.z);body.add(l,r);siren=[l,r]}
+      const sm=d.sirenSmall,sw=sm?.1:.46,so=sm?.07:.25,l=new THREE.Mesh(new THREE.BoxGeometry(sw,sm?.08:.1,sm?.1:.22),sirenMat[0]),r=new THREE.Mesh(new THREE.BoxGeometry(sw,sm?.08:.1,sm?.1:.22),sirenMat[1]);l.position.set(c.x-so,c.y,c.z);r.position.set(c.x+so,c.y,c.z);body.add(l,r);siren=[l,r]}
     else body.add(new THREE.Mesh(e.geo,e.mat))}
   const wheels=d.wheels.map((w,i)=>{const piv=new THREE.Group();piv.position.set(w.x,w.r,w.z);const m=new THREE.Mesh(d.wgeo[i],M.wheel);m.castShadow=false;if(w.x<0&&w.style!=='wood')m.rotation.y=Math.PI;piv.add(m);near.add(piv);return{piv,m,r:w.r,front:w.front,flip:w.x<0&&w.style!=='wood'}});
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(d.wid+.7,d.len+.8),M.shadow);sh.rotation.x=-Math.PI/2;sh.position.y=.04;sh.renderOrder=1;root.add(sh);

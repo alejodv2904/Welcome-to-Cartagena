@@ -177,6 +177,8 @@ const POSES={
   hips(ch){aim(ch,'LeftArm',.6,-.75,-.12,.9);aim(ch,'RightArm',-.6,-.75,-.12,.9);aim(ch,'LeftForeArm',-.75,-.35,.45,.9);aim(ch,'RightForeArm',.75,-.35,.45,.9)},
   wave(ch,t){aim(ch,'RightArm',-.55,.8,.2,.95);aim(ch,'RightForeArm',-.15+Math.sin(t*8)*.45,1,.25,.95)},
   cooler(ch){},
+  // agente de tránsito dirigiendo: un brazo extendido (pare) y el otro haciendo señas para que pasen
+  traffic(ch,t){const s=Math.sin(t*2.6);aim(ch,'RightArm',-1,.08,.12,.95);aim(ch,'RightForeArm',-.85,.5,.1,.95);aim(ch,'LeftArm',.45,.05+.12*s,.88,.95);aim(ch,'LeftForeArm',.05-.8*Math.max(0,s),.25,1,.95)},
 };
 // blend idle / walk / run by speed (m/s); clips are time-scaled so the feet match the ground speed
 function animate(ch,speed,dt,pose,far){const A=ch.A,t=(ch.clock=(ch.clock||0)+dt);
