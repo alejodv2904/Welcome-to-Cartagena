@@ -1152,6 +1152,10 @@ function patTex(kind,cs){const key=kind+'|'+(cs||'');if(PATS[key])return PATS[ke
   else if(kind==='rayas'){for(let y=0;y<S;y+=16){g.fillStyle=(y/16)%2?(c[1]||'#ffffff'):(c[0]||'#1565c0');g.fillRect(0,y,S,16)}}
   else if(kind==='cuadros'){g.fillStyle=c[0]||'#c62828';g.fillRect(0,0,S,S);g.fillStyle=c[1]||'rgba(20,20,20,.45)';for(let i=0;i<S;i+=32){g.globalAlpha=.55;g.fillRect(i,0,12,S);g.fillRect(0,i,S,12)}g.globalAlpha=.35;g.fillStyle='#ffffff';for(let i=16;i<S;i+=32){g.fillRect(i,0,2,S);g.fillRect(0,i,S,2)}g.globalAlpha=1}
   else if(kind==='camo'){g.fillStyle='#6b7a45';g.fillRect(0,0,S,S);const cols=['#3e4a2a','#8d7a52','#2b2b22'];for(let k=0;k<22;k++){const col=cols[k%3],x=R()*S,y=R()*S,r=8+R()*12;wrap(x,y,(X,Y)=>{g.fillStyle=col;g.beginPath();g.ellipse(X,Y,r,r*.6,R()*TAU,0,TAU);g.fill()})}}
+  else if(kind==='denim'){// jean: sarga en diagonal, hilos claros y desgaste suave
+    const base=new THREE.Color(c[0]||'#2b4a7a');g.fillStyle='#'+base.getHexString();g.fillRect(0,0,S,S);g.globalAlpha=.22;g.strokeStyle='#'+base.clone().offsetHSL(0,-.1,.18).getHexString();g.lineWidth=1.4;
+    for(let i=-S;i<2*S;i+=4){g.beginPath();g.moveTo(i,0);g.lineTo(i+S,S);g.stroke()}g.globalAlpha=1;for(let k=0;k<700;k++){g.fillStyle=R()<.5?'rgba(255,255,255,.10)':'rgba(0,0,30,.14)';g.fillRect(R()*S,R()*S,1,2)}
+    const gr=g.createRadialGradient(S*.5,S*.5,4,S*.5,S*.5,S*.7);gr.addColorStop(0,'rgba(255,255,255,.10)');gr.addColorStop(1,'rgba(0,0,0,.08)');g.fillStyle=gr;g.fillRect(0,0,S,S)}
   else if(kind==='tiedye'){const gr=g.createRadialGradient(S/2,S/2,4,S/2,S/2,S*.75);['#e91e63','#ff9800','#ffeb3b','#4caf50','#2196f3','#9c27b0'].forEach((col,i)=>gr.addColorStop(i/5,col));g.fillStyle=gr;g.fillRect(0,0,S,S)}
   else{g.fillStyle=c[0]||'#ffffff';g.fillRect(0,0,S,S)}
   const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;PATS[key]=t;return t}
@@ -1162,6 +1166,8 @@ function modelSpec(sp){let spec=MSPEC.get(sp);if(spec)return spec;const f=sp.sex
   spec={model:f?'f':'m',skin:sp.skin,top:sp.top,bottom:sp.bottom,shoes:sp.shoes,hairC:sp.hairC,scale:(sp.scale||1)*(f?1.05:1),beard:!f&&!!sp.beard,
     pat:sp.pat?patTex(sp.pat,sp.patC):null,sleeve:sp.sleeve===undefined?(sp.longSleeve?0:1):sp.sleeve,shorts:!!(sp.shorts||sp.skirt==='short')};
   if(sp.pat)spec.top=PAT_BASE[sp.pat]||(sp.patC||'#ffffff').split(',')[0];
+  {const bc=new THREE.Color(spec.bottom||'#333333'),hsl={};bc.getHSL(hsl);if(sp.jeans||!sp.skirt&&hsl.h>.55&&hsl.h<.7&&hsl.s>.2&&hsl.l<.55)spec.patB=patTex('denim',spec.bottom)}
+  if(!f&&!spec.hat&&sp.hairStyle!=='none')spec.hair={style:sp.hairStyle,c:sp.hairC||'#1b1310'};
   if(!f&&(sp.hat==='vueltiao'||sp.hat==='sun')){spec.hat=true;spec.hatC=sp.hat==='vueltiao'?'#efe6cc':(sp.hatC||'#f2e6c4')}
   if(sp.topReg==='guaya'||sp.topReg==='blouse')spec.top='#f4f1ea';
   if(sp.vest)spec.top='#c5e33a';if(sp.skirt)spec.bottom=sp.skirtC||spec.bottom;MSPEC.set(sp,spec);return spec}
