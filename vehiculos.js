@@ -229,7 +229,13 @@ function design(type,col,alt){const key=type+col+(alt||'');if(CACHE.has(key))ret
   for(const g of d.glass)addGeo(L,g,'#26343e');for(const g of d.head)addGeo(L,g,'#d9d6c8');for(const g of d.tail)addGeo(L,g,'#7a1010');
   d.wheels.forEach((w,i)=>{const g=d.wgeo[i];const m=mx(w.x,w.r,w.z);const off=L.c.length;addGeo(L,g,'#ffffff',m);const src=g.attributes.color.array;for(let k=0;k<src.length;k++)L.c[off+k]=src[k]});
   for(const e of d.extra||[])addGeo(L,e.geo,e.mat==='siren'?'#2244aa':'#f4f4f2');
-  d.lodGeo=toGeo(L);d.head=d.head.length?mergeG(d.head):null;d.tail=d.tail.length?mergeG(d.tail):null;CACHE.set(key,d);return d}
+  // far-away version: a few boxes (body, dark cabin, wheels) instead of the full merged model, so hundreds of cars stay cheap
+  {const S=B(),Lh=d.len/2,Wd=d.wid,R=d.roof||1.5,bc=col||'#cccccc';const big=R>2.2,moto=!!d.moto;
+    if(moto){addGeo(S,new THREE.BoxGeometry(.3,.6,d.len*.8),bc,mx(0,.65,0));addGeo(S,new THREE.BoxGeometry(.1,.6,.6),'#1b1b1b',mx(0,.3,d.len*.35));addGeo(S,new THREE.BoxGeometry(.1,.6,.6),'#1b1b1b',mx(0,.3,-d.len*.35))}
+    else{const y0=big?.45:.32,yb=big?R*.5:R*.55;addGeo(S,new THREE.BoxGeometry(Wd*.98,yb-y0,d.len*.98),bc,mx(0,(y0+yb)/2,0));
+      if(big)addGeo(S,new THREE.BoxGeometry(Wd*.99,R-yb,d.len*.96),'#2a3640',mx(0,(yb+R)/2,0));else{addGeo(S,new THREE.BoxGeometry(Wd*.86,R-yb,d.len*.5),'#26343e',mx(0,(yb+R)/2,-d.len*.05));addGeo(S,new THREE.BoxGeometry(Wd*.8,.04,d.len*.42),bc,mx(0,R,-d.len*.05))}
+      for(const w of d.wheels)addGeo(S,new THREE.BoxGeometry(.22,w.r*1.9,w.r*1.9),'#151515',mx(w.x,w.r,w.z))}
+    d.lodGeo=toGeo(S)}d.head=d.head.length?mergeG(d.head):null;d.tail=d.tail.length?mergeG(d.tail):null;CACHE.set(key,d);return d}
 function mergeG(list){const A=B();list.forEach(g=>addGeo(A,g,'#fff'));const g=toGeo(A);g.deleteAttribute('color');return g}
 const sirenMat=[new THREE.MeshBasicMaterial({color:0xff2a1a}),new THREE.MeshBasicMaterial({color:0x2a5bff})];
 function build(type,col,alt){const d=design(type,col,alt);const root=new THREE.Group();const near=new THREE.Group();root.add(near);

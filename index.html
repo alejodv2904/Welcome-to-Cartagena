@@ -131,14 +131,15 @@ const onLand=(x,z)=>inBox(x,z)&&!isWater(x,z);
 const LOWEND=window.matchMedia('(pointer:coarse)').matches||(navigator.hardwareConcurrency||8)<=4;
 // quality presets: draw distance, shadows, resolution and crowd size; 'auto' moves between them by measured frame time
 // res: how many of the ~1000 Centro residents exist at this level
+// vd: how far vehicles are drawn (there are ~330 of them)
 // grp: how far the sitting / chatting street groups (full animated people) are drawn
 // peds: people walking around the player; skin: how many of the closest are drawn as full skinned models (the rest are cheap instanced figures)
 // maxPix caps the drawing-buffer size so big / high-DPI screens don't render millions of extra pixels
-const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:6,drivers:22,treeShadow:true,grp:95,res:3000,fog:[320,880]},
-  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:5,drivers:14,treeShadow:false,grp:75,res:3000,fog:[220,630]},
-  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:4,drivers:8,treeShadow:false,grp:55,res:2000,fog:[170,500]},
+const QL={alta:{pr:1.5,maxPix:2.4e6,shadow:true,smap:2048,every:2,view:900,trim:320,tree:520,bal:260,boug:170,lamp:420,peds:750,skin:24,nearD:45,crowdD:190,cars:300,patrol:6,drivers:14,treeShadow:true,grp:95,res:3000,vd:320,fog:[320,880]},
+  media:{pr:1.25,maxPix:1.5e6,shadow:true,smap:1024,every:3,view:640,trim:220,tree:380,bal:170,boug:110,lamp:300,peds:570,skin:16,nearD:36,crowdD:160,cars:240,patrol:5,drivers:10,treeShadow:false,grp:75,res:3000,vd:260,fog:[220,630]},
+  baja:{pr:1,maxPix:.9e6,shadow:false,smap:512,every:4,view:520,trim:140,tree:260,bal:110,boug:70,lamp:220,peds:390,skin:10,nearD:28,crowdD:130,cars:170,patrol:4,drivers:6,treeShadow:false,grp:55,res:2000,vd:200,fog:[170,500]},
   // for weak / integrated graphics: renders at a reduced resolution (stretched to the screen), short view, few animated people
-  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:3,drivers:4,treeShadow:false,grp:35,res:1300,fog:[120,370]}};
+  minima:{pr:.75,maxPix:.45e6,shadow:false,smap:512,every:4,view:380,trim:90,tree:170,bal:70,boug:45,lamp:150,peds:240,skin:4,nearD:20,crowdD:100,cars:110,patrol:3,drivers:4,treeShadow:false,grp:35,res:1300,vd:150,fog:[120,370]}};
 // resScale: extra resolution drop that 'auto' applies below the lowest level when the computer still can't keep up
 let resScale=1;
 const prFor=q=>resScale*Math.max(.4,Math.min(window.devicePixelRatio||1,q.pr,Math.sqrt(q.maxPix/Math.max(1,window.innerWidth*window.innerHeight))));
@@ -1612,7 +1613,7 @@ function step(dt,now){
     trafficUpkeep(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
   else{orbit+=dt*.08;const gy=standY(player.x,player.z);player.mesh.position.set(player.x,gy,player.z);animate(player.ch,0,dt,'');camera.position.set(player.x+Math.sin(orbit)*60,gy+38,player.z+Math.cos(orbit)*60);camera.lookAt(player.x,gy+6,player.z);
     buildVG();for(const v of vehicles)if(v.ai)updateAI(v,dt);updatePeds(dt);hudT-=dt;if(hudT<=0){hudT=.5;updateTiles(player.x,player.z);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,player.x,player.z)<420}}
-  for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<Q.view*.6;
+  for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<(v.tc?Q.vd*1.6:Q.vd);
   updateRigs(dt);updateDrivers(dt);if(player.car||player.ride)animate(player.ch,0,dt,'sit');
   const co=window.__camOverride;if(co){camera.position.set(co[0],co[1],co[2]);camera.lookAt(co[3],co[4],co[5]);updateTiles(co[3],co[5]);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,co[3],co[5])<500}
   updateCarLights();if(player.car){const h=player.car.hp;hpEl.style.width=h+'%';hpEl.style.background=h>55?'#8ac926':h>25?'#f0b429':'#e4572e'}
