@@ -1538,17 +1538,20 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   // follow the car ahead; go around parked / abandoned vehicles blocking the lane
   let park=false,blk=null;const free=v.clearT>0||v.ghost;if(v.clearT>0)v.clearT-=dt;
   for(const o of nearV(v.x,v.z)){if(o===v||o.off)continue;const rx=o.x-v.x,rz=o.z-v.z;if(Math.abs(rx)>22||Math.abs(rz)>22)continue;const al=rx*sy+rz*cy;if(al<-(v.len+o.len)/2-1||al>16)continue;const la=Math.abs(rx*cy-rz*sy);
-    if(!o.ai&&!o.chase&&o!==player.car&&Math.abs(o.speed)<.5&&la<4.4&&!(v.hail&&v.hail.hold)){park=true;if((v.dodge||0)>.85||al<0)continue}
+    if((!o.ai&&!o.chase&&o!==player.car||o.ai&&o.hail&&o.hail.hold&&!o.tc)&&Math.abs(o.speed)<.5&&la<4.4&&!(v.hail&&v.hail.hold)){park=true;if((v.dodge||0)>.85||al<0)continue}
     if(al<0)continue;
     // released by the traffic officer (or stuck for too long): squeeze past the other cars
     if(free&&(o.ai||o.chase))continue;
     // crossing or oncoming cars: ignore them unless they are right in front, and then only one of the two waits (no more deadlocks in the junctions)
     if(o.ai&&Math.cos(o.yaw-v.yaw)<.5&&(al>7||v.vid<o.vid))continue;
+    if(o.blk===v&&v.vid<o.vid&&al<(v.len+o.len)/2+2)continue;
     if(la<((o.pull||0)>.5?1.4:2.2)){const lim=Math.max(0,(al-(v.len+o.len)/2-2)*1.3);if(lim<tgt){tgt=lim;blk=o}}}
   // how long this car has been stuck behind others (waiting at a red light or behind a buseta loading people does not count)
-  v.qLight=!!blk&&(blk.tlStop||blk.qLight||!!(blk.hail&&blk.hail.hold));
+  v.blk=blk;
+  v.qLight=!!blk&&(blk.tlStop||blk.qLight)&&!(blk.stk>4);
   if(blk&&v.speed<.5&&!v.qLight&&!v.tlStop&&!v.hail)v.stk=(v.stk||0)+dt;else v.stk=Math.max(0,(v.stk||0)-dt*3);
-  if(v.stk>45||v.stk>12&&Math.abs(v.x-player.x)+Math.abs(v.z-player.z)>420){v.clearT=4;v.stk=0}
+  {const far=Math.abs(v.x-player.x)+Math.abs(v.z-player.z);if(v.stk>6&&far>260&&!v.hail&&!v.agent&&v.type!=='police'){v.stk=0;placeAI(v,'mid');return}
+    if(v.stk>9||v.stk>4&&far>120){v.clearT=4.5;v.stk=0}}
   v.dodgeT=park?1:0;if(park)tgt=Math.min(tgt,6);
   if(!player.car&&!player.ride&&!EX.inside){const rx=player.x-v.x,rz=player.z-v.z;const al=rx*sy+rz*cy;if(al>0&&al<10&&Math.abs(rx*cy-rz*sy)<2.2)tgt=Math.min(tgt,Math.max(0,al-4))}
   if(!free)for(const p of peds){if(!p.vis)continue;const rx=p.x-v.x,rz=p.z-v.z;if(Math.abs(rx)>10||Math.abs(rz)>10)continue;const al=rx*sy+rz*cy;if(al>0&&al<8&&Math.abs(rx*cy-rz*sy)<1.8)tgt=Math.min(tgt,Math.max(0,al-3.5))}
@@ -2174,7 +2177,7 @@ function updateTransito(dt){TRA.cd-=dt;
   else if(TRA.state==='direct'){TRA.rel-=dt;let n=0,top=null;
     for(const o of vehicles){if(!o.ai||o.agent||Math.abs(o.x-TRA.J.x)>65||Math.abs(o.z-TRA.J.z)>65)continue;if(o.stk>.8||o.clearT>0)n++;if(o.stk>.8&&(!top||o.stk>top.stk))top=o}
     // gives way to the car that has waited longest, one every second
-    if(TRA.rel<=0&&top){TRA.rel=1;top.clearT=3.5;top.stk=0;TRA.face=Math.atan2(top.x-TRA.x,top.z-TRA.z)}
+    if(TRA.rel<=0&&top){TRA.rel=.5;top.clearT=4;top.stk=0;TRA.face=Math.atan2(top.x-TRA.x,top.z-TRA.z)}
     TRA.ang=angLerp(TRA.ang,TRA.face,Math.min(1,dt*3));TRA.quiet=n?0:TRA.quiet+dt;animate(ch,0,dt,'traffic');
     if(TRA.quiet>8||TRA.t>150){TRA.state='back';TRA.t=0;if(dist2(TRA.x,TRA.z,player.x,player.z)<200)toast('El agente de tránsito despejó el trancón',1800)}}
   else if(TRA.state==='back'){if(traWalk(v.x+Math.cos(v.yaw)*1.1,v.z-Math.sin(v.yaw)*1.1,dt)||TRA.t>25){scene.remove(ch.mesh);seatIn(ch,v);v.hail=null;v.route=null;v.pullT=0;v.next=-1;TRA.state='leave';TRA.t=0}}

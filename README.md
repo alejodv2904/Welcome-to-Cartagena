@@ -33,6 +33,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 
 ## La ciudad real
 
+- **Sin trancones eternos:** los carros pasan por el lado de un vehículo detenido (choque, taxi o buseta recogiendo gente); si dos carros se estorban, uno cede; un carro atascado se abre paso a los pocos segundos, y lejos de la vista simplemente sigue por otra calle. El agente de tránsito da paso a dos carros por segundo.
 - **Barrios:** la zona que ves arriba a la izquierda sale de los límites reales de los barrios (OpenStreetMap).
 - **Lugares reales:** bancos, cajeros, bares, discotecas, restaurantes, cafés, farmacias, supermercados, hoteles, universidades, talleres, clínicas, gimnasios y centros comerciales aparecen con su nombre y en su ubicación real. Se puede entrar a todos.
 - **Horarios:** el día dura 48 minutos (cada minuto del juego son 2 segundos). Los bancos abren de 8:00 a.m. a 4:00 p.m., las discotecas de 9:00 p.m. a 4:00 a.m. (con cover), los bares desde las 4:00 p.m., y así.
