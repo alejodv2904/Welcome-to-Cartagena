@@ -91,13 +91,13 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113"></script>
-<script src="ciudad.js?v=20261113"></script>
-<script src="modelos.js?v=20261113"></script>
-<script src="carga.js?v=20261113"></script>
-<script src="gente.js?v=20261113"></script>
-<script src="lugares.js?v=20261113"></script>
-<script src="vehiculos.js?v=20261113"></script><script src="extra.js?v=20261113"></script><script src="celular.js?v=20261113"></script><script src="animales.js?v=20261113"></script>
+<script src="mapa.js?v=20261113b"></script>
+<script src="ciudad.js?v=20261113b"></script>
+<script src="modelos.js?v=20261113b"></script>
+<script src="carga.js?v=20261113b"></script>
+<script src="gente.js?v=20261113b"></script>
+<script src="lugares.js?v=20261113b"></script>
+<script src="vehiculos.js?v=20261113b"></script><script src="extra.js?v=20261113b"></script><script src="celular.js?v=20261113b"></script><script src="animales.js?v=20261113b"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -1496,7 +1496,7 @@ function chooseNext(v){if(v.route&&v.route.length)return v.route.shift();const e
   outs.sort((p,q)=>(GRAPH.edges[q].dx*e.dx+GRAPH.edges[q].dz*e.dz)-(GRAPH.edges[p].dx*e.dx+GRAPH.edges[p].dz*e.dz));
   return rand()<.65?outs[0]:pick(outs)}
 // mototaxis: they cut through alleys, ride against the flow on small one-way streets, filter between cars and jump some red lights
-const isRebel=v=>!!v&&v.type==='mototaxi'&&!v.agent;
+const isRebel=v=>!!v&&(v.type==='mototaxi'||v.type==='moto'&&!!v.app)&&!v.agent;
 // traffic mix of Cartagena: mototaxis everywhere (about one in four), lots of taxis and motorcycles, busetas, trucks, pickups, motocarros and bicycles
 function aiType(){const r=rand();return r<.22?'taxi':r<.49?'mototaxi':r<.59?'moto':r<.66?'buseta':r<.672?'chiva':r<.705?'camion':r<.76?'camioneta':r<.79?'motocarro':r<.83?'bici':'car'}
 function spawnAI(near,type){type=type||aiType();const v=newVehicle(0,0,0,type);v.ai=true;if(!placeAI(v,near)){v.ai=false;scene.remove(v.mesh);vehicles.pop();return null}return v}
@@ -1695,24 +1695,68 @@ function updateService(dt){const v=SV.v;if(!v){svMark.visible=false;return}
   if(svMark.visible){const tx=SV.state==='coming'?GRAPH.nodes[GRAPH.edges[v.hail.stop.e].a]:null;const st=v.hail.stop,e=GRAPH.edges[st.e],A=GRAPH.nodes[e.a];
     const px=SV.state==='waiting'?v.x:A.x+e.dx*st.t,pz=SV.state==='waiting'?v.z:A.z+e.dz*st.t;svMark.position.set(px,ground(px,pz),pz);svMark.children[1].position.y=4.2+Math.sin(performance.now()/220)*.3}
   if(SV.state==='coming'&&!v.hail.hold&&Math.abs(v.speed)<.5&&SV.t>3&&dist2(v.x,v.z,player.x,player.z)<15){v.hail.hold=true;v.speed=0;onHailArrive(v)}
-  if(SV.state==='coming'&&SV.t>150){toast('El '+SNAME(v)+' no pudo llegar',1600);releaseService();return}
+  if(SV.state==='coming'){const d=dist2(v.x,v.z,player.x,player.z);if(d<SV.best-3){SV.best=d;SV.stall=0}else SV.stall+=dt;
+    if(SV.stall>6&&!(v.clearT>0))v.clearT=4;
+    // still not getting closer: the driver shows up a few blocks away (out of sight) with a fresh route
+    if(SV.stall>18||SV.t>150){SV.stall=0;SV.t=Math.min(SV.t,100);const st=v.hail.stop,e=GRAPH.edges[st.e],A=GRAPH.nodes[e.a],px=A.x+e.dx*st.t,pz=A.z+e.dz*st.t;
+      for(let k=0;k<20;k++){const ei=edgeNear(px,pz,90,220);if(ei<0)continue;const E=GRAPH.edges[ei],N=GRAPH.nodes[E.a];if(dist2(N.x,N.z,player.x,player.z)<70)continue;
+        const ox=v.e,ot=v.t;v.e=ei;v.t=E.len*.3;const r=routeFor(v,{ei:st.e,t:st.t});if(!r||r.len>700){v.e=ox;v.t=ot;continue}v.pe=-1;v.route=r.path;v.next=-1;v.speed=5;v.stk=0;aiPos(v,0);SV.best=1e9;break}}}
   if(SV.state==='waiting'&&SV.t>45){toast('El '+SNAME(v)+' se cansó de esperar y se fue',1800);releaseService();return}
   if(SV.state==='leaving'&&!EX.entering){v.holdT=(v.holdT||0)-dt;if(v.holdT<=0)releaseService();return}
   if(SV.state==='riding'&&(keys.Space||runHeld))skipRide()}
 // tarifa de las apps: precio fijo según la distancia (DiDi un poco más barato)
-function appFare(app,d){const km=d*1.35/1000;return app==='uber'?Math.max(7000,Math.round((5200+km*2900)/100)*100):Math.max(6200,Math.round((4600+km*2500)/100)*100)}
-function appRide(app,dest,payFn){if(!started)return'Empieza el juego primero';if(player.car)return'Bájate del vehículo para pedir el '+(app==='uber'?'Uber':'DiDi');if(player.ride||TC.ride)return'Ya vas en un vehículo';if(EX.inside)return'Sal a la calle para pedirlo';
+/* Uber y DiDi desde el celular: como en las apps de verdad, opciones de carro y moto con su precio y tiempo, mapa con la ruta y el
+   conductor en vivo. El vehículo pedido llega siempre: si se atasca se abre paso, y si sigue sin avanzar aparece a unas cuadras con otra ruta */
+const APPOPTS={
+  uber:[{id:'economy',name:'Economy',seats:4,type:'car',k:1,eta:1},{id:'prioridad',name:'Prioridad',seats:4,type:'car',k:1.18,eta:.7,fast:true},
+    {id:'moto',name:'Moto',seats:1,type:'moto',k:.58,eta:.8},{id:'xl',name:'UberXL',seats:6,type:'camioneta',k:2.2,eta:1.3}],
+  didi:[{id:'moto',name:'DiDi Moto',seats:1,type:'moto',k:.62,eta:.8,promo:.15},{id:'express',name:'Express',seats:4,type:'car',k:1,eta:1,promo:.14},
+    {id:'rapido',name:'Más Rápido',seats:4,type:'car',k:1.3,eta:.7,fast:true}]};
+function appFare(app,d,o){const km=d*1.35/1000;const base=app==='uber'?Math.max(7000,5200+km*2900):Math.max(6200,4600+km*2500);return Math.round(base*(o?o.k:1)/50)*50}
+// the trip shown in the app: path from the kerb next to the player to the destination (moto options take the shortcuts)
+function appPath(dest,moto){const pk=curbEdge(player.x,player.z,70);if(!pk)return null;const st=curbEdge(dest.x,dest.z,120)||curbEdge(dest.x,dest.z,300);if(!st)return null;
+  const e0=GRAPH.edges[pk.ei];const p=findRoute(e0.b,st.ei,moto);if(!p)return null;const pts=[[player.x,player.z]];let len=e0.len-pk.t;
+  p.forEach((ei,i)=>{const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];pts.push([A.x,A.z]);if(i<p.length-1)len+=e.len});pts.push([dest.x,dest.z]);return{pts,len:len+st.t}}
+function appQuote(app,dest){const opts=APPOPTS[app];const d=dist2(dest.x,dest.z,player.x,player.z);const car=appPath(dest,false),moto=appPath(dest,true);
+  const near=t=>{let n=0;for(const v of vehicles)if(v.ai&&!v.hail&&v.type===t&&dist2(v.x,v.z,player.x,player.z)<400)n++;return n};
+  return{path:car,pathMoto:moto,opts:opts.map(o=>{const P=o.type==='moto'?moto||car:car;const L=P?P.len:d*1.35;const fare=appFare(app,L/1.35,o);
+    const pick=Math.max(1,Math.round((near(o.type)?1.6:2.4)*o.eta));const trip=Math.max(1,Math.round(L/(o.type==='moto'?9:7.5)/60));
+    return Object.assign({},o,{fare:o.promo?Math.round(fare*(1-o.promo)/50)*50:fare,old:o.promo?fare:0,pick,trip,len:Math.round(L)})})}}
+const DRVNAMES=['Jhon Jairo','Luis Carlos','Yesid','Wilmer','Kelly Johana','Rafael','Eider','Yuranis','Didier','Alfonso','Brayan','Liliana','Hernando','Deivis'];
+function appRide(app,dest,payFn,optId){if(!started)return'Empieza el juego primero';if(player.car)return'Bájate del vehículo para pedir el '+(app==='uber'?'Uber':'DiDi');if(player.ride||TC.ride)return'Ya vas en un vehículo';if(EX.inside)return'Sal a la calle para pedirlo';
   if(SV.v)return'Ya tienes un servicio pedido';const pk=curbEdge(player.x,player.z,70);if(!pk)return'Acércate a una calle para que te recojan';
-  // primero un carro particular que ya ande cerca; si no, aparece uno a unas cuadras
-  let best=null;const list=vehicles.filter(v=>v.ai&&!v.hail&&!v.chase&&v.type==='car'&&dist2(v.x,v.z,player.x,player.z)<400).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,6);
-  for(const v of list){const r=routeFor(v,pk);if(r&&r.len<1600&&(!best||r.len<best.r.len))best={v,r}}
-  for(let k=0;k<10&&!best;k++){const v=spawnAI(true,'car');if(!v)continue;const r=routeFor(v,pk);if(r&&r.len<1800)best={v,r};else{scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}}
+  const Q=appQuote(app,dest);const o=Q.opts.find(q=>q.id===optId)||Q.opts[0];const lim=o.fast?900:1600;
+  // primero uno de ese tipo que ya ande cerca; si no, aparece uno a unas cuadras
+  let best=null;const list=vehicles.filter(v=>v.ai&&!v.hail&&!v.chase&&!v.agent&&v.type===o.type&&dist2(v.x,v.z,player.x,player.z)<400).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,6);
+  for(const v of list){v.app=app;const r=routeFor(v,pk);v.app=null;if(r&&r.len<lim&&(!best||r.len<best.r.len))best={v,r}}
+  for(let k=0;k<14&&!best;k++){const v=spawnAI(true,o.type);if(!v)continue;v.app=app;const r=routeFor(v,pk);if(r&&r.len<lim+200)best={v,r};else{scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}}
   if(!best)return'No hay conductores cerca en este momento';
-  const v=best.v,fare=appFare(app,dist2(dest.x,dest.z,player.x,player.z));v.app=app;
-  Object.assign(SV,{v,state:'coming',t:0,dest,app,appFare:fare,payFn});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;player.waveT=1.2;
-  return{fare,eta:Math.max(1,Math.round(best.r.len/7/60))}}
+  const v=best.v,fare=o.fare;v.app=app;v.pax=false;
+  const L='ABCDEFGHJKLMNPRSTUVWXYZ',plate=[0,1,2].map(()=>L[Math.floor(rand()*L.length)]).join('')+(o.type==='moto'?' '+(10+Math.floor(rand()*89))+L[Math.floor(rand()*L.length)]:' '+(100+Math.floor(rand()*899)));
+  const drv={name:pick(DRVNAMES),stars:(4.7+rand()*.29).toFixed(2),plate,veh:o.type==='moto'?'Moto':o.type==='camioneta'?'Camioneta':'Carro'};
+  Object.assign(SV,{v,state:'coming',t:0,dest,app,appFare:fare,payFn,opt:o,drv,best:1e9,stall:0,trip:Q});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;player.waveT=1.2;
+  return{fare,eta:Math.max(1,Math.round(best.r.len/7/60)),drv}}
+// the app's map: the city around the trip, the route, the driver coming and where you get off
+function drawRideMap(cv,dest,moto){const S=SV.v&&SV.app?SV:null;const g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  let pts=null;if(S&&(S.state==='riding'||S.state==='menu')&&S.v.route){pts=[[S.v.x,S.v.z]];for(const ei of [S.v.e,...S.v.route]){const e=GRAPH.edges[ei];if(e)pts.push([GRAPH.nodes[e.b].x,GRAPH.nodes[e.b].z])}}
+  if(!pts){const key=Math.round(player.x/25)+','+Math.round(player.z/25)+dest.name+(moto?1:0);if(cv.__k!==key||!cv.__p){const P=appPath(dest,moto);cv.__p=P?P.pts:[[player.x,player.z],[dest.x,dest.z]];cv.__k=key}pts=cv.__p}
+  const drv=S&&S.state==='coming'?[S.v.x,S.v.z]:null;let drvPts=null;
+  if(drv){drvPts=[[S.v.x,S.v.z]];for(const ei of (S.v.route||[]).slice(0,80)){const e=GRAPH.edges[ei];drvPts.push([GRAPH.nodes[e.b].x,GRAPH.nodes[e.b].z])}drvPts.push([player.x,player.z])}
+  let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of pts.concat(drvPts||[])){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}
+  const pad=Math.max(80,(x1-x0+z1-z0)*.08);x0-=pad;x1+=pad;z0-=pad;z1+=pad;const sc=Math.min(W/(x1-x0),H/(z1-z0)),cx=(x0+x1)/2,cz=(z0+z1)/2;
+  g.setTransform(1,0,0,1,0,0);g.fillStyle='#9fd3e0';g.fillRect(0,0,W,H);g.save();g.translate(W/2,H/2);g.scale(sc,sc);g.translate(-cx,-cz);g.imageSmoothingEnabled=true;
+  g.drawImage(mapW,WB[0],WB[1],mapW.width*WPX,mapW.height*WPX);g.drawImage(mapC,BOX[0],BOX[1],mapC.width*MPX,mapC.height*MPX);g.restore();
+  g.fillStyle='rgba(255,255,255,.28)';g.fillRect(0,0,W,H);
+  const T=p=>[W/2+(p[0]-cx)*sc,H/2+(p[1]-cz)*sc];const line=(P,col,wd,dash)=>{g.strokeStyle=col;g.lineWidth=wd;g.lineJoin=g.lineCap='round';g.setLineDash(dash||[]);g.beginPath();P.forEach((p,i)=>{const q=T(p);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1])});g.stroke();g.setLineDash([])};
+  const app=S?S.app:cv.dataset.app;const rc=app==='uber'?'#111111':'#3d5afe';
+  line(pts,'#ffffff',7);line(pts,rc,4);if(drvPts)line(drvPts,'#555',3,[5,5]);
+  const dot=(p,col,r,ring)=>{const q=T(p);g.fillStyle=ring||'#fff';g.beginPath();g.arc(q[0],q[1],r+2.5,0,Math.PI*2);g.fill();g.fillStyle=col;g.beginPath();g.arc(q[0],q[1],r,0,Math.PI*2);g.fill()};
+  dot([player.x,player.z],app==='uber'?'#276ef1':'#fc4c02',5);
+  {const q=T([dest.x,dest.z]);g.fillStyle='#111';g.fillRect(q[0]-1,q[1]-16,2,16);for(let i=0;i<3;i++)for(let j=0;j<2;j++){g.fillStyle=(i+j)%2?'#fff':'#111';g.fillRect(q[0]+1+i*4,q[1]-16+j*4,4,4)}}
+  if(drv){const q=T(drv);g.save();g.translate(q[0],q[1]);g.rotate(Math.PI-S.v.yaw);g.fillStyle='#fff';g.strokeStyle='#111';g.lineWidth=1.5;g.beginPath();g.roundRect?g.roundRect(-5,-8,10,16,3):g.rect(-5,-8,10,16);g.fill();g.stroke();g.fillStyle='#333';g.fillRect(-3.5,-4,7,4);g.restore()}
+  return pts}
 function cancelAppRide(){if(!SV.v||!SV.app||SV.state==='riding'||player.ride)return false;releaseService();return true}
-const appState=()=>SV.v&&SV.app?{app:SV.app,state:SV.state,dest:SV.dest,fare:SV.appFare,dist:Math.round(dist2(SV.v.x,SV.v.z,player.x,player.z))}:null;
+const appState=()=>SV.v&&SV.app?{app:SV.app,state:SV.state,dest:SV.dest,fare:SV.appFare,opt:SV.opt,drv:SV.drv,dist:Math.round(dist2(SV.v.x,SV.v.z,player.x,player.z)),eta:Math.max(1,Math.round(dist2(SV.v.x,SV.v.z,player.x,player.z)*1.3/7/60))}:null;
 function rideAct(){const v=player.ride;if(!v)return;if(SV.state==='menu'){openRideMenu();return}if(SV.state!=='riding')return;
   if(Math.abs(v.speed)<1){finishRide(true);return}v.hail.halt=true;toast('Le pediste al conductor que pare',1300)}
 window.addEventListener('keydown',e=>{if(!rideOpen())return;if(e.code==='Escape'){closeRideMenu();if(player.ride)finishRide(true);return}const n=parseInt(e.key,10);if(n>=1&&n<=9)pickDest(n-1)});
@@ -2386,7 +2430,7 @@ EX.onHome=k=>{if(k==='save'){saveGame();toast('Partida guardada en tu casa',1800
   buildIcons();updateChunks(player.x,player.z,1e9);console.log('ciudad: '+gs.length+' locales, '+CHK.size+' bloques en '+Math.round(performance.now()-t0)+' ms')}
 const CEL=window.CELULAR({THREE,scene,player,EX,LM,MAP,ground,onLand,solidAt,nearestRoad,zoneName,toast,fmt,chime,tone,isTouch,dist2,clamp,
   getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getH:()=>gameH,openBig:()=>openBig(),
-  appRide,cancelAppRide,appState,bigEl,get BIGSC(){return BIG.sc},bigToWorld:(sx,sy)=>({x:BIG.cx+(sx-window.innerWidth/2)/BIG.sc,z:BIG.cz+(sy-window.innerHeight/2)/BIG.sc}),redrawBig:()=>drawBig(),get started(){return started},get NIGHT(){return NIGHT}});
+  appRide,cancelAppRide,appState,appQuote,drawRideMap,bigEl,get BIGSC(){return BIG.sc},bigToWorld:(sx,sy)=>({x:BIG.cx+(sx-window.innerWidth/2)/BIG.sc,z:BIG.cz+(sy-window.innerHeight/2)/BIG.sc}),redrawBig:()=>drawBig(),get started(){return started},get NIGHT(){return NIGHT}});
 for(const a of CEL.ATMS)MAPICONS.push({k:'cajero',x:a.x,z:a.z,name:'Cajero '+a.brand.name});buildIcons();
 // atajos solo para mototaxis (en GRAPH.edges con moto:true, enlazados en node.mout, así carros, buses, peatones y semáforos no los ven):
 // callejones y calles peatonales en los dos sentidos, y contravía por las calles pequeñas de un solo sentido

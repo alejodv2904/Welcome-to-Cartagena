@@ -33,6 +33,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 
 ## La ciudad real
 
+- **Uber y DiDi como las apps de verdad:** eliges el destino y ves el mapa con la ruta y las opciones con precio y tiempo (Uber: Economy, Prioridad, Moto y UberXL; DiDi: DiDi Moto con cupón, Express y Más Rápido). Al confirmar llega de verdad el carro, la moto o la camioneta: ves al conductor (nombre, calificación y placa) acercándose en el mapa, y si se atasca se abre paso o aparece a unas cuadras con otra ruta, así que siempre llega. Las motos de las apps también usan los atajos de los mototaxis.
 - **Mototaxis a lo cartagenero:** para llegar más rápido se meten por callejones y calles peatonales, toman en contravía las calles pequeñas de un solo sentido, pasan entre los carros en los trancones, no hacen fila en los cruces y a veces se vuelan el semáforo en rojo (siempre frenan por los peatones). Cuando pides uno, también usan esos atajos.
 - **Sin trancones eternos:** los carros pasan por el lado de un vehículo detenido (choque, taxi o buseta recogiendo gente); si dos carros se estorban, uno cede; un carro atascado se abre paso a los pocos segundos, y lejos de la vista simplemente sigue por otra calle. El agente de tránsito da paso a dos carros por segundo.
 - **Barrios:** la zona que ves arriba a la izquierda sale de los límites reales de los barrios (OpenStreetMap).

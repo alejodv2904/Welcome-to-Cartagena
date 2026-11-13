@@ -130,6 +130,9 @@ const st=document.createElement('style');st.textContent=`
 #phone .btn:hover,#phone .btn:focus{background:rgba(0,0,0,.12);outline:none}#phone .btn small{display:block;font-weight:400;opacity:.7;font-size:12px}#phone .btn b{white-space:nowrap;font-variant-numeric:tabular-nums}
 #phone .pri{background:var(--acc,#200020);color:#fff;justify-content:center}#phone .pri:hover{background:var(--acc,#200020);filter:brightness(1.15)}
 #phone .row{display:flex;gap:6px}#phone .row .btn{justify-content:center;padding:9px 6px;font-size:12px}#phone .row .sel{background:var(--acc,#200020);color:#fff}
+#phone canvas.rmap{width:100%;height:auto;border-radius:14px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}#phone .trip{background:#fff;border-radius:14px;padding:8px 10px;font:600 13px var(--body,system-ui);box-shadow:0 1px 4px rgba(0,0,0,.15)}#phone .trip div{display:flex;align-items:center;gap:8px;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#phone .trip i{width:9px;height:9px;flex:none;border-radius:50%;border:3px solid #fc4c02}#phone .trip i.f{border-radius:0;border:0;background:repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0 0/5px 5px;width:11px;height:11px}
+#phone .ttl{text-align:center;font:800 17px var(--body,system-ui);padding:2px 0}#phone .opt{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border-radius:14px;border:2px solid transparent;background:#fff;color:inherit;cursor:pointer;text-align:left;font:14px var(--body,system-ui)}#phone .opt.on{border-color:var(--acc,#111);box-shadow:0 2px 8px rgba(0,0,0,.15)}#phone .opt .oi{flex:none;width:58px;display:flex;justify-content:center}#phone .opt .ot{flex:1;line-height:1.25}#phone .opt small{opacity:.7;font-size:11.5px}#phone .opt .op{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#phone .cup{background:#fff4ec;color:#7a3a10;border-radius:10px;padding:6px 10px;font-size:12px;margin-top:-4px}#phone .rst{font:700 14px var(--body,system-ui)}#phone .drv{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px;box-shadow:0 1px 4px rgba(0,0,0,.15);font-size:13px}#phone .drv .av{width:36px;height:36px;border-radius:50%;background:var(--acc,#333);color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px var(--body,system-ui);flex:none}#phone .drv .pl{margin-left:auto;background:#f6c516;border:1.5px solid #111;border-radius:4px;padding:2px 5px;font:800 12px Arial Narrow,Arial,sans-serif;white-space:nowrap}
 #phone .bar{display:flex;align-items:center;gap:8px;padding:2px 0 4px}#phone .back{border:0;background:none;font:700 22px var(--body,system-ui);color:inherit;cursor:pointer;padding:0 6px 0 0}
 #phone .hb{height:5px;width:110px;border-radius:3px;background:#5a5a5e;margin:9px auto 1px;cursor:pointer}
 #phone .mv{display:flex;justify-content:space-between;font-size:13px;padding:6px 2px;border-bottom:1px solid rgba(0,0,0,.08)}#phone .mv b.in{color:#2e7d32}#phone .mv b.out{color:#c62828}
@@ -140,7 +143,7 @@ const el=document.createElement('div');el.id='phone';el.innerHTML='<div class="p
 const scrEl=el.querySelector('.scr'),appEl=el.querySelector('.app'),tEl=el.querySelector('.t');
 let open=false,screen='home',arg=null;const hist=[];
 EX.addUI(()=>open);
-function openPhone(){if(!C.started)return;if(EX.inside&&EX.menu&&!open)EX.closeMenu();open=true;el.classList.add('on');go('home');}
+function openPhone(){if(!C.started)return;if(EX.inside&&EX.menu&&!open)EX.closeMenu();open=true;el.classList.add('on');go('home');const S=C.appState();if(S)go(S.app);}
 function closePhone(){open=false;el.classList.remove('on')}
 function go(s,a,noPush){if(!noPush&&screen!==s)hist.push([screen,arg]);if(s==='home')hist.length=0;screen=s;arg=a;render()}
 function back(){const h=hist.pop();if(h){screen=h[0];arg=h[1];render()}else go('home')}
@@ -159,7 +162,7 @@ const CATS=[['banco','Bancos'],['cajero','Cajeros'],['bar','Bares'],['discoteca'
 const H={};let ACT={};
 function B(id,txt,sub,right,cls){return`<button class="btn ${cls||''}" data-a="${id}"><span>${esc(txt)}${sub?'<small>'+esc(sub)+'</small>':''}</span>${right!==undefined?'<b>'+esc(right)+'</b>':''}</button>`}
 function head(title,acc){return`<div class="bar"><button class="back" data-a="__back">‹</button><h4 style="color:${acc||'inherit'}">${esc(title)}</h4></div>`}
-function render(){ACT={};let html='';const fn=H[screen]||H.home;scrEl.classList.toggle('wall',screen==='home');scrEl.style.removeProperty('--acc');html=fn(arg);appEl.className='app'+(screen==='home'?' home':'');appEl.innerHTML=html;tEl.textContent=hhmm()}
+function render(){ACT={};let html='';const fn=H[screen]||H.home;scrEl.classList.toggle('wall',screen==='home');scrEl.style.removeProperty('--acc');html=fn(arg);appEl.className='app'+(screen==='home'?' home':'');appEl.innerHTML=html;tEl.textContent=hhmm();if(POST){const f=POST;POST=null;try{f()}catch(e){console.error(e)}}}
 let aid=0;const act=f=>{const id='a'+(aid++);ACT[id]=f;return id};
 appEl.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='__back'){back();return}const f=ACT[a];if(f){C.tone&&C.tone(880,.03,'sine',.02);f()}});
 
@@ -200,15 +203,36 @@ let SVapp='uber';
 function dests(){const out=[];if(WP)out.push({name:WP.name,x:WP.x,z:WP.z,tag:'Marcado en el GPS'});
   const lm=C.LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz}));const malls=EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'}));
   lm.concat(malls).filter(d=>distTo(d.x,d.z)>150).sort((a,b)=>distTo(a.x,a.z)-distTo(b.x,b.z)).slice(0,16).forEach(d=>out.push(d));return out}
+// íconos de las opciones (dibujados aquí, sin marcas)
+const ICO={car:'<svg viewBox="0 0 64 34" width="58" height="31"><path d="M6 24c0-5 3-7 8-8l9-7c3-2 6-3 10-3h8c5 0 8 2 11 6l3 4c5 1 8 3 8 8v3H6z" fill="#e9e9ec" stroke="#9a9aa2" stroke-width="1.4"/><path d="M24 11l-6 6h17V9h-4c-3 0-5 1-7 2zm14-2v8h14l-3-4c-2-3-5-4-9-4z" fill="#3a3f46"/><circle cx="18" cy="27" r="5.5" fill="#222"/><circle cx="18" cy="27" r="2.4" fill="#bbb"/><circle cx="50" cy="27" r="5.5" fill="#222"/><circle cx="50" cy="27" r="2.4" fill="#bbb"/></svg>',
+  camioneta:'<svg viewBox="0 0 64 36" width="58" height="33"><path d="M5 26V16c0-3 2-5 5-5h4l6-6h24c4 0 7 3 9 7l3 4c4 1 6 3 6 7v3z" fill="#e9e9ec" stroke="#9a9aa2" stroke-width="1.4"/><path d="M21 7l-5 7h12V7zm10 0v7h12V7zm15 0v7h12l-4-5c-1-1-3-2-5-2z" fill="#3a3f46"/><circle cx="17" cy="28" r="6" fill="#222"/><circle cx="17" cy="28" r="2.6" fill="#bbb"/><circle cx="50" cy="28" r="6" fill="#222"/><circle cx="50" cy="28" r="2.6" fill="#bbb"/></svg>',
+  moto:'<svg viewBox="0 0 64 40" width="58" height="36"><circle cx="13" cy="29" r="8" fill="none" stroke="#222" stroke-width="4"/><circle cx="51" cy="29" r="8" fill="none" stroke="#222" stroke-width="4"/><path d="M13 29l12-12h14l6 12M39 17l5-8h6M25 17l-4-5h-6" fill="none" stroke="#555" stroke-width="3" stroke-linecap="round"/><path d="M24 16h17l-3 7H27z" fill="#e9e9ec" stroke="#9a9aa2"/><circle cx="33" cy="7" r="4.5" fill="#1e1e1e"/><path d="M29 11h8l2 9h-11z" fill="#f28c28"/></svg>'};
+const SVopt={uber:'economy',didi:'moto'};
+const copFmt=n=>'COP '+n.toLocaleString('en-US');
+const priceOf=(app,n)=>app==='uber'?copFmt(n):fmt(n).replace(/\s/g,'');
+let POST=null;// a function to run after the screen is rendered (draws the map)
+function mapBox(app,dest,moto){POST=()=>{const cv=appEl.querySelector('canvas.rmap');if(cv){cv.dataset.app=app;C.drawRideMap(cv,dest,moto)}};return'<canvas class="rmap" width="272" height="'+(open?150:150)+'"></canvas>'}
 function rideApp(app){return s=>{SVapp=app;const K=APPC[app];scrEl.style.setProperty('--acc',K.bg);let h=head(K.n,K.bg);const S=C.appState();
-  if(S&&S.app===app){const st=S.state==='coming'?'Tu conductor viene en camino · está a '+km(S.dist):S.state==='waiting'?'¡Llegó! Súbete atrás (F): te espera junto a la marca amarilla':S.state==='riding'||S.state==='menu'||S.state==='boarding'?'En viaje hacia '+S.dest.name:'Terminando el viaje';
-    return h+'<div class="muted">Viaje a</div><h4>'+esc(S.dest.name)+'</h4><div class="big">'+fmt(S.fare)+'</div><p>'+esc(st)+'</p><p class="muted">Pago: '+esc((payOpts().find(o=>o[0]===FIN.pago[app])||['','Efectivo'])[1])+'</p>'+
+  if(S&&S.app===app){const o=S.opt||{},D=S.drv||{};
+    const st=S.state==='coming'?(o.type==='moto'?'Tu moto':'Tu conductor')+' llega en '+S.eta+' min · está a '+km(S.dist):S.state==='waiting'?'¡Llegó! Súbete atrás (F): te espera junto a la marca amarilla':S.state==='riding'||S.state==='menu'||S.state==='boarding'?'En viaje hacia '+S.dest.name:'Terminando el viaje';
+    return h+mapBox(app,S.dest,o.type==='moto')+'<div class="rst">'+esc(st)+'</div>'+
+      '<div class="drv"><div class="av">'+esc((D.name||'?')[0])+'</div><div><b>'+esc(D.name||'')+'</b> <span class="muted">★ '+esc(D.stars||'')+'</span><br><span class="muted">'+esc((o.name||'')+' · '+(D.veh||''))+'</span></div><div class="pl">'+esc(D.plate||'')+'</div></div>'+
+      '<div class="muted">Viaje a</div><h4 style="font-size:16px">'+esc(S.dest.name)+'</h4><div class="big" style="font-size:24px">'+priceOf(app,S.fare)+'</div><div class="muted">Pago: '+esc((payOpts().find(q=>q[0]===FIN.pago[app])||['','Efectivo'])[1])+'</div>'+
       (S.state==='coming'||S.state==='waiting'?B(act(()=>{if(C.cancelAppRide()){C.toast('Cancelaste el viaje',1300);render()}}),'Cancelar viaje'):'')}
   if(S)return h+'<p>Ya tienes otro servicio pedido. Espera a que termine.</p>';
-  if(s&&s.dest){const d=s.dest,fare=estFare(app,d);const po=payOpts();if(!po.some(o=>o[0]===FIN.pago[app]))FIN.pago[app]='efectivo';
-    return h+'<div class="muted">Destino</div><h4>'+esc(d.name)+'</h4><div class="muted">'+km(distTo(d.x,d.z))+' · tarifa fija</div><div class="big">'+fmt(fare)+'</div><div class="muted">Pagar con</div><div class="row">'+
-      po.map(o=>`<button class="btn ${FIN.pago[app]===o[0]?'sel':''}" data-a="${act(()=>{FIN.pago[app]=o[0];render()})}">${o[1]}</button>`).join('')+'</div>'+
-      B(act(()=>{const r=C.appRide(app,d,payFnFor(FIN.pago[app]));if(typeof r==='string'){C.toast(r,1900);return}C.chime();C.toast(K.n+': tu conductor llega en unos '+r.eta+' min',2000);hist.length=0;screen=app;arg=null;render()}),'Pedir '+K.n,undefined,undefined,'pri')}
+  if(s&&s.dest){const d=s.dest;const Q=C.appQuote(app,d);const po=payOpts();if(!po.some(o=>o[0]===FIN.pago[app]))FIN.pago[app]='efectivo';
+    let sel=Q.opts.find(o=>o.id===SVopt[app])||Q.opts[0];SVopt[app]=sel.id;
+    const from=C.zoneName(player.x,player.z);
+    let html=h+'<div class="trip"><div><i class="o" style="border-color:'+K.bg+'"></i>'+esc(from)+'</div><div><i class="f"></i>'+esc(d.name)+'</div></div>'+mapBox(app,d,sel.type==='moto');
+    html+=(app==='uber'?'<div class="ttl">Elige un viaje</div>':'');
+    for(const o of Q.opts){const on=o.id===sel.id;
+      html+='<button class="opt '+(on?'on':'')+'" data-a="'+act(()=>{SVopt[app]=o.id;render()})+'"><span class="oi">'+(ICO[o.type]||ICO.car)+'</span><span class="ot"><b>'+esc(o.name)+(o.fast?' ⚡':'')+'</b> <small>👤'+o.seats+'</small><br><small>En '+o.pick+' min · viaje de '+o.trip+' min</small></span>'+
+        '<span class="op"><b style="color:'+(app==='didi'&&o.old?'#fc4c02':'inherit')+'">'+priceOf(app,o.fare)+'</b>'+(o.old?'<br><small><s>'+priceOf(app,o.old)+'</s></small>':'')+'</span></button>';
+      if(on&&app==='didi'&&o.old)html+='<div class="cup">⚡ Cupón aplicado: −'+priceOf(app,o.old-o.fare)+'</div>'}
+    html+='<div class="muted">Pagar con</div><div class="row">'+po.map(o=>`<button class="btn ${FIN.pago[app]===o[0]?'sel':''}" data-a="${act(()=>{FIN.pago[app]=o[0];render()})}">${o[1]}</button>`).join('')+'</div>';
+    html+=B(act(()=>{const r=C.appRide(app,d,payFnFor(FIN.pago[app]),sel.id);if(typeof r==='string'){C.toast(r,1900);return}C.chime();C.toast(K.n+': '+r.drv.name+' llega en unos '+r.eta+' min ('+r.drv.veh.toLowerCase()+' '+r.drv.plate+')',2400);hist.length=0;screen=app;arg=null;render()}),
+      app==='uber'?'Elegir viaje '+sel.name:'Confirmar '+sel.name,undefined,undefined,'pri');
+    return html}
   return h+'<div class="muted">¿A dónde vas?</div>'+dests().map(d=>B(act(()=>go(app,{dest:d})),d.name,(d.tag?d.tag+' · ':'')+km(distTo(d.x,d.z)),fmt(estFare(app,d)))).join('')+
     '<p class="muted">También puedes pedirlo desde Lugares.</p>'}}
 function estFare(app,d){const k=distTo(d.x,d.z)*1.35/1000;return app==='uber'?Math.max(7000,Math.round((5200+k*2900)/100)*100):Math.max(6200,Math.round((4600+k*2500)/100)*100)}
@@ -246,7 +270,7 @@ function loop(now){const dt=Math.min(.5,(now-last)/1000);last=now;
   if(CHEATS.length){let add=0;for(const c of CHEATS){c.t=Math.min(CHEAT_T,c.t+dt);const want=Math.round(1000000*ease(c.t/CHEAT_T));add+=want-c.added;c.added=want}
     if(add>0)setCash(cash()+add);tickT-=dt;if(tickT<=0&&add>0){tickT=.07;C.tone&&C.tone(1200+Math.random()*300,.02,'square',.012)}
     for(let i=CHEATS.length-1;i>=0;i--)if(CHEATS[i].added>=1000000){CHEATS.splice(i,1);C.chime()}}
-  uiT-=dt;if(uiT<=0){uiT=.5;if(open){tEl.textContent=hhmm();if(screen==='uber'||screen==='didi')render()}
+  uiT-=dt;if(uiT<=0){uiT=.5;if(open){tEl.textContent=hhmm();if((screen==='uber'||screen==='didi')&&C.appState())render()}
     if(WP&&distTo(WP.x,WP.z)<14&&!EX.inside){C.toast('Llegaste a '+WP.name,1800);setWP(null)}}
   if(WP)beacon.material.opacity=.2+.1*Math.sin(now/300);
   requestAnimationFrame(loop)}
