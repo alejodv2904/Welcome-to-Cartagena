@@ -33,6 +33,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
 
 ## La ciudad real
 
+- **Mototaxis a lo cartagenero:** para llegar más rápido se meten por callejones y calles peatonales, toman en contravía las calles pequeñas de un solo sentido, pasan entre los carros en los trancones, no hacen fila en los cruces y a veces se vuelan el semáforo en rojo (siempre frenan por los peatones). Cuando pides uno, también usan esos atajos.
 - **Sin trancones eternos:** los carros pasan por el lado de un vehículo detenido (choque, taxi o buseta recogiendo gente); si dos carros se estorban, uno cede; un carro atascado se abre paso a los pocos segundos, y lejos de la vista simplemente sigue por otra calle. El agente de tránsito da paso a dos carros por segundo.
 - **Barrios:** la zona que ves arriba a la izquierda sale de los límites reales de los barrios (OpenStreetMap).
 - **Lugares reales:** bancos, cajeros, bares, discotecas, restaurantes, cafés, farmacias, supermercados, hoteles, universidades, talleres, clínicas, gimnasios y centros comerciales aparecen con su nombre y en su ubicación real. Se puede entrar a todos.

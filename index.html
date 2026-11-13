@@ -1456,13 +1456,13 @@ function syncCar(v){let y=vehY(v),pitch=0,roll=0;
     if(!v.rig.moto){const gL=ground(v.x+cs*w,v.z-sn*w),gR=ground(v.x-cs*w,v.z+sn*w);roll=Math.atan2(gL-gR,2*w)}
     y+=Math.max(0,(gF+gB)/2-gC)}
   v.mesh.position.set(v.x,y,v.z);v.mesh.rotation.set(pitch,v.yaw,roll)}
-const CRUISE={0:15,1:13,2:12,3:10.5,4:8};
+const CRUISE={0:15,1:13,2:12,3:10.5,4:8,5:7,6:6};
 const aiEdges=GRAPH.edges.map((e,i)=>i);
 const centroEdges=aiEdges.filter(i=>{const e=GRAPH.edges[i],A=GRAPH.nodes[e.a];return inCentro(A.x,A.z)});
 const bigEdges=aiEdges.filter(i=>GRAPH.edges[i].ty<=2);
 // motorcycles, bicycles and motocarros keep to the right edge of their lane
 const EDGE={moto:[.9,1.2],mototaxi:[.9,1.2],bici:[1.4,1.8],motocarro:[.7,1.0]};
-function laneOf(e,v){const k=v&&EDGE[v.type];return e.two?(e.ty<=2?3.2:1.9)+(k?k[0]:0):(k?k[1]:0)}
+function laneOf(e,v){const k=v&&EDGE[v.type];if(e.moto&&!e.contra)return .9;return e.two?(e.ty<=2?3.2:1.9)+(k?k[0]:0):(k?k[1]:0)}
 function edgeAround(r0,r1){const a=rand()*TAU,r=Math.sqrt(rr(r0*r0,r1*r1)),x=player.x+Math.sin(a)*r,z=player.z+Math.cos(a)*r;const l=EGR.get(Math.floor(x/EG)+','+Math.floor(z/EG));return l&&l.length?pick(l):-1}
 // near: 30–420 m from the player (start of the game), 'mid': 170–420 m (comes back just out of sight), otherwise 240–620 m
 function placeAI(v,near){const r0=near==='mid'?170:near?30:240,r1=near?420:620;for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(r0,r1);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
@@ -1488,11 +1488,15 @@ function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull
   if(dt>0&&dist2(tx,tz,v.x,v.z)<6){v.x=lerp(v.x,tx,Math.min(1,dt*8));v.z=lerp(v.z,tz,Math.min(1,dt*8))}else{v.x=tx;v.z=tz}
   v.yaw=dt>0?angLerp(v.yaw,ty,Math.min(1,dt*9)):ty;syncCar(v)}
 function chooseNext(v){if(v.route&&v.route.length)return v.route.shift();const e=GRAPH.edges[v.e],B=GRAPH.nodes[e.b];let outs=B.out.filter(o=>GRAPH.edges[o].b!==e.a);
+  if(isRebel(v)&&B.mout){const m=B.mout.filter(o=>GRAPH.edges[o].b!==e.a);if(m.length&&(e.moto||rand()<.3))return pick(m)}
+  if(!outs.length&&e.moto&&B.mout)outs=B.mout.filter(o=>GRAPH.edges[o].b!==e.a);
   if(v.type==='coche'){const c=outs.filter(o=>{const n=GRAPH.nodes[GRAPH.edges[o].b];return inCentro(n.x,n.z)});if(c.length)outs=c}
   if(v.type==='bus'){const c=outs.filter(o=>GRAPH.edges[o].ty<=2);if(c.length)outs=c}
   if(!outs.length)outs=B.out;if(!outs.length)return -1;
   outs.sort((p,q)=>(GRAPH.edges[q].dx*e.dx+GRAPH.edges[q].dz*e.dz)-(GRAPH.edges[p].dx*e.dx+GRAPH.edges[p].dz*e.dz));
   return rand()<.65?outs[0]:pick(outs)}
+// mototaxis: they cut through alleys, ride against the flow on small one-way streets, filter between cars and jump some red lights
+const isRebel=v=>!!v&&v.type==='mototaxi'&&!v.agent;
 // traffic mix of Cartagena: mototaxis everywhere (about one in four), lots of taxis and motorcycles, busetas, trucks, pickups, motocarros and bicycles
 function aiType(){const r=rand();return r<.22?'taxi':r<.49?'mototaxi':r<.59?'moto':r<.66?'buseta':r<.672?'chiva':r<.705?'camion':r<.76?'camioneta':r<.79?'motocarro':r<.83?'bici':'car'}
 function spawnAI(near,type){type=type||aiType();const v=newVehicle(0,0,0,type);v.ai=true;if(!placeAI(v,near)){v.ai=false;scene.remove(v.mesh);vehicles.pop();return null}return v}
@@ -1525,18 +1529,18 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(v.next>=0){const n=GRAPH.edges[v.next];const dot=n.dx*e.dx+n.dz*e.dz;if(dot<.7&&left<18)tgt=Math.min(tgt,dot<0?3:5.5)}else if(left<10)tgt=Math.min(tgt,2);
   // junctions without traffic lights: one street at a time (a short line of cars from the same street may follow), so cars never cross through each other
   {const now=simT;if(v.jn>=0){const J=JN.get(v.jn);if(!J||J.vid!==v.vid)v.jn=-1;else if(v.e!==J.e&&v.t>7||now>J.until){JN.delete(v.jn);v.jn=-1}}
-    const nb=e.b;if(!(v.clearT>0)&&!v.ghost&&v.next>=0&&left<v.len/2+9&&v.jn!==nb&&(PADJ.get(nb)||[]).length>=3&&!EX.tlAt(nb)){const J=JN.get(nb);
+    const nb=e.b;if(!(v.clearT>0)&&!v.ghost&&!isRebel(v)&&v.next>=0&&left<v.len/2+9&&v.jn!==nb&&(PADJ.get(nb)||[]).length>=3&&!EX.tlAt(nb)){const J=JN.get(nb);
       if(!J||J.until<now||J.e===v.e&&J.cnt<3){if(v.jn>=0&&JN.get(v.jn)&&JN.get(v.jn).vid===v.vid)JN.delete(v.jn);JN.set(nb,{vid:v.vid,e:v.e,until:now+6,cnt:J&&J.e===v.e&&J.until>=now?J.cnt+1:1});v.jn=nb}
       else tgt=Math.min(tgt,Math.max(0,(left-v.len/2-6)*.8))}}
   // red and yellow lights: stop at the line (a car already too close to stop on yellow goes through)
-  {const L=lightAhead(v,e,left);if(L&&L.c!=='G'&&L.d>-.8&&L.d<60){if(L.c==='R'||v.tlStop||L.d>v.speed*.55){v.tlStop=true;tgt=Math.min(tgt,Math.max(0,L.d*.75))}}else v.tlStop=false}
+  {const L=lightAhead(v,e,left);if(L&&L.c!=='G'&&L.d>-.8&&L.d<60){if(isRebel(v)&&v.runRed){tgt=Math.min(tgt,Math.max(5,L.d*.5));v.tlStop=false}else if(L.c==='R'||v.tlStop||L.d>v.speed*.55){v.tlStop=true;tgt=Math.min(tgt,Math.max(0,L.d*.75))}}else v.tlStop=false}
   // a hailed taxi / buseta: pull over and stop where the passenger waits (or at the destination)
   const H=v.hail;if(H){if(H.hold){tgt=0}else if(H.stop){const S=H.stop;let rem=-1;if(v.e===S.e)rem=S.t-v.t;else if(v.next===S.e)rem=left+S.t;
       if(H.halt)tgt=0;else if(rem>=0){tgt=Math.min(tgt,Math.max(0,rem*.7));v.pullT=rem<35?1:0}
       if(v.speed<.45&&(H.halt||rem>=0&&rem<1.5)){H.hold=true;v.speed=0;onHailArrive(v)}}}
   const sy=Math.sin(v.yaw),cy=Math.cos(v.yaw);
   // follow the car ahead; go around parked / abandoned vehicles blocking the lane
-  let park=false,blk=null;const free=v.clearT>0||v.ghost;if(v.clearT>0)v.clearT-=dt;
+  let park=false,blk=null,split=false;const free=v.clearT>0||v.ghost,reb=isRebel(v);if(v.clearT>0)v.clearT-=dt;
   for(const o of nearV(v.x,v.z)){if(o===v||o.off)continue;const rx=o.x-v.x,rz=o.z-v.z;if(Math.abs(rx)>22||Math.abs(rz)>22)continue;const al=rx*sy+rz*cy;if(al<-(v.len+o.len)/2-1||al>16)continue;const la=Math.abs(rx*cy-rz*sy);
     if((!o.ai&&!o.chase&&o!==player.car||o.ai&&o.hail&&o.hail.hold&&!o.tc)&&Math.abs(o.speed)<.5&&la<4.4&&!(v.hail&&v.hail.hold)){park=true;if((v.dodge||0)>.85||al<0)continue}
     if(al<0)continue;
@@ -1545,6 +1549,8 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
     // crossing or oncoming cars: ignore them unless they are right in front, and then only one of the two waits (no more deadlocks in the junctions)
     if(o.ai&&Math.cos(o.yaw-v.yaw)<.5&&(al>7||v.vid<o.vid))continue;
     if(o.blk===v&&v.vid<o.vid&&al<(v.len+o.len)/2+2)continue;
+    // a mototaxi slips between the lanes past cars, busetas and trucks instead of waiting behind them
+    if(reb&&(o.rig.wid||1.6)>1.2&&la<2.6&&al<18&&Math.cos(o.yaw-v.yaw)>.5){split=true;if((v.dodge||0)>.5&&(la>.7||al<0))continue}
     if(la<((o.pull||0)>.5?1.4:2.2)){const lim=Math.max(0,(al-(v.len+o.len)/2-2)*1.3);if(lim<tgt){tgt=lim;blk=o}}}
   // how long this car has been stuck behind others (waiting at a red light or behind a buseta loading people does not count)
   v.blk=blk;
@@ -1552,12 +1558,12 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(blk&&v.speed<.5&&!v.qLight&&!v.tlStop&&!v.hail)v.stk=(v.stk||0)+dt;else v.stk=Math.max(0,(v.stk||0)-dt*3);
   {const far=Math.abs(v.x-player.x)+Math.abs(v.z-player.z);if(v.stk>6&&far>260&&!v.hail&&!v.agent&&v.type!=='police'){v.stk=0;placeAI(v,'mid');return}
     if(v.stk>9||v.stk>4&&far>120){v.clearT=4.5;v.stk=0}}
-  v.dodgeT=park?1:0;if(park)tgt=Math.min(tgt,6);
+  v.dodgeT=park?1:split?.62:0;if(park)tgt=Math.min(tgt,6);if(split&&!park)tgt=Math.min(tgt,9);
   if(!player.car&&!player.ride&&!EX.inside){const rx=player.x-v.x,rz=player.z-v.z;const al=rx*sy+rz*cy;if(al>0&&al<10&&Math.abs(rx*cy-rz*sy)<2.2)tgt=Math.min(tgt,Math.max(0,al-4))}
   if(!free)for(const p of peds){if(!p.vis)continue;const rx=p.x-v.x,rz=p.z-v.z;if(Math.abs(rx)>10||Math.abs(rz)>10)continue;const al=rx*sy+rz*cy;if(al>0&&al<8&&Math.abs(rx*cy-rz*sy)<1.8)tgt=Math.min(tgt,Math.max(0,al-3.5))}
   v.speed=lerp(v.speed,tgt,Math.min(1,dt*(tgt<v.speed?4:1.4)));
   v.t+=v.speed*dt;if(H&&H.stop&&!H.halt&&v.e===H.stop.e&&v.t>H.stop.t)v.t=H.stop.t;
-  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.pe=v.e;v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise}
+  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.pe=v.e;v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise*(isRebel(v)?1.18:1);v.runRed=rand()<.6}
   aiPos(v,dt)}
 // wheels, steering, suspension and level of detail for every visible vehicle
 function updateRigs(dt){const nd=Q.view>600?100:Q.view>450?75:60;const night=NIGHT.value>.5;
@@ -1599,26 +1605,26 @@ function curbEdge(x,z,maxD){let best=null,bs=1e9;const r=Math.ceil(maxD/EG),ci=M
     const t=clamp((x-A.x)*e.dx+(z-A.z)*e.dz,6,e.len-3);const qx=A.x+e.dx*t,qz=A.z+e.dz*t;const d=dist2(x,z,qx,qz);if(d>maxD)continue;
     const side=(x-qx)*-e.dz+(z-qz)*e.dx;const sc=d+(side>0||!e.two?0:6);if(sc<bs){bs=sc;best={ei,t,d,x:qx,z:qz}}}}return best}
 // shortest drive over the directed street graph (respects one-way streets); returns the list of edges to follow, ending with toE
-function findRoute(from,toE){const tgt=GRAPH.edges[toE].a;if(from===tgt)return[toE];const NN=GRAPH.nodes.length;const dist=new Float64Array(NN).fill(Infinity),prev=new Int32Array(NN).fill(-1);dist[from]=0;const H=[[0,from]];
+function findRoute(from,toE,moto){const tgt=GRAPH.edges[toE].a;if(from===tgt)return[toE];const NN=GRAPH.nodes.length;const dist=new Float64Array(NN).fill(Infinity),prev=new Int32Array(NN).fill(-1);dist[from]=0;const H=[[0,from]];
   const push=x=>{H.push(x);let i=H.length-1;while(i>0){const p=(i-1)>>1;if(H[p][0]<=H[i][0])break;[H[p],H[i]]=[H[i],H[p]];i=p}};
   const pop=()=>{const top=H[0],last=H.pop();if(H.length){H[0]=last;let i=0;for(;;){const l=i*2+1,r=l+1;let m=i;if(l<H.length&&H[l][0]<H[m][0])m=l;if(r<H.length&&H[r][0]<H[m][0])m=r;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m}}return top};
-  while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(n===tgt)break;if(d>12000)return null;for(const ei of GRAPH.nodes[n].out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;prev[e.b]=ei;push([nd,e.b])}}}
+  while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(n===tgt)break;if(d>12000)return null;const N=GRAPH.nodes[n];for(const ei of moto&&N.mout?N.out.concat(N.mout):N.out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.moto?(e.contra?1.12:1.05):e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;prev[e.b]=ei;push([nd,e.b])}}}
   if(prev[tgt]<0)return null;const path=[toE];let n=tgt,guard=0;while(n!==from&&guard++<8000){const ei=prev[n];path.unshift(ei);n=GRAPH.edges[ei].a}return path}
 // drive cost from a node to every node of the street graph (same weights as findRoute)
-function driveCosts(from,lim){const NN=GRAPH.nodes.length;const dist=new Float64Array(NN).fill(Infinity);dist[from]=0;const H=[[0,from]];
+function driveCosts(from,lim,moto){const NN=GRAPH.nodes.length;const dist=new Float64Array(NN).fill(Infinity);dist[from]=0;const H=[[0,from]];
   const push=x=>{H.push(x);let i=H.length-1;while(i>0){const p=(i-1)>>1;if(H[p][0]<=H[i][0])break;[H[p],H[i]]=[H[i],H[p]];i=p}};
   const pop=()=>{const top=H[0],last=H.pop();if(H.length){H[0]=last;let i=0;for(;;){const l=i*2+1,r=l+1;let m=i;if(l<H.length&&H[l][0]<H[m][0])m=l;if(r<H.length&&H[r][0]<H[m][0])m=r;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m}}return top};
-  while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(d>lim)break;for(const ei of GRAPH.nodes[n].out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;push([nd,e.b])}}}return dist}
+  while(H.length){const [d,n]=pop();if(d>dist[n])continue;if(d>lim)break;const N=GRAPH.nodes[n];for(const ei of moto&&N.mout?N.out.concat(N.mout):N.out){const e=GRAPH.edges[ei];const nd=d+e.len*(e.moto?(e.contra?1.12:1.05):e.ty>=4?1.25:1);if(nd<dist[e.b]){dist[e.b]=nd;push([nd,e.b])}}}return dist}
 // where to drop the passenger near (x,z): of all the kerbs within reach, the one with the shortest drive plus a short walk
 // (the nearest kerb can be a street that is only reachable the long way round)
-function bestStop(v,x,z){const e0=GRAPH.edges[v.e];if(!e0)return null;const dist=driveCosts(e0.b,30000);let best=null,bs=1e18;
+function bestStop(v,x,z){const e0=GRAPH.edges[v.e];if(!e0)return null;const dist=driveCosts(e0.b,30000,isRebel(v));let best=null,bs=1e18;
   for(const R of [140,300]){const seen=new Set(),r=Math.ceil(R/EG),ci=Math.floor(x/EG),cj=Math.floor(z/EG);
     for(let i=ci-r;i<=ci+r;i++)for(let j=cj-r;j<=cj+r;j++){const l=EGR.get(i+','+j);if(!l)continue;for(const ei of l){if(seen.has(ei))continue;seen.add(ei);const e=GRAPH.edges[ei];if(e.len<9)continue;const A=GRAPH.nodes[e.a];
       const t=clamp((x-A.x)*e.dx+(z-A.z)*e.dz,6,e.len-3);const qx=A.x+e.dx*t,qz=A.z+e.dz*t;const d=dist2(x,z,qx,qz);if(d>R)continue;
       const drive=ei===v.e&&t>v.t+4?t-v.t:dist[e.a]+t;if(!isFinite(drive))continue;const side=(x-qx)*-e.dz+(z-qz)*e.dx;const sc=drive+d*4+(side>0||!e.two?0:25);
       if(sc<bs){bs=sc;best={ei,t,d,x:qx,z:qz}}}}if(best)break}
   return best}
-function routeFor(v,stop){const e=GRAPH.edges[v.e];if(v.e===stop.ei&&v.t<stop.t-4)return{path:[],len:stop.t-v.t};const p=findRoute(e.b,stop.ei);if(!p)return null;let len=e.len-v.t+stop.t;for(let i=0;i<p.length-1;i++)len+=GRAPH.edges[p[i]].len;return{path:p,len}}
+function routeFor(v,stop){const e=GRAPH.edges[v.e];if(v.e===stop.ei&&v.t<stop.t-4)return{path:[],len:stop.t-v.t};const p=findRoute(e.b,stop.ei,isRebel(v));if(!p)return null;let len=e.len-v.t+stop.t;for(let i=0;i<p.length-1;i++)len+=GRAPH.edges[p[i]].len;return{path:p,len}}
 const SV={v:null,state:'',t:0,dest:null,fare:0,d0:1};
 const svMark=(function(){const g=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0xffd23f,transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false,fog:false});
   const r=new THREE.Mesh(new THREE.RingGeometry(1.2,1.6,32),m);r.rotation.x=-Math.PI/2;r.position.y=.3;g.add(r);const a=new THREE.Mesh(new THREE.ConeGeometry(.45,.9,4),m);a.rotation.x=Math.PI;a.position.y=4.2;g.add(a);g.visible=false;scene.add(g);return g})();
@@ -2382,6 +2388,13 @@ const CEL=window.CELULAR({THREE,scene,player,EX,LM,MAP,ground,onLand,solidAt,nea
   getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getH:()=>gameH,openBig:()=>openBig(),
   appRide,cancelAppRide,appState,bigEl,get BIGSC(){return BIG.sc},bigToWorld:(sx,sy)=>({x:BIG.cx+(sx-window.innerWidth/2)/BIG.sc,z:BIG.cz+(sy-window.innerHeight/2)/BIG.sc}),redrawBig:()=>drawBig(),get started(){return started},get NIGHT(){return NIGHT}});
 for(const a of CEL.ATMS)MAPICONS.push({k:'cajero',x:a.x,z:a.z,name:'Cajero '+a.brand.name});buildIcons();
+// atajos solo para mototaxis (en GRAPH.edges con moto:true, enlazados en node.mout, así carros, buses, peatones y semáforos no los ven):
+// callejones y calles peatonales en los dos sentidos, y contravía por las calles pequeñas de un solo sentido
+(function(){const add=(a,b,ty,name,contra)=>{const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;
+    GRAPH.edges.push({a,b,ty,two:true,len,name,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len,moto:true,contra:!!contra});(A.mout||(A.mout=[])).push(GRAPH.edges.length-1)};
+  for(const r of MAP.roads){const [ty,ow,,,name,pts]=r;if(r[6]===1||name===TC_ROAD||/transcaribe/i.test(name||''))continue;
+    if(ty===5||ty===6){for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);add(a,b,ty,name||'Callejón');add(b,a,ty,name||'Callejón')}}
+    else if(ty>=3&&ty<=4&&ow!==0){for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>0)add(b,a,ty,name,true);else add(a,b,ty,name,true)}}}})();
 const ANI=window.ANIMALES({THREE,scene,player,onLand,solidAt,nearestRoad,standY,tone,isMuted:()=>muted,LOWEND,inside:()=>EX.inside,get started(){return started}});
 /* ---------- main loop ---------- */
 let last=performance.now(),orbit=0;
@@ -2429,7 +2442,7 @@ $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
 {const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
   b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
-window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>
