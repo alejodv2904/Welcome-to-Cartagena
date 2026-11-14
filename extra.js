@@ -749,7 +749,7 @@ function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of
     for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],L=Math.hypot(bx-ax,bz-az);if(L<1)continue;const dx=(bx-ax)/L,dz=(bz-az)/L;
       for(let s=acc;s<L;s+=32){const off=C.RW[ty]/2+.5;const x=ax+dx*s-dz*off,z=az+dz*s+dx*off;if(C.inCentro(x,z)||!C.onLand(x,z)||C.solidAt(x,z)){prev=null;continue}
         const y=C.ground(x,z),yaw=Math.atan2(dx,dz)+Math.PI/2;items.push({x,z,m:C.place(x,y,z,0,yaw,0)});
-        const cur={x,y,z,yaw};if(prev&&Math.hypot(prev.x-x,prev.z-z)<45){const k=Math.floor(x/C.TILE)+'|'+Math.floor(z/C.TILE);let a=wires.get(k);if(!a){a=[];wires.set(k,a)}
+        const cur={x,y,z,yaw};if(prev&&Math.hypot(prev.x-x,prev.z-z)<45&&![.25,.5,.75].some(t=>C.solidAt(lerp(prev.x,x,t),lerp(prev.z,z,t)))){const k=Math.floor(x/C.TILE)+'|'+Math.floor(z/C.TILE);let a=wires.get(k);if(!a){a=[];wires.set(k,a)}
           for(const o of [-.8,0,.8]){const ox=Math.sin(yaw)*o,oz=Math.cos(yaw)*o;const ox0=Math.sin(prev.yaw)*o,oz0=Math.cos(prev.yaw)*o;let lx=prev.x+ox0,ly=prev.y+8.58,lz=prev.z+oz0;
             for(let q=1;q<=6;q++){const t=q/6;const nx=lerp(prev.x+ox0,x+ox,t),nz=lerp(prev.z+oz0,z+oz,t),ny=lerp(prev.y,y,t)+8.58-Math.sin(t*Math.PI)*.55;a.push(lx,ly,lz,nx,ny,nz);lx=nx;ly=ny;lz=nz}}}
         prev=cur}acc=(acc-L)%32;if(acc<0)acc+=32}});

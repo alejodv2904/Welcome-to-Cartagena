@@ -101,7 +101,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -129,12 +129,19 @@ function hillR(x,z){const dx=x-HX,dz=z-HZ;const a=(dx*HCA+dz*HSA)/700,b=(-dx*HSA
 // porque las calles y los andenes cruzan los pliegues de la malla.
 const RV=window.RELIEVE,RG=(function(){if(!RV)return null;const bin=atob(RV.d),NX=RV.nx,NZ=RV.nz,N=NX*NZ,H=new Float32Array(N),HB=new Float32Array(N),FLAT=new Uint8Array(N);
   for(let i=0;i<N;i++){const v=bin.charCodeAt(i)/255;H[i]=v*v*RV.hmax}
+  // el Cerro de La Popa: la cuadrícula de 20 m lo redondea y le baja la cima; arriba de los 10 m sube más empinado, como el real,
+  // y la cima llega a sus ~150 m (las faldas y la ciudad no cambian)
+  for(let b=0;b<NZ;b++)for(let a=0;a<NX;a++){const i=b*NX+a,h=H[i];if(h<=10)continue;const r=hillR(RV.x0+a*RV.cell,RV.z0+b*RV.cell),w=clamp((2.5-r)/.8,0,1);if(w<=0)continue;
+    const hp=10+140*Math.pow(Math.min(1,(h-10)/133),.72);H[i]=h+(hp-h)*w*w*(3-2*w)}
   for(let b=0;b<NZ;b++)for(let a=0;a<NX;a++){const i=b*NX+a,h=H[i];let d=0;
     if(a>0)d=Math.max(d,Math.abs(h-H[i-1]));if(a<NX-1)d=Math.max(d,Math.abs(h-H[i+1]));if(b>0)d=Math.max(d,Math.abs(h-H[i-NX]));if(b<NZ-1)d=Math.max(d,Math.abs(h-H[i+NX]));
     HB[i]=h+(d>0?Math.min(.45,.06+d*.1):0);
     // celda plana: sus cuatro esquinas a nivel 0
     if(a<NX-1&&b<NZ-1)FLAT[i]=h===0&&H[i+1]===0&&H[i+NX]===0&&H[i+NX+1]===0?1:0}
   return{H,HB,FLAT,NX,NZ,x0:RV.x0,z0:RV.z0,c:RV.cell}})();
+// la cima de La Popa es plana donde está el convento (la cuadrícula de 20 m la redondea): los nodos de la explanada suben a su altura
+if(RG){const lv=149.5;for(let b=0;b<RG.NZ;b++)for(let a=0;a<RG.NX;a++){const x=RG.x0+a*RG.c,z=RG.z0+b*RG.c,i=b*RG.NX+a;
+  if(x>=POPA_GM[0]-30&&x<=POPA_GM[0]+35&&z>=POPA_GM[1]-52&&z<=POPA_GM[1]+12&&RG.H[i]<lv){RG.H[i]=lv;RG.HB[i]=lv+.06;RG.FLAT[i]=0}}}
 // (fuera de la cuadrícula sigue la altura del borde, para las calles que salen del mundo)
 function triH(A,x,z){const gx=clamp((x-RG.x0)/RG.c,0,RG.NX-1.001),gz=clamp((z-RG.z0)/RG.c,0,RG.NZ-1.001),a=Math.floor(gx),b=Math.floor(gz);
   const fx=gx-a,fz=gz-b,i=b*RG.NX+a,h00=A[i],h10=A[i+1],h01=A[i+RG.NX],h11=A[i+RG.NX+1];
@@ -1028,31 +1035,122 @@ function castle(pts){const n0=pts.length/2;let cx=0,cz=0;for(let i=0;i<pts.lengt
     for(const p of P){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(let i=P.length-1;i>=0;i--){const p=P[i];while(hi.length>1&&cr(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p)}
     const hull=lo.slice(0,-1).concat(hi.slice(0,-1)),hp=[];hull.forEach(p=>hp.push(p[0],p[1]));const ex=inset(prep(hp),-14);flatPoly(ex,'grass',.04,5)}
   addSolidPoly(FULL);return[cx,cz]}
-// Convento de La Popa: claustro blanco de dos pisos alrededor de un patio, tejas de barro, capilla con espadaña
-function popaConvent(x,z){const y=ground(x,z)-.6;const grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
-  const W=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#fbf6ea'}),T=new THREE.MeshLambertMaterial({map:TX.roof_tiles||null,color:'#b4583c',side:THREE.DoubleSide}),Dk=mat('#2b2420'),Wd=mat('#6b4428');
-  const add=(geo,m,px,py,pz,ry)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.rotation.y=ry||0;o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
-  const roof=(len,wd,rise,px,py,pz,ry)=>{const s=new THREE.Shape();s.moveTo(-wd/2-.5,0);s.lineTo(wd/2+.5,0);s.lineTo(0,rise);s.lineTo(-wd/2-.5,0);
-    const gg=new THREE.ExtrudeGeometry(s,{depth:len+1,bevelEnabled:false});gg.translate(0,0,-(len+1)/2);const uv=gg.attributes.uv.array;for(let i=0;i<uv.length;i++)uv[i]*=.45;return add(gg,T,px,py,pz,ry)};
-  // cuatro alas de 7 m alrededor de un patio de 18 x 14 m
-  const OX=16,OZ=13,D=7,H=8;
-  for(const s of [-1,1]){add(new THREE.BoxGeometry(OX*2,H,D),W,0,H/2,s*(OZ-D/2));roof(OX*2,D,2.4,0,H,s*(OZ-D/2),Math.PI/2);
-    add(new THREE.BoxGeometry(D,H,OZ*2-D*2),W,s*(OX-D/2),H/2,0);roof(OZ*2-D*2,D,2.4,s*(OX-D/2),H,0,0)}
-  // ventanas con rejas de madera en la fachada exterior
-  for(let i=-3;i<=3;i++)for(const s of [-1,1])for(const fy of [2.4,6]){const w=add(new THREE.PlaneGeometry(1.1,1.5),Wd,i*4.2,fy,s*(OZ+.03),s<0?Math.PI:0)}
-  // arcadas del patio: columnas blancas y galería oscura
-  for(let i=-3;i<=3;i++)for(const s of [-1,1]){add(new THREE.CylinderGeometry(.28,.32,3.2,8),W,i*2.4,1.6,s*(OZ-D-.4));add(new THREE.PlaneGeometry(2.1,2.6),Dk,i*2.4+1.2,1.4,s*(OZ-D-.02),s<0?0:Math.PI)}
-  add(new THREE.BoxGeometry(OX*2-D*2,.15,OZ*2-D*2),mat('#6f9a4c'),0,.08,0);
-  add(new THREE.CylinderGeometry(.9,.9,.9,14),mat('#d9cdb4'),0,.45,0);
-  // capilla al occidente (hacia la ciudad) con espadaña de campanas
-  add(new THREE.BoxGeometry(12,11,9),W,-OX-6,5.5,-OZ+4.5);roof(12,9,3,-OX-6,11,-OZ+4.5,Math.PI/2);
-  add(new THREE.BoxGeometry(.6,6,9),W,-OX-12.3,14,-OZ+4.5);
-  for(const k of [-1,1]){add(new THREE.PlaneGeometry(1.4,2),Dk,-OX-12.62,14.3,-OZ+4.5+k*2.2,-Math.PI/2);add(new THREE.SphereGeometry(.5,8,6),mat('#9a7a3a'),-OX-12.5,14,-OZ+4.5+k*2.2)}
-  add(new THREE.BoxGeometry(.3,2,.3),Dk,-OX-12.3,18,-OZ+4.5);add(new THREE.BoxGeometry(.3,.3,1.4),Dk,-OX-12.3,18.4,-OZ+4.5);
-  add(new THREE.PlaneGeometry(2.4,3.8),Wd,-OX-12.32,1.9,-OZ+4.5,-Math.PI/2);
-  addSolidPoly([x-OX-12.5,z-OZ,x+OX,z-OZ,x+OX,z+OZ,x-OX-12.5,z+OZ])}
+/* Convento de La Popa (Nuestra Señora de la Candelaria), modelado a partir de fotos: el claustro blanco de dos pisos en la cima, con
+   ventanas y balcones de madera verde, techos de teja de barro a cuatro aguas en las alas norte, este y oeste y la azotea blanca del ala
+   sur; el patio con arcadas de dos pisos (galerías ocres), jardín y aljibe; el torreón con su techito de teja, la espadaña de la capilla
+   sobre la fachada norte; la terraza-mirador blanca sobre la peña caliza del barranco (al suroeste, hacia la ciudad); la casa de teja del
+   norte, la plazoleta con la cruz blanca donde llega la vía, y la antena de rayas rojas y blancas */
+let POPA_CLEAR=[];
+function popaConvent(cx,cz){
+  const G=(u,v)=>ground(cx+u,cz+v);
+  const span=(u0,u1,v0,v1,f)=>{let r=f===Math.max?-1e9:1e9;for(let u=u0;u<=u1+.01;u+=(u1-u0)/8)for(let v=v0;v<=v1+.01;v+=(v1-v0)/8)r=f(r,G(u,v));return r};
+  // el piso del claustro va a la altura de la cima; hacia el sur el cerro cae y la base queda a la vista sobre la peña
+  const F=span(-17,17,-22,18,Math.max)+.2,LO=span(-24,17,-22,29,Math.min)-2.5,H=9.6,D=8;
+  const grp=new THREE.Group();grp.position.set(cx,F,cz);scene.add(grp);
+  const poly=a=>{const o=[];for(const [u,v] of a)o.push(cx+u,cz+v);return o};
+  const cvt=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=ANISO;return t};
+  const WH='#f6f3eb',WHc=new THREE.MeshLambertMaterial({color:WH}),Rk=new THREE.MeshLambertMaterial({color:'#d8cfb6'});
+  const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
+  const bx=(u0,u1,y0,y1,v0,v1,m)=>add(new THREE.BoxGeometry(u1-u0,y1-y0,v1-v0),m||WHc,(u0+u1)/2,(y0+y1)/2,(v0+v1)/2);
+  // piezas chicas (balcones, barandas, antena...) van al lote de geometría de la ciudad, en coordenadas del mundo
+  const pb=(u0,u1,y0,y1,v0,v1,c,rx,rz)=>geoInto('plain',new THREE.BoxGeometry(u1-u0,y1-y0,v1-v0),colObj(c),place(cx+(u0+u1)/2,F+(y0+y1)/2,cz+(v0+v1)/2,rx||0,0,rz||0));
+  const _q=new THREE.Quaternion(),_up=new THREE.Vector3(0,1,0);
+  const rod=(a,b,r,c)=>{const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=B.clone().sub(A),L=d.length();_q.setFromUnitVectors(_up,d.normalize());
+    geoInto('plain',new THREE.CylinderGeometry(r,r,L,4,1),colObj(c),new THREE.Matrix4().compose(A.add(B).multiplyScalar(.5),_q,new THREE.Vector3(1,1,1)))};
+  // fachada exterior: dos pisos (9,6 m) por módulo de 3,6 m, ventana con reja abajo y balcón-ventana arriba, postigos verdes
+  const fach=cvt(128,342,(g,w,h)=>{const Y=m=>h-m*h/9.6,X=m=>m*w/3.6;g.fillStyle=WH;g.fillRect(0,0,w,h);
+    let sd=5;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let i=0;i<260;i++){g.fillStyle=`rgba(90,80,60,${.015+R()*.03})`;g.fillRect(R()*w,R()*h,2+R()*10,2+R()*8)}
+    const gr=g.createLinearGradient(0,Y(1),0,h);gr.addColorStop(0,'rgba(150,140,115,0)');gr.addColorStop(1,'rgba(150,140,115,.35)');g.fillStyle=gr;g.fillRect(0,Y(1),w,h-Y(1));
+    const win=(y0,y1,ww,bars)=>{const x0=X(1.8-ww/2),x1=X(1.8+ww/2);g.fillStyle='#e6e0d2';g.fillRect(x0-4,Y(y1)-5,x1-x0+8,Y(y0)-Y(y1)+9);g.fillStyle='#2a2925';g.fillRect(x0,Y(y1),x1-x0,Y(y0)-Y(y1));
+      g.fillStyle='#35553f';g.fillRect(x0-13,Y(y1),11,Y(y0)-Y(y1));g.fillRect(x1+2,Y(y1),11,Y(y0)-Y(y1));g.fillStyle='rgba(0,0,0,.25)';for(let k=1;k<5;k++){g.fillRect(x0-13,Y(y1)+k*(Y(y0)-Y(y1))/5,11,2);g.fillRect(x1+2,Y(y1)+k*(Y(y0)-Y(y1))/5,11,2)}
+      g.fillStyle='#3d5a44';g.fillRect(x0,Y(y1),x1-x0,3);g.fillRect(x0,Y(y0)-3,x1-x0,3);if(bars){g.fillStyle='#4b3a26';for(let k=1;k<6;k++)g.fillRect(x0+k*(x1-x0)/6-1.5,Y(y1),3,Y(y0)-Y(y1))}g.fillStyle='#ddd6c6';g.fillRect(x0-6,Y(y0),x1-x0+12,4)};
+    win(1.3,3.1,1.15,true);win(5.3,8,1.25,false);g.fillStyle='#e4ded0';g.fillRect(0,Y(4.85),w,4);g.fillStyle='#ebe6da';g.fillRect(0,0,w,Y(9.25));g.fillStyle='rgba(0,0,0,.08)';g.fillRect(0,Y(9.25),w,2)});
+  // patio: arcadas de medio punto abajo y galería de arcos con baranda arriba; dentro de las galerías la pared es ocre y en sombra
+  const arc=cvt(128,384,(g,w,h)=>{const Y=m=>h-m*h/9.6,X=m=>m*w/3.2;g.fillStyle='#f7f4ec';g.fillRect(0,0,w,h);
+    const hole=(x0,x1,ys,y0,top,bot)=>{const r=(x1-x0)/2;g.beginPath();g.moveTo(X(x0),Y(y0));g.lineTo(X(x0),Y(ys));g.arc(X(x0+r),Y(ys),X(r),Math.PI,0);g.lineTo(X(x1),Y(y0));g.closePath();
+      const gr=g.createLinearGradient(0,Y(ys+r),0,Y(y0));gr.addColorStop(0,top);gr.addColorStop(1,bot);g.fillStyle=gr;g.fill();g.strokeStyle='#e8e1d0';g.lineWidth=3;g.stroke()};
+    hole(.45,2.75,2.5,0,'#7d5f2c','#c79a46');g.fillStyle='rgba(40,28,15,.55)';g.fillRect(X(1.2),Y(2.2),X(.8),Y(0)-Y(2.2));
+    g.fillStyle='#ebe5d7';g.fillRect(0,Y(4.95),w,Y(4.6)-Y(4.95));
+    hole(.6,2.6,7,5.3,'#7a5a2a','#b8893c');g.fillStyle='#f3efe5';g.fillRect(X(.6),Y(6.2),X(2),Y(5.3)-Y(6.2));g.fillStyle='rgba(120,100,70,.55)';for(let k=0;k<9;k++)g.fillRect(X(.72+k*.21),Y(6.05),3,Y(5.4)-Y(6.05));
+    g.fillStyle='#ebe6da';g.fillRect(0,0,w,Y(9.3))});
+  const fM=new THREE.MeshLambertMaterial({map:fach}),aM=new THREE.MeshLambertMaterial({map:arc});
+  // pared con textura de a(u,v) a b(u,v): mira hacia (-dv,du)
+  const face=(a,b,y0,y1,m,tw,vs)=>{const du=b[0]-a[0],dv=b[1]-a[1],L=Math.hypot(du,dv),n=Math.max(1,Math.round(L/tw)),g=new THREE.PlaneGeometry(L,y1-y0);
+    const uv=g.attributes.uv.array;for(let i=0;i<uv.length;i+=2){uv[i]*=n;uv[i+1]*=vs||1}const o=add(g,m,(a[0]+b[0])/2-dv/L*.04,(y0+y1)/2,(a[1]+b[1])/2+du/L*.04);o.rotation.y=Math.atan2(-dv,du);o.castShadow=false;return o};
+  // techo de teja a cuatro aguas (h0/h1: largo de los faldones de las puntas; 0 = hastial)
+  const tileM=new THREE.MeshLambertMaterial({map:TX.roof_tiles||null,color:'#e0956a',side:THREE.DoubleSide});
+  const roof=(u0,u1,v0,v1,y,rise,alongU,h0,h1,par,mt)=>{const ov=.6,P=[],U=[];const s=(a,b)=>alongU?[a,b]:[b,a];
+    const a0=(alongU?u0:v0)-ov,a1=(alongU?u1:v1)+ov,b0=(alongU?v0:u0)-ov,b1=(alongU?v1:u1)+ov,bm=(b0+b1)/2,r0=a0+h0,r1=a1-h1,yr=y+rise;
+    const V=(a,b,yy)=>{const q=s(a,b);return[q[0],yy,q[1]]},T=(p,q,r,ta,tb,tc)=>{P.push(...p,...q,...r);U.push(...ta,...tb,...tc)},sl=Math.hypot(rise,(b1-b0)/2)/2.2,k=2.2;
+    T(V(a0,b0,y),V(a1,b0,y),V(r1,bm,yr),[a0/k,0],[a1/k,0],[r1/k,sl]);T(V(a0,b0,y),V(r1,bm,yr),V(r0,bm,yr),[a0/k,0],[r1/k,sl],[r0/k,sl]);
+    T(V(a1,b1,y),V(a0,b1,y),V(r0,bm,yr),[a1/k,0],[a0/k,0],[r0/k,sl]);T(V(a1,b1,y),V(r0,bm,yr),V(r1,bm,yr),[a1/k,0],[r0/k,sl],[r1/k,sl]);
+    if(h0>0)T(V(a0,b1,y),V(a0,b0,y),V(r0,bm,yr),[b1/k,0],[b0/k,0],[bm/k,sl]);if(h1>0)T(V(a1,b0,y),V(a1,b1,y),V(r1,bm,yr),[b0/k,0],[b1/k,0],[bm/k,sl]);
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.computeVertexNormals();return add(g,mt||tileM,0,0,0)};
+
+  // ---- el claustro: alas de 8 m alrededor del patio (18 x 24 m); el ala sur con azotea
+  bx(-17,17,LO-F,H,-22,-14);bx(-17,-9,LO-F,H,-14,10);bx(9,17,LO-F,H,-14,10);bx(-17,17,LO-F,H+.25,10,18);
+  roof(-17,17,-22,-14,H,2.6,true,4,4);roof(-17,-9,-18,10,H,2.6,false,4,4);roof(9,17,-18,10,H,2.6,false,4,4);
+  // azotea del ala sur: piso claro, pretil, caseta de la escalera y tanques
+  bx(-17,17,H+.25,H+.32,10,18,new THREE.MeshLambertMaterial({color:'#dedad0'}));
+  for(const [u0,u1,v0,v1] of [[-17,17,17.7,18],[-17,-16.7,10,18],[16.7,17,10,18]])pb(u0,u1,H+.3,H+1.3,v0,v1,'#f1eee6');
+  bx(-14,-9.5,H+.3,H+2.9,12,16);roof(-14,-9.5,12,16,H+2.9,.9,true,2,2);pb(4,5.6,H+.3,H+1.9,13,14.6,'#2d2d2d');pb(7,8.6,H+.3,H+1.9,13,14.6,'#2d2d2d');
+  // fachadas exteriores
+  face([17,-22],[-17,-22],0,H,fM,3.6);face([17,18],[17,-22],0,H,fM,3.6);face([-17,-22],[-17,18],0,H,fM,3.6);face([-17,18],[17,18],0,H,fM,3.6);
+  // la base blanca que queda a la vista hacia el sur (el cerro baja): zócalo un poco más oscuro
+  {const zm=new THREE.MeshLambertMaterial({color:'#e3ddcf'});bx(-17.25,17.25,LO-F,0,17.8,18.25,zm);bx(16.8,17.25,LO-F,0,-22.2,18.25,zm);bx(-17.25,-16.8,LO-F,0,-22.2,18.25,zm)}
+  // patio: arcadas en las cuatro caras, piso de piedra, jardín, aljibe y árboles
+  face([-9,-14],[9,-14],0,H,aM,3.2);face([9,10],[-9,10],0,H,aM,3.2);face([-9,10],[-9,-14],0,H,aM,3.2);face([9,-14],[9,10],0,H,aM,3.2);
+  bx(-9,9,LO-F,.04,-14,10,mat('#ddd5c4'));bx(-6.5,6.5,.04,.2,-11,7,mat('#6f8c47'));
+  add(new THREE.CylinderGeometry(1.2,1.3,.9,8),mat('#d3c8b0'),0,.6,-2);add(new THREE.CylinderGeometry(.95,.95,.06,8),mat('#2a2622'),0,1.06,-2);
+  for(const [u,v,s] of [[-4.2,-8,1],[4.4,-7.5,.9],[-4,4,1.1],[4.2,4.5,.95]]){add(new THREE.CylinderGeometry(.18,.26,3.4*s,6),mat('#6b5236'),u,1.7*s,v);
+    for(const [a,b,c,r] of [[0,3.6,0,1.9],[.8,4.3,.4,1.4],[-.7,4.1,-.5,1.5]])add(new THREE.IcosahedronGeometry(r*s,0),mat('#4f7a32'),u+a*s,b*s,v+c*s)}
+  // torreón sobre el ala oeste, con techito de teja a cuatro aguas
+  bx(-15.5,-10.5,H,H+4.6,-4.5,.5);roof(-15.5,-10.5,-4.5,.5,H+4.6,1.6,true,2.5,2.5);
+  for(const [a,b] of [[[-10.5,-4.5],[-15.5,-4.5]],[[-10.5,.5],[-10.5,-4.5]],[[-15.5,-4.5],[-15.5,.5]],[[-15.5,.5],[-10.5,.5]]])face(a,b,H,H+4.6,fM,3.6,.48);
+  // fachada norte: puerta de la capilla con marco de piedra y óculo, espadaña de dos campanas encima; portón del convento
+  {const st='#e7e0cf';pb(-13.6,-10.4,0,4.9,-22.35,-22,st);pb(-13,-11,0,4.1,-22.4,-22.3,'#5b3b22');pb(-12.6,-11.4,6.3,7.5,-22.4,-22.25,'#2a2622');pb(-13.2,-10.8,5.9,6.3,-22.4,-22.2,st);
+    pb(1.8,5.2,0,4.6,-22.35,-22,st);pb(2.3,4.7,0,3.8,-22.4,-22.3,'#5b3b22');
+    pb(-15,-9,H-.2,H+5.4,-22.2,-21.4,WH);pb(-15.3,-8.7,H+5.4,H+5.8,-22.3,-21.3,'#ebe6da');pb(-12.3,-11.7,H+5.8,H+6.4,-21.95,-21.65,WH);
+    pb(-12.15,-11.85,H+6.4,H+8,-21.85,-21.75,'#2a2622');pb(-12.7,-11.3,H+7.2,H+7.45,-21.85,-21.75,'#2a2622');
+    for(const u of [-13.4,-10.6]){pb(u-.75,u+.75,H+1.6,H+4,-22.25,-22.15,'#2a2622');geoInto('plain',new THREE.SphereGeometry(.55,8,6),colObj('#8f6f30'),place(cx+u,F+H+2.4,cz-21.8))}}
+  // balcones de madera con tejadillo en el piso de arriba (fachadas este y norte)
+  for(const v of [-17.5,-10.3,-3.1,4.1])
+    {pb(17,17.9,4.9,5.15,v-1.2,v+1.2,'#5a3a22');pb(17.75,17.9,5.15,6.2,v-1.2,v+1.2,'#4a2f1c');pb(17,17.9,5.15,6.2,v-1.25,v-1.15,'#4a2f1c');pb(17,17.9,5.15,6.2,v+1.15,v+1.25,'#4a2f1c');
+      pb(17,18.3,8.3,8.48,v-1.5,v+1.5,'#b4583c',0,-.35)}
+  for(const u of [-5.4,8.9,12.5])
+    {pb(u-1.2,u+1.2,4.9,5.15,-22.9,-22,'#5a3a22');pb(u-1.2,u+1.2,5.15,6.2,-22.9,-22.75,'#4a2f1c');pb(u-1.5,u+1.5,8.3,8.48,-23.3,-22,'#b4583c',-.35,0)}
+  // terraza-mirador sobre la peña, al sur y al oeste (pretil blanco), con la roca caliza debajo
+  {const T=[[-23,8,18,28],[-23,-17,0,18]];for(const [u0,u1,v0,v1] of T){bx(u0,u1,LO-F-6,0,v0,v1,Rk);bx(u0,u1,0,.12,v0,v1,mat('#e8e3d8'))}
+    for(const [u0,u1,v0,v1] of [[-23,8,27.6,28],[7.6,8,18,28],[-23,-22.6,0,28],[-23,-17,0,.4]])pb(u0,u1,.1,1.15,v0,v1,'#f4f1e9');
+    for(let u=-20;u<8;u+=5)pb(u-.15,u+.15,1.15,1.3,27.5,28.1,'#e2dccd');
+    // la peña: bloques de caliza clara que salen del barranco
+    let sd=29;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+    const rock=(u,v,s)=>{const gy=G(u,v),hh=F-gy-1.2;if(hh<1)return;const g=new THREE.IcosahedronGeometry(1,2),p=g.attributes.position,J=[R(),R(),R()];for(let i=0;i<p.count;i++){const k=.86+.14*Math.sin(p.getX(i)*3+J[0]*6)*Math.cos(p.getY(i)*2.5+J[1]*6)+.08*Math.sin(p.getZ(i)*4+J[2]*6);p.setXYZ(i,p.getX(i)*k,p.getY(i)*k,p.getZ(i)*k)}
+      geoInto('plain',g,colObj(R()<.5?'#d9d0b7':'#c9bea2'),place(cx+u,gy+hh*.35,cz+v,0,R()*TAU,0,s,hh*.5,s*.8))};
+    for(let u=-24;u<=9;u+=4.5)rock(u+R()*2,29+R()*2.5,3+R()*2);for(let v=-1;v<=27;v+=5)rock(-24.5-R()*2,v,3+R()*2);rock(9.5,24,3.5)}
+  // casa de dos pisos con techo de teja al norte del convento
+  {const u0=-15,u1=-1,v0=-37,v1=-27,fa=span(u0,u1,v0,v1,Math.max)+.15-F,la=span(u0,u1,v0,v1,Math.min)-2-F,hh=7.2;
+    bx(u0,u1,la,fa+hh,v0,v1);roof(u0,u1,v0,v1,fa+hh,2.2,true,4.5,4.5);
+    for(const [a,b] of [[[u1,v0],[u0,v0]],[[u1,v1],[u1,v0]],[[u0,v0],[u0,v1]],[[u0,v1],[u1,v1]]])face(a,b,fa,fa+hh,fM,3.6)}
+  // la antena de rayas rojas y blancas al oriente, con su caseta
+  {const au=25,av=-15,ag=G(au,av),y0=ag-F-.3,HT=44,N=11;
+    for(let i=0;i<N;i++){const t0=i/N,t1=(i+1)/N,s0=1.9-1.45*t0,s1=1.9-1.45*t1,ya=y0+HT*t0,yb=y0+HT*t1,c=i%2?'#f2f2ee':'#c8302a';
+      const C=(s,y)=>[[cx+au-s,F+y,cz+av-s],[cx+au+s,F+y,cz+av-s],[cx+au+s,F+y,cz+av+s],[cx+au-s,F+y,cz+av+s]],A=C(s0,ya),B=C(s1,yb);
+      for(let k=0;k<4;k++){rod(A[k],B[k],.09,c);rod(B[k],B[(k+1)%4],.05,c);rod(A[k],B[(k+1)%4],.035,c)}}
+    for(const [a,b] of [[0,0],[1,1.7]]){const y=y0+HT-1.5-a*4;geoInto('plain',new THREE.CylinderGeometry(.55,.55,.25,12),colObj('#e8e8e4'),place(cx+au+.6,F+y,cz+av+.2,Math.PI/2,b,0))}
+    rod([cx+au,F+y0+HT,cz+av],[cx+au,F+y0+HT+5,cz+av],.06,'#c8302a');
+    bx(au+2.6,au+6.6,y0-1,y0+2.9,av-2,av+2,mat('#e9e6df'));pb(au+2.4,au+6.8,y0+2.9,y0+3.1,av-2.2,av+2.2,'#bdbab2')}
+  // plazoleta donde termina la vía (parqueadero), con la cruz blanca sobre su pedestal
+  {const pl=poly([[-30,-23],[22,-23],[22,-31],[10,-44],[-2,-63],[-20,-72],[-34,-52]]);flatPoly(pl,'walk',.06,4);POPA_CLEAR.push(pl);
+    const ku=-23,kv=-52,kg=G(ku,kv)-F;pb(ku-2.4,ku+2.4,kg-.5,kg+.8,kv-2.4,kv+2.4,'#ece9e1');pb(ku-1.6,ku+1.6,kg+.8,kg+1.8,kv-1.6,kv+1.6,'#f2efe8');pb(ku-.8,ku+.8,kg+1.8,kg+4.8,kv-.8,kv+.8,'#f4f2ec');
+    pb(ku-.28,ku+.28,kg+4.8,kg+10.6,kv-.28,kv+.28,'#f8f7f2');pb(ku-1.5,ku+1.5,kg+8.5,kg+9.05,kv-.28,kv+.28,'#f8f7f2');addSolidPoly(poly([[ku-2.4,kv-2.4],[ku+2.4,kv-2.4],[ku+2.4,kv+2.4],[ku-2.4,kv+2.4]]))}
+  // choques: el claustro con la terraza, la casa y la caseta de la antena; sin monte encima
+  const conv=poly([[-17.2,-23.4],[18.4,-23.4],[18.4,18.3],[8.2,18.3],[8.2,28.2],[-23.2,28.2],[-23.2,0],[-17.2,0]]);addSolidPoly(conv);
+  addSolidPoly(poly([[-15,-37],[-1,-37],[-1,-27],[-15,-27]]));addSolidPoly(poly([[22.8,-17.2],[31.8,-17.2],[31.8,-12.8],[22.8,-12.8]]));
+  POPA_CLEAR.push(poly([[-27,-26],[21,-26],[21,22],[12,32],[-28,32]]),poly([[-17,-40],[1,-40],[1,-24],[-17,-24]]),poly([[21,-19],[33,-19],[33,-11],[21,-11]]));
+  return{F,H}}
 let castleC=null;if(MAP.castle)castleC=castle(MAP.castle);
-(function(){const [bx,bz]=GM.popa;popaConvent(bx,bz);LM.push({name:'Convento de La Popa',x:bx,z:bz,mx:bx,mz:bz,sprite:label('Convento de La Popa',bx,ground(bx,bz)+30,bz),mission:false})})();
+(function(){const [bx,bz]=GM.popa;const pc=popaConvent(bx,bz);window.__popa=pc;LM.push({name:'Convento de La Popa',x:bx,z:bz,mx:bx,mz:bz,sprite:label('Convento de La Popa',bx,pc.F+24,bz),mission:false})})();
 function snap(x,z){if(!solidAt(x,z)&&onLand(x,z))return[x,z];const r=nearestRoad(x,z,120);return r?[r.x,r.z]:[x,z]}
 MAP.landmarks.forEach(l=>{const [name,x,z,mis]=l;if(name==='Cerro de La Popa'){const x=GM.popa[0]-48,z=GM.popa[1]+6;const s=snap(x,z);LM.push({name:'Mirador de La Popa',x,z,mx:s[0],mz:s[1],sprite:label('Mirador de La Popa',x,ground(x,z)+14,z),mission:!!mis});return}
   if(name==='Puerta del Reloj')return;
@@ -1731,8 +1829,9 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
   // a sprinkle of almond / mango trees in residential streets
   MAP.roads.forEach(r=>{const [ty,,,,,p]=r;if(ty!==4||rand()>.35)return;const i=2*Math.floor(rand()*(p.length/2-1));const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3];const L=Math.hypot(bx-ax,bz-az)||1;const s=rand(),o=(RW[4]/2+2.6)*(rand()<.5?1:-1);
     const x=lerp(ax,bx,s)-(bz-az)/L*o,z=lerp(az,bz,s)+(bx-ax)/L*o;if(ok(x,z)&&!inCentro(x,z))TREES.push([x,z])});
-  // the Cerro de La Popa is covered in dry tropical forest
-  for(let k=0;k<1400&&TREES.length<2600;k++){const a=rr(-1,1),b=rr(-1,1);if(a*a+b*b>1)continue;const x=HX+(a*700*HCA-b*400*HSA),z=HZ+(a*700*HSA+b*400*HCA);if(groundRaw(x,z)>2&&ok(x,z)&&!nearestRoad(x,z,6))TREES.push([x,z])}
+  // the Cerro de La Popa is covered in dense dry tropical forest, with the yellow crowns of the flowering trees here and there
+  // (more closely packed on the upper slopes around the convent, where the canopy is seen from up close)
+  for(const [RA,RB,TRY,MAX] of [[700,400,5200,2300],[330,220,2600,1500]]){let n=0;for(let k=0;k<TRY&&n<MAX;k++){const a=rr(-1,1),b=rr(-1,1);if(a*a+b*b>1)continue;const x=HX+(a*RA*HCA-b*RB*HSA),z=HZ+(a*RA*HSA+b*RB*HCA);if(groundRaw(x,z)>2&&ok(x,z)&&!nearestRoad(x,z,6)&&!POPA_CLEAR.some(p=>inPoly(p,x,z))){TREES.push([x,z,1]);n++}}}
   const o=new THREE.Object3D();
   // palm: gently curved trunk + crown of drooping fronds
   const trunk=new THREE.CylinderGeometry(.2,.32,9,5,4,true);trunk.translate(0,4.5,0);{const pa=trunk.attributes.position;for(let i=0;i<pa.count;i++){const y=pa.getY(i);pa.setX(i,pa.getX(i)+Math.pow(y/9,2)*.9)}trunk.computeVertexNormals()}
@@ -1757,7 +1856,7 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
       const q=[ctr.clone().sub(t1).sub(t2),ctr.clone().add(t1).sub(t2),ctr.clone().add(t1).add(t2),ctr.clone().sub(t1).add(t2)];const uv=[[0,0],[1,0],[1,1],[0,1]];
       for(const i of [0,1,2,0,2,3]){const v=q[i];P.push(v.x,v.y,v.z);const nn=v.clone().sub(C);nn.y+=1.2;nn.normalize();N.push(nn.x,nn.y,nn.z);U.push(uv[i][0],uv[i][1])}}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));return g})();
-  const TI=TREES.map(([x,z],i)=>{const s=.85+hash(i,3)*.5;return{x,z,m:place(x,ground(x,z),z,0,hash(i,4)*TAU,0,s,s*(.9+hash(i,7)*.25),s),c:new THREE.Color().setHSL(.22+hash(i,6)*.07,.35,.78+hash(i,8)*.14)}});
+  const TI=TREES.map(([x,z,hill],i)=>{const s=hill?1.1+hash(i,3)*.65:.85+hash(i,3)*.5,yel=hill&&hash(i,11)<.16;return{x,z,m:place(x,ground(x,z),z,0,hash(i,4)*TAU,0,s,s*(.9+hash(i,7)*.25),s),c:yel?new THREE.Color().setHSL(.13+hash(i,6)*.03,.95,.62+hash(i,8)*.12):new THREE.Color().setHSL(.22+hash(i,6)*.07,.35,(hill?.7:.78)+hash(i,8)*.14)}});
   const leafM=new THREE.MeshLambertMaterial({map:leafTex,alphaTest:.5,side:THREE.DoubleSide});
   const leafD=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:leafTex,alphaTest:.5});
   const trunkM=new THREE.MeshLambertMaterial({map:TX.palm_bark,color:'#7a6048'});TREEG={tt,crown,leafM,leafD,trunkM};instChunks(tt,trunkM,TI.map(t=>({x:t.x,z:t.z,m:t.m})),'tree','tree');instChunks(crown,leafM,TI,'tree','tree').forEach(t=>t.m.customDepthMaterial=leafD);
