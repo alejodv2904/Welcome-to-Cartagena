@@ -1263,6 +1263,123 @@ function construirSitios(){
     const door=fP(eP,eP.L/2,3.5),wall=fP(eP,eP.L/2,1.2);
     MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eP.nx,nz:eP.nz,len:16,yaw:eP.yaw,gy,type:'mall',name:s.n,mall:true,custom:true});
     addLM(s.n,s.x,s.z,26,1,door[0],door[1]);icon('mall',door[0],door[1],s.n)}
+  /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
+     almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
+     y el túnel a nivel del suelo hasta el callejón; por dentro tendidos grises con pasillos rojos, el anillo de en medio con los vomitorios
+     rojos y el palco, la galería de arcos con su corona, el callejón, la barrera roja con burladeros y el ruedo de arena */
+  function plazaToros(s,P){
+    // círculo ajustado al borde de OpenStreetMap (sin las muescas ni salientes)
+    const fit=pts=>{const A=[[0,0,0],[0,0,0],[0,0,0]],B=[0,0,0];for(const [x,z] of pts){const r=[x,z,1],b=x*x+z*z;for(let i=0;i<3;i++){B[i]+=r[i]*b;for(let j=0;j<3;j++)A[i][j]+=r[i]*r[j]}}
+      const det=m=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+      const D=det(A),q=[0,1,2].map(k=>det(A.map((row,i)=>row.map((v,j)=>j===k?B[i]:v)))/D),x=q[0]/2,z=q[1]/2;return[x,z,Math.sqrt(q[2]+x*x+z*z)]};
+    let pts=[];for(let i=0;i<P.length;i+=2)pts.push([P[i],P[i+1]]);let [cx,cz,R0]=fit(pts);
+    for(let it=0;it<2;it++){const keep=pts.filter(([x,z])=>Math.abs(Math.hypot(x-cx,z-cz)-R0)<4);if(keep.length>=6)[cx,cz,R0]=fit(keep)}
+    const Y0=minG(P),TA=TAU,UP=[0,1,0],DN=[0,-1,0];
+    const RED='#b04a36',RED2='#9c3f2e',CREAM='#f1ebe0',SEAT='#d6d2ca',RISE='#c4bfb5',AISLE='#a8392c',BARR='#8e1b1b',DARK='#2a1f1a';
+    // la entrada mira a la calle más cercana
+    const ef=facade(P),th=Math.atan2(ef.mz-cz,ef.mx-cx),ux=Math.cos(th),uz=Math.sin(th),vx=-uz,vz=ux;
+    const pt=(r,a,y)=>[cx+Math.cos(a)*r,Y0+y,cz+Math.sin(a)*r];
+    const pS=(r,sv,y)=>[cx+ux*r+vx*sv,Y0+y,cz+uz*r+vz*sv];
+    const F=(mk,a,b,c,d,col,n,sc)=>{const ax=b[0]-a[0],ay=b[1]-a[1],az=b[2]-a[2],bx=c[0]-a[0],by=c[1]-a[1],bz=c[2]-a[2];
+      const nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx,bk=bucket(mk,(a[0]+c[0])/2,(a[2]+c[2])/2),C=typeof col==='string'?colObj(col):col;
+      if(nx*n[0]+ny*n[1]+nz*n[2]<0)quadW(bk,a,d,c,b,sc||4,C);else quadW(bk,a,b,c,d,sc||4,C)};
+    const out=a=>[Math.cos(a),0,Math.sin(a)],inw=a=>[-Math.cos(a),0,-Math.sin(a)];
+    const sector=(mk,r0,r1,a0,a1,y,col,n,sc)=>F(mk,pt(r0,a0,y),pt(r1,a0,y),pt(r1,a1,y),pt(r0,a1,y),col,n||UP,sc);
+    const cylW=(mk,r,a0,a1,y0,y1,col,facesOut)=>{const am=(a0+a1)/2;F(mk,pt(r,a0,y0),pt(r,a0,y1),pt(r,a1,y1),pt(r,a1,y0),col,facesOut?out(am):inw(am))};
+    // recorre a0..a1 en tramos de ~step metros sobre el radio r
+    const arcs=(r,a0,a1,step,fn)=>{const n=Math.max(1,Math.ceil((a1-a0)*r/step));for(let i=0;i<n;i++)fn(a0+(a1-a0)*i/n,a0+(a1-a0)*(i+1)/n,i)};
+    const gapA=(r,hw)=>Math.asin(Math.min(.99,hw/r));          // medio ángulo que ocupa un corredor recto de medio ancho hw en el radio r
+    const around=(r,hw,step,fn)=>{const g=hw?gapA(r,hw):0;arcs(r,th+g,th+TA-g,step,fn)};
+
+    // medidas (m): ruedo, callejón, tendidos bajo y alto, galería, fachada, talud y muro de afuera
+    const rR=25,rC=27.5,rowD=.8,rowH=.42,nLow=18,nUp=11,yC=2.6,TUNW=2.5,TUNH=2.5;
+    const rP0=rC+nLow*rowD,yP=yC+nLow*rowH,rP1=rP0+2.5,yU=yP+1.1,rG0=rP1+nUp*.78,yG=yU+nUp*rowH,rF=rG0+5,HA=5.2,Hb=yG-4.5,RW=R0-.25,HW=3.4;
+    // ruedo de arena con las dos rayas de picadores
+    if(!MATS.ruedo)MATS.ruedo=lam(TX.sand,{polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2});
+    arcs(rR,0,TA,3,(a0,a1)=>{const b=bucket('ruedo',cx,cz),c=[cx,Y0+.07,cz];triW(b,c,pt(rR,a1,.07),pt(rR,a0,.07),5,colObj('#e2c08a'))});
+    for(const r of [rR-7,rR-9]){const g=new THREE.RingGeometry(r-.13,r+.13,128);g.rotateX(-Math.PI/2);geoInto('paint',g,colObj('#fbf8f0'),place(cx,Y0+.1,cz))}
+    // barrera roja con la puerta frente al túnel, y cuatro burladeros
+    around(rR,1.5,2.5,(a0,a1)=>{cylW('plain',rR,a0,a1,0,1.55,BARR,false);cylW('plain',rR+.12,a0,a1,0,1.55,BARR,true);sector('plain',rR,rR+.12,a0,a1,1.55,'#7a1616')});
+    for(let k=0;k<4;k++){const a=th+Math.PI/4+k*Math.PI/2,p=pt(rR-.9,a,0);box(2,1.75,.14,BARR,p[0],p[1]+.88,p[2],-a+Math.PI/2)}
+    // callejón y el muro blanco del primer tendido, con su franja roja
+    arcs(rR+.1,0,TA,3,(a0,a1)=>sector('plain',rR+.12,rC,a0,a1,.05,'#cdbf9f'));
+    around(rC,TUNW,2.5,(a0,a1)=>{cylW('plain',rC,a0,a1,0,yC-.5,CREAM,false);cylW('plain',rC,a0,a1,yC-.5,yC,AISLE,false)});
+    // tendidos: 16 tendidos separados por escaleras rojas; tendido bajo, anillo del medio y tendido alto
+    const NS=16,aisle=1.3/((rC+rG0)/2);
+    for(let k=0;k<NS;k++){const a0=th+(k+.5)*TA/NS,a1=a0+TA/NS,parts=[[a0,a0+aisle,true]];arcs(40,a0+aisle,a1,6,(b0,b1)=>parts.push([b0,b1,false]));
+      for(const [b0,b1,isA] of parts){
+        for(let i=0;i<nLow;i++){const r0=rC+i*rowD,y=yC+i*rowH;sector('plain',r0,r0+rowD,b0,b1,y,isA?AISLE:SEAT);cylW('plain',r0+rowD,b0,b1,y,y+rowH,isA?AISLE:RISE,false)}
+        sector('plain',rP0,rP1,b0,b1,yP,'#c9c3b8');cylW('plain',rP1,b0,b1,yP,yU,isA?AISLE:RED2,false);
+        for(let i=0;i<nUp;i++){const r0=rP1+i*.78,y=yU+i*rowH;sector('plain',r0,r0+.78,b0,b1,y,isA?AISLE:SEAT);cylW('plain',r0+.78,b0,b1,y,y+rowH,isA?AISLE:RISE,false)}}
+      // vomitorios rojos en el anillo del medio (uno sí y uno no)
+      if(k%2===0&&k!==NS/2-1){const am=a0+aisle/2+TA/NS/2,p=pt(rP0+1.25,am,yP);box(2.6,2.3,1.5,RED,p[0],p[1]+1.15,p[2],-am+Math.PI/2);const d=pt(rP0+.48,am,yP);
+        geoInto('plain',new THREE.PlaneGeometry(1.4,1.9),colObj(DARK),place(d[0],d[1]+.95,d[2],0,Math.atan2(-Math.cos(am),-Math.sin(am)),0))}}
+    // el palco, blanco con puerta roja, frente a la entrada
+    {const am=th+Math.PI,p=pt(rP0+1.3,am,yP);box(7,3.4,1.8,CREAM,p[0],p[1]+1.7,p[2],-am+Math.PI/2);box(7.6,.35,2.3,CREAM,p[0],p[1]+3.55,p[2],-am+Math.PI/2);
+      const d=pt(rP0+.38,am,yP);geoInto('plain',new THREE.PlaneGeometry(1.8,2.3),colObj(BARR),place(d[0],d[1]+1.25,d[2],0,Math.atan2(-Math.cos(am),-Math.sin(am)),0))}
+    // galería alta: piso, techo y los dos anillos de arcos con su corona de almenas en punta
+    arcs(rF,0,TA,3,(a0,a1)=>{sector('plain',rG0,rF,a0,a1,yG,'#c9a48a');sector('plain',rG0-.2,rF+.3,a0,a1,yG+HA,'#efe6d6',DN);sector('plain',rG0-.2,rF+.3,a0,a1,yG+HA+.55,'#a9432f');
+      cylW('plain',rG0-.2,a0,a1,yG+HA,yG+HA+.55,RED2,false);cylW('plain',rF+.3,a0,a1,yG+HA-.05,yG+HA+.12,CREAM,true);cylW('plain',rF+.3,a0,a1,yG+HA+.12,yG+HA+.55,RED,true)});
+    const merSh=(()=>{const q=[[-.5,0],[.5,0],[.5,.16],[.36,.16],[.36,.4],[.22,.4],[.22,.64],[.08,.64],[0,1],[-.08,.64],[-.22,.64],[-.22,.4],[-.36,.4],[-.36,.16],[-.5,.16]];const sh=new THREE.Shape();q.forEach(([x,y],i)=>i?sh.lineTo(x,y):sh.moveTo(x,y));return sh})();
+    const ringArc=(r,pitch,facesOut,flags)=>{const n=Math.round(TA*r/pitch),da=TA/n,w=2*r*Math.sin(da/2),rc=r*Math.cos(da/2),ow=w*.66;
+      const bay=new THREE.ExtrudeGeometry(arcade(0,w,HA,[{c:w/2,w:ow,spring:HA-ow/2-.55}]),{depth:.55,bevelEnabled:false,curveSegments:5});bay.translate(-w/2,0,-.275);
+      const mer=new THREE.ExtrudeGeometry(merSh,{depth:.4,bevelEnabled:false});mer.scale(w*.86,1.9,1);mer.translate(0,0,-.2);
+      for(let i=0;i<n;i++){const a=th+(i+.5)*da,yw=Math.atan2(-Math.cos(a),-Math.sin(a)),c=[cx+Math.cos(a)*rc,cz+Math.sin(a)*rc];
+        geoInto('plain',bay.clone(),colObj(RED),place(c[0],Y0+yG,c[1],0,yw,0));geoInto('plain',mer.clone(),colObj(RED),place(c[0],Y0+yG+HA+.55,c[1],0,yw,0));
+        for(const yy of [.12,.62,1.05])geoInto('plain',new THREE.BoxGeometry(ow,.07,.07),colObj('#c9d3d8'),place(c[0],Y0+yG+yy,c[1],0,yw,0));
+        for(let q=-2;q<=2;q++){const o=q*ow/5;geoInto('plain',new THREE.BoxGeometry(.05,1.05,.05),colObj('#c9d3d8'),place(c[0]+Math.cos(yw)*o,Y0+yG+.55,c[1]-Math.sin(yw)*o,0,yw,0))}
+        if(flags&&i%6===0){const f=[cx+Math.cos(a)*(rc+.05),cz+Math.sin(a)*(rc+.05)];cyl(.035,.035,1.6,'#d8d0b8',f[0],Y0+yG+HA+2.45+.8,f[1],5);
+          geoInto('plain',new THREE.PlaneGeometry(.75,.45),colObj(i%12?'#f2c21f':'#ffffff'),place(f[0]+Math.cos(yw)*.38,Y0+yG+HA+3.8,f[1]-Math.sin(yw)*.38,0,yw,0))}}};
+    ringArc(rF,3.3,true,true);ringArc(rG0,3.3,false,false);
+    // fachada: ladrillo rojo macizo bajo la galería (con ventanitas), cornisa blanca, y la puerta del túnel a nivel del suelo
+    const gF=gapA(rF,TUNW+.5);arcs(rF,th+gF,th+TA-gF,3.3,(a0,a1,i)=>{cylW('plain',rF,a0,a1,-1,yG,RED,true);if(i%2===0){const am=(a0+a1)/2,p=pt(rF+.03,am,yG-1.7);
+      geoInto('plain',new THREE.PlaneGeometry(.8,.8),colObj(DARK),place(p[0],p[1],p[2],0,Math.atan2(Math.cos(am),Math.sin(am)),0))}});
+    arcs(rF,0,TA,3,(a0,a1)=>{cylW('plain',rF+.25,a0,a1,yG-.3,yG+.05,CREAM,true);sector('plain',rF,rF+.25,a0,a1,yG+.05,CREAM)});
+    {const w=box;const L=pS(rF,0,0);const yaw=Math.atan2(-vz,vx);  // dintel y marcos de la puerta grande
+      const p=pS(rF,0,(TUNH+yG)/2);w(2*(TUNW+.5),yG-TUNH,.6,RED,p[0],p[1],p[2],yaw);for(const sd of [-1,1]){const q=pS(rF,sd*(TUNW+.25),TUNH/2);w(.5,TUNH,.6,CREAM,q[0],q[1],q[2],yaw)}
+      const q=pS(rF+.32,0,TUNH+.25);w(2*TUNW+1,.5,.1,CREAM,q[0],q[1],q[2],yaw);
+      signAt(txtSign('PLAZA DE TOROS','LA MONUMENTAL',BARR,'#ffffff'),...(()=>{const g=pS(rF+.36,0,TUNH+1.6);return[g[0],g[1],g[2]]})(),Math.atan2(ux,uz),5.4,1.35)}
+    // túnel hasta el callejón
+    for(const sd of [-1,1]){F('plain',pS(rC,sd*TUNW,0),pS(rC,sd*TUNW,TUNH),pS(rF,sd*TUNW,TUNH),pS(rF,sd*TUNW,0),CREAM,[-vx*sd,0,-vz*sd])}
+    F('plain',pS(rC,-TUNW,TUNH),pS(rF,-TUNW,TUNH),pS(rF,TUNW,TUNH),pS(rC,TUNW,TUNH),'#d9d2c4',DN);
+    F('plaza',pS(rC-.2,-TUNW,.07),pS(R0+9,-TUNW-.5,.07),pS(R0+9,TUNW+.5,.07),pS(rC-.2,TUNW,.07),'#d8c7ad',UP,3.2);
+    // talud de pasto entre la fachada y el muro de afuera (cortado por la entrada)
+    const yB=r=>HW+(Hb-HW)*(RW-r)/(RW-rF),eS=12.2,rE=rF+Hb*(RW-rF)/(Hb-HW)+1.5;
+    arcs(RW,0,TA,3.2,(a0,a1)=>{const sOf=(r,a)=>Math.abs(-Math.sin(th)*(Math.cos(a)*r)+Math.cos(th)*(Math.sin(a)*r)),cOf=(r,a)=>Math.cos(a-th);
+      if([[rF,a0],[rF,a1],[RW,a0],[RW,a1]].every(([r,a])=>sOf(r,a)<eS-.4&&cOf(r,a)>0))return;
+      for(let j=0;j<3;j++){const r0=rF+(RW-rF)*j/3,r1=rF+(RW-rF)*(j+1)/3;F('grass',pt(r0,a0,yB(r0)),pt(r1,a0,yB(r1)),pt(r1,a1,yB(r1)),pt(r0,a1,yB(r0)),'#ffffff',UP,5)}});
+    // muro de afuera: ladrillo rojo con remate dentado
+    around(R0,eS+.4,3,(a0,a1)=>{const g0=ground(...[pt(R0,a0,0)[0],pt(R0,a0,0)[2]]);cylW('plain',R0+.25,a0,a1,g0-Y0-.6,HW,RED,true);sector('plain',R0-.25,R0+.25,a0,a1,HW,RED2);
+      cylW('plain',R0-.25,a0,a1,HW-.4,HW,RED,false);arcs(R0,a0,a1,1.5,(c0,c1)=>{const am=(c0+c1)/2,p=pt(R0,am,HW+.35);geoInto('plain',new THREE.ConeGeometry(.5,.7,4),colObj(RED),place(p[0],p[1],p[2],0,Math.PI/4-am,0))})});
+    // la entrada: escaleras blancas a cada lado del paso del túnel, entre muros rojos
+    const yR=r=>Math.max(0,Hb*(rE-r)/(rE-rF));
+    const wallS=(s0,s1,extra)=>{const n=8;for(let i=0;i<n;i++){const r0=rF+(rE-rF)*i/n,r1=rF+(rE-rF)*(i+1)/n,t0=yR(r0)+extra,t1=Math.max(.9,yR(r1)+extra);
+        for(const [sv,sg] of [[s0,-1],[s1,1]])F('plain',pS(r0,sv,-.5),pS(r0,sv,t0),pS(r1,sv,t1),pS(r1,sv,-.5),RED,[vx*sg,0,vz*sg]);
+        F('plain',pS(r0,s0,t0),pS(r1,s0,t1),pS(r1,s1,t1),pS(r0,s1,t0),RED2,UP)}
+      F('plain',pS(rE,s0,-.5),pS(rE,s0,.9),pS(rE,s1,.9),pS(rE,s1,-.5),RED,[ux,0,uz])};
+    const stairs=(s0,s1)=>{const n=Math.ceil(Hb/.32),dr=(rE-rF)/n,dh=Hb/n;for(let i=0;i<n;i++){const r0=rF+i*dr,y=Hb-i*dh;
+        F('plain',pS(r0,s0,y),pS(r0+dr,s0,y),pS(r0+dr,s1,y),pS(r0,s1,y),i%2?'#f4f2ec':'#ffffff',UP);F('plain',pS(r0+dr,s0,y),pS(r0+dr,s0,y-dh),pS(r0+dr,s1,y-dh),pS(r0+dr,s1,y),'#dedad2',[ux,0,uz])}};
+    for(const sd of [-1,1]){const S=v=>sd*v;
+      wallS(Math.min(S(3),S(3.6)),Math.max(S(3),S(3.6)),.9);stairs(Math.min(S(3.6),S(7.2)),Math.max(S(3.6),S(7.2)));
+      wallS(Math.min(S(7.2),S(7.8)),Math.max(S(7.2),S(7.8)),.9);stairs(Math.min(S(7.8),S(11.4)),Math.max(S(7.8),S(11.4)));
+      wallS(Math.min(S(11.4),S(eS)),Math.max(S(11.4),S(eS)),1.1);
+      for(const sc of [5.4,9.6]){const p=pS(rF+.33,S(sc),Hb+1.35);geoInto('plain',new THREE.PlaneGeometry(2.6,2.7),colObj(DARK),place(p[0],p[1],p[2],0,Math.atan2(ux,uz),0))}
+      // paredes del paso del túnel entre el talud y la fachada
+      for(let i=0;i<6;i++){const r0=rF+(RW-rF)*i/6,r1=rF+(RW-rF)*(i+1)/6;F('plain',pS(r0,S(3),-.5),pS(r0,S(3),yB(r0)),pS(r1,S(3),yB(r1)),pS(r1,S(3),-.5),RED,[-vx*sd,0,-vz*sd])}}
+    // plazoleta de adelante con palmas
+    {const ok=(r,sv)=>{const p=pS(r,sv,0);return roadClear(p[0],p[2],1.2)&&onLand(p[0],p[2])};
+      if([[rE,-24],[rE,24],[rE+14,-24],[rE+14,24],[rE+7,0]].every(([r,sv])=>ok(r,sv)))F('plaza',pS(rE-.5,-24,.08),pS(rE+14,-24,.08),pS(rE+14,24,.08),pS(rE-.5,24,.08),'#d99a72',UP,3.2);
+      for(const sv of [-21,-15,15,21])for(const r of [rE+3,rE+11])if(ok(r,sv)){const p=pS(r,sv,0);XPALMS.push([p[0],p[2]])}}
+    for(let i=0;i<10;i++){const a=th+(i+.5)*TA/10,p=pt(rG0+2.5,a,yG+HA-.4);XGLOW.push([p[0],p[1],p[2],0xffe9b0,.7])}
+    // choques: el anillo (con el paso del túnel), la barrera (con su puerta) y las escaleras; adentro se puede caminar por el callejón y el ruedo
+    const cshape=(ri,ro,hw)=>{const o=[];const gi=gapA(ri,hw),go=gapA(ro,hw),n=72;for(let i=0;i<=n;i++){const a=th+gi+(TA-2*gi)*i/n;o.push(cx+Math.cos(a)*ri,cz+Math.sin(a)*ri)}
+      for(let i=n;i>=0;i--){const a=th+go+(TA-2*go)*i/n;o.push(cx+Math.cos(a)*ro,cz+Math.sin(a)*ro)}return o};
+    addSolidPoly(cshape(rC-.2,R0+.5,TUNW-.1));addSolidPoly(cshape(rR-.15,rR+.3,1.4));
+    for(const sd of [-1,1]){const q=[];for(const [r,sv] of [[rF-1,3],[rE+.3,3],[rE+.3,eS+.1],[rF-1,eS+.1]]){const p=pS(r,sd*sv,0);q.push(p[0],p[2])}addSolidPoly(q)}
+    {const q=[];for(const [r,sv] of [[0,-R0-2],[rE+15,-R0-2],[rE+15,R0+2],[0,R0+2]]){const p=pS(r,sv,0);q.push(p[0],p[2])}addSpecial(q)}
+    addSpecial(scl(P,cx,cz,1.06));
+    const f=snap(...(()=>{const p=pS(rE+6,0,0);return[p[0],p[2]]})());addLM(s.n,cx,cz,yG+HA+2,1,f[0],f[1]);icon('bull',cx,cz,s.n);
+    window.__toros={cx,cz,R0,th,Y0,yG,Hb,rE}}
   const LOG={sitios:0};
   for(const s of SIT){const k=s.k,P=s.p?ccw(s.p):null;LOG.sitios++;
     if(k==='baluarte'){addLM(s.n,s.x,s.z,12,0);continue}
@@ -1290,21 +1407,15 @@ function construirSitios(){
       LOG.puestos=n;
       if(big){const e=facade(big),gy=minG(big);signAt(txtSign('MERCADO DE BAZURTO','','#e4572e','#ffffff'),e.mx+e.nx*1.3,gy+5.9,e.mz+e.nz*1.3,e.yaw,14,2.6);const f=front(e,5);addLM(s.n,s.x,s.z,12,1,f[0],f[1])}
       else addLM(s.n,s.x,s.z,12,1);icon('market',s.x,s.z,s.n);continue}
-    if(k==='futbol'||k==='toros'){const [cx,cz]=cen(P),gy=minG(P);addSolidPoly(P);addSpecial(scl(P,cx,cz,1.06));
-      if(k==='futbol'){
+    if(k==='toros'){plazaToros(s,P);continue}
+    if(k==='futbol'){const [cx,cz]=cen(P),gy=minG(P);addSolidPoly(P);addSpecial(scl(P,cx,cz,1.06));
+      {
         // Estadio Jaime Morón: tribunas de concreto con sillas de colores, cancha con sus líneas y cuatro torres de luz
         tiers(P,cx,cz,gy,[[1,15],[.95,12.5],[.9,10],[.85,7.5],[.8,5],[.75,2.5]],'#bfbab0','#1f6fb2');flatPoly(scl(P,cx,cz,.74),'grass',.08,5);
         const A=axis(P),yaw=Math.atan2(-A.uz,A.ux),W=colObj('#ffffff');flatPoly(rectPts(cx,cz,105,68,yaw),'grass',.1,5,colObj('#5f9e45'));
         for(const [a,b,w,d] of [[0,34,105,.25],[0,-34,105,.25],[52.5,0,.25,68],[-52.5,0,.25,68],[0,0,.25,68],[46.75,0,.25,40],[-46.75,0,.25,40],[50,20,5.5,.25],[50,-20,5.5,.25],[-50,20,5.5,.25],[-50,-20,5.5,.25]]){const q=[cx+a*A.ux-b*A.uz,cz+a*A.uz+b*A.ux];flatPoly(rectPts(q[0],q[1],w,d,yaw),'paint',.13,4,W)}
         for(const sx of [-1,1])for(const sz of [-1,1]){const q=[cx+sx*72*A.ux-sz*52*A.uz,cz+sx*72*A.uz+sz*52*A.ux];if(!inPoly(P,q[0],q[1]))continue;cyl(.5,.8,44,'#9aa0a6',q[0],gy+22,q[1]);box(9,4,.8,'#e9eef2',q[0],gy+44,q[1],Math.atan2(cx-q[0],cz-q[1]));XGLOW.push([q[0],gy+44,q[1],0xfff6e0,1])}
         const e=facade(P),f=front(e,8);signAt(txtSign('ESTADIO JAIME MORÓN','CARTAGENA','#1f6fb2','#ffffff'),e.mx+e.nx*.4,gy+11,e.mz+e.nz*.4,e.yaw,16,3.4);addLM(s.n,cx,cz,24,1,f[0],f[1]);icon('stadium',cx,cz,s.n)}
-      else{
-        // Plaza de Toros La Monumental: anillo blanco con arcos y cornisa ocre, tendidos escalonados, ruedo de arena y barrera roja
-        const C=colObj('#f4efe4'),O=colObj('#c8812f'),D=colObj('#2a221c');band(P,gy-1,gy+14,'stone',C,gy,6,6,false);ring(P,gy+5.6,gy+6.2,.3,O);ring(P,gy+14,gy+15,.35,O);
-        tiers(scl(P,cx,cz,.97),cx,cz,gy,[[1,13],[.9,10.5],[.8,8],[.7,5.5],[.6,3]],'#e3d8c2','#c9b99a');flatPoly(scl(P,cx,cz,.52),'plaza',.1,4,colObj('#d9b36c'));
-        const R=scl(P,cx,cz,.52);band(R,gy,gy+1.4,'plain',colObj('#8e1b1b'),gy,1,1,false);
-        for(const e of edges(P)){const m=Math.floor(e.L/6);for(let q=0;q<m;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t+e.nx*.04,z=e.az+(e.bz-e.az)*t+e.nz*.04;geoInto('plain',new THREE.PlaneGeometry(2.2,3.6),D,place(x,gy+1.8,z,0,e.yaw,0));geoInto('plain',new THREE.PlaneGeometry(1.6,1.6),D,place(x,gy+9.6,z,0,e.yaw,0))}}
-        const e=facade(P),f=front(e,7);signAt(txtSign('PLAZA DE TOROS','LA MONUMENTAL','#8e1b1b','#ffffff'),e.mx+e.nx*.45,gy+11.5,e.mz+e.nz*.45,e.yaw,12,3);addLM(s.n,cx,cz,22,1,f[0],f[1]);icon('bull',cx,cz,s.n)}
       continue}
     if(k==='fuerte'){
       // Fuerte de San Sebastián del Pastelillo: muros bajos de piedra coralina con terraplén, garitas, cañones y bandera

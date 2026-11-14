@@ -22,7 +22,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
   - **Puente Román**, con pretiles de concreto y faroles.
   - **Mercado de Bazurto**: galpones con techo de zinc, toldos de colores y puestos con sombrilla y vendedores en las calles de alrededor.
   - **Estadio Jaime Morón**: tribunas escalonadas, cancha con sus líneas y torres de luz.
-  - **Plaza de Toros La Monumental**: anillo blanco con arcos, tendidos, ruedo de arena y barrera roja.
+  - **Plaza de Toros La Monumental**, modelada a partir de fotos sobre su forma real: anillo de ladrillo rojo con la galería de arcos arriba (con barandas) y la corona de almenas en punta con banderitas, cornisa blanca, el talud de pasto alrededor con el muro rojo dentado y la entrada con las escaleras blancas entre muros rojos. Por el túnel de la entrada se camina hasta el callejón y el ruedo: tendidos grises con escaleras rojas, el anillo del medio con los vomitorios rojos y el palco, la galería de arcos con su corona por dentro, la barrera roja con burladeros y el ruedo de arena con sus rayas.
   - **Muelle de La Bodeguita**: malecón con bolardos, taquilla, sala de espera techada y lanchas amarradas.
   - **Fuerte de San Sebastián del Pastelillo**: muros de piedra coralina con garitas, cañones y la bandera.
   - **Puerto de Cartagena** (Sociedad Portuaria, en Manga): patios de contenedores, grúas pórtico en el muelle y un buque portacontenedores.
