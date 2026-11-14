@@ -649,6 +649,8 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
   const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing});
   // Hospital Universitario del Caribe (Zaragocilla): su planta real de ciudad-osm.js (10 pisos en OpenStreetMap); el modelo está en construirSitios
   const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
+// Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
+{const b=MAP.buildings.find(b=>b[2]==='Iglesia de la Trinidad');if(b){SIT.push({n:'Iglesia de la Trinidad',k:'trinidad',x:394,z:234,p:b[3]});SIT_SKIP.push(b[3])}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -936,12 +938,19 @@ function label(name,x,y,z){const c=document.createElement('canvas');c.width=512;
      entablamento y un ático de remate curvo con volutas;
    - por dentro (Plaza de los Coches): todo el muro pintado de amarillo;
    - la torre amarilla con molduras blancas: base ancha, cuerpo del reloj (4 esferas y ventanas de persiana en arco),
-     frontones triangulares blancos con remates, campanario con persianas y chapitel con aristas blancas y veleta. */
+     frontones triangulares blancos con remates, campanario con una persiana grande en arco por cara y chapitel con aristas blancas y cruz;
+   - la torre se levanta sobre la cara de afuera, encima de la portada; detrás, el adarve de ladrillo rojo con sus pretiles;
+   - el reloj tiene números romanos y marca la hora del juego; de noche los arcos se iluminan de amarillo y la torre queda alumbrada;
+   - afuera, la Plaza de la Paz: piso rosado en abanico con rayas claras que salen de la puerta, las gradas frente al arco
+     y los jardines con palmas al pie de la muralla. */
+const TORRE_FX={hands:[],mats:[],plaza:null,palms:[]};
 function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
-  const g=new THREE.Group();g.position.set(px,y0,pz);g.rotation.y=T.yaw;scene.add(g);
+  const g=new THREE.Group();g.position.set(px,y0,pz);g.rotation.y=T.yaw;scene.add(g);let tgt=g;
   const CORAL=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#e3d6bc'}),CORAL2=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#efe4cc'}),
-    YEL=new THREE.MeshLambertMaterial({color:'#f7c22f'}),YEL2=new THREE.MeshLambertMaterial({color:'#d99a1c'}),WH=new THREE.MeshLambertMaterial({color:'#f7f3e8'}),IRON=mat('#26211c');
-  const add=(geo,m,x,y,z,rx,ry,rz)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
+    YEL=new THREE.MeshLambertMaterial({color:'#f5bd2c'}),YEL2=new THREE.MeshLambertMaterial({color:'#e3a51f'}),WH=new THREE.MeshLambertMaterial({color:'#f7f3e8'}),IRON=mat('#26211c');
+  const ARC=new THREE.MeshLambertMaterial({color:'#f2b623'});TORRE_FX.mats=[[ARC,.8,.6,.1],[CORAL,.32,.23,.144],[CORAL2,.32,.23,.144],[YEL2,.2,.14,.04],[YEL,.22,.16,.05],[WH,.2,.18,.14]];
+  const add=(geo,m,x,y,z,rx,ry,rz)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;tgt.add(o);return o};
+  const cvT=(w,h,fn,rep)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;if(rep)t.wrapS=t.wrapT=THREE.RepeatWrapping;return t};
   // caja con UV en metros (la piedra repite cada 4 m)
   const bx=(w,h,d,m,x,y,z)=>{const geo=new THREE.BoxGeometry(w,h,d),uv=geo.attributes.uv.array,F=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let f=0;f<6;f++)for(let k=0;k<4;k++){uv[(f*4+k)*2]*=F[f][0]/4;uv[(f*4+k)*2+1]*=F[f][1]/4}return add(geo,m,x,y,z)};
   const uvScale=(geo,s)=>{const a=geo.attributes.uv.array;for(let i=0;i<a.length;i++)a[i]*=s;return geo};
@@ -953,9 +962,16 @@ function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
   add(uvScale(new THREE.ExtrudeGeometry(body(),{depth:HW,bevelEnabled:false}),.25),CORAL,0,0,0);
   const inn=new THREE.ExtrudeGeometry(body(),{depth:HW,bevelEnabled:false});inn.translate(0,0,-HW);add(inn,YEL,0,0,0);
   // forro amarillo dentro de los arcos (como en las fotos)
-  ARCH.forEach(a=>{const s=arch(new THREE.Shape(),a[0],a[1],a[2],0);s.holes.push(arch(new THREE.Path(),a[0],a[1],a[2],.07));const l=new THREE.ExtrudeGeometry(s,{depth:HW*2-.02,bevelEnabled:false});l.translate(0,0,-HW+.01);add(l,YEL2,0,0,0)});
+  ARCH.forEach(a=>{const s=arch(new THREE.Shape(),a[0],a[1],a[2],0);s.holes.push(arch(new THREE.Path(),a[0],a[1],a[2],.07));const l=new THREE.ExtrudeGeometry(s,{depth:HW*2-.02,bevelEnabled:false});l.translate(0,0,-HW+.01);add(l,ARC,0,0,0)});
   // coronación y cordón de piedra por fuera; zócalo y cornisa por dentro
+  // adarve: losa de piedra, piso de ladrillo rojo (como se ve desde arriba en las fotos), pretil de piedra hacia afuera y pretil amarillo hacia la plaza
   bx(T.L,.35,HW*2+.3,CORAL2,(X0+X1)/2,H+.17,0);
+  {const brick=cvT(256,256,(x,w,h)=>{x.fillStyle='#a98270';x.fillRect(0,0,w,h);let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let r=0;r<16;r++)for(let c=-1;c<8;c++){const bx0=c*32+(r%2)*16,by=r*16;x.fillStyle=`hsl(${10+R()*8},${45+R()*14}%,${30+R()*9}%)`;x.fillRect(bx0+1.5,by+1.5,29,13)}},true);
+    const L=T.L,D=HW*2-1.6,tex=brick;tex.repeat.set(L/3,D/3);const m=new THREE.Mesh(new THREE.PlaneGeometry(L,D),new THREE.MeshLambertMaterial({map:tex}));
+    m.rotation.x=-Math.PI/2;m.position.set((X0+X1)/2,H+.36,-.2);m.receiveShadow=true;g.add(m)}
+  for(const [a,b] of [[X0,-3.4],[3.4,X1]]){bx(b-a,.85,.7,CORAL2,(a+b)/2,H+.77,HW-.2);bx(b-a,.12,.85,CORAL2,(a+b)/2,H+1.24,HW-.2)}
+  bx(T.L,.6,.45,YEL,(X0+X1)/2,H+.64,-HW+.1);bx(T.L,.1,.55,WH,(X0+X1)/2,H+.99,-HW+.1);
   for(const [a,b] of [[X0,-4.9],[4.9,X1]])bx(b-a,.25,.25,CORAL2,(a+b)/2,6.3,HW+.12);
   bx(T.L,.7,.12,YEL2,(X0+X1)/2,.35,-HW-.06);bx(T.L,.3,.25,YEL2,(X0+X1)/2,H-.4,-HW-.12);
   add(new THREE.TorusGeometry(2.2,.16,6,18,Math.PI),YEL2,0,4,-HW-.05);
@@ -972,40 +988,73 @@ function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
     const cg=new THREE.ExtrudeGeometry(c,{depth:1.6,bevelEnabled:false});cg.translate(0,8.05,F-1.1);add(cg,CORAL2,0,0,0);
     for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.55,.55,1,14),CORAL2,sx*3.65,8.7,F+.1,Math.PI/2,0,0);add(new THREE.CylinderGeometry(.32,.32,.9,10),CORAL2,sx*3.35,9.6,F+.1,Math.PI/2,0,0)}
     bx(1.5,1.9,.25,CORAL,0,10.2,F+.5);bx(1.9,.25,.3,CORAL2,0,11.25,F+.5)}
-  // texturas dibujadas: esfera del reloj y ventana de persiana con arco
-  const cv=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t};
-  const clockT=cv(128,128,(x,w)=>{x.fillStyle='#1d1a17';x.beginPath();x.arc(64,64,63,0,TAU);x.fill();x.fillStyle='#fbfaf5';x.beginPath();x.arc(64,64,56,0,TAU);x.fill();
-    x.strokeStyle='#1d1a17';x.lineCap='round';for(let k=0;k<12;k++){const a=k/12*TAU;x.lineWidth=k%3?3:5;x.beginPath();x.moveTo(64+Math.sin(a)*44,64-Math.cos(a)*44);x.lineTo(64+Math.sin(a)*52,64-Math.cos(a)*52);x.stroke()}
-    x.lineWidth=5;x.beginPath();x.moveTo(64,64);x.lineTo(64+Math.sin(-1.05)*28,64-Math.cos(-1.05)*28);x.stroke();x.lineWidth=3;x.beginPath();x.moveTo(64,64);x.lineTo(64+Math.sin(1.05)*42,64-Math.cos(1.05)*42);x.stroke();
-    x.fillStyle='#1d1a17';x.beginPath();x.arc(64,64,4,0,TAU);x.fill()});
-  const louvT=cv(64,160,(x,w,h)=>{x.beginPath();x.moveTo(0,h);x.lineTo(0,32);x.arc(32,32,32,Math.PI,0);x.lineTo(64,h);x.closePath();x.fillStyle='#f7f3e8';x.fill();
-    x.save();x.clip();x.fillStyle='#cfc8b6';for(let yy=40;yy<h-8;yy+=9)x.fillRect(8,yy,48,4);x.restore();x.strokeStyle='#ffffff';x.lineWidth=5;x.stroke()});
-  const clockM=new THREE.MeshLambertMaterial({map:clockT,alphaTest:.5}),louvM=new THREE.MeshLambertMaterial({map:louvT,alphaTest:.5});
+  // texturas dibujadas: esfera del reloj con números romanos (las manecillas van aparte y marcan la hora) y ventanas de persiana con arco
+  const cv=cvT;
+  const clockT=cv(256,256,(x,w)=>{const c=128;x.fillStyle='#1d1a17';x.beginPath();x.arc(c,c,127,0,TAU);x.fill();x.fillStyle='#fbfaf5';x.beginPath();x.arc(c,c,119,0,TAU);x.fill();
+    x.strokeStyle='#1d1a17';x.lineWidth=2;x.beginPath();x.arc(c,c,111,0,TAU);x.stroke();x.beginPath();x.arc(c,c,103,0,TAU);x.stroke();
+    for(let k=0;k<60;k++){const a=k/60*TAU;x.lineWidth=k%5?1.5:4;x.beginPath();x.moveTo(c+Math.sin(a)*103,c-Math.cos(a)*103);x.lineTo(c+Math.sin(a)*111,c-Math.cos(a)*111);x.stroke()}
+    x.fillStyle='#1d1a17';x.font='700 27px Georgia,"Times New Roman",serif';x.textAlign='center';x.textBaseline='middle';
+    ['XII','I','II','III','IIII','V','VI','VII','VIII','IX','X','XI'].forEach((n,k)=>{const a=k/12*TAU;x.save();x.translate(c+Math.sin(a)*84,c-Math.cos(a)*84);x.rotate(a);x.fillText(n,0,0);x.restore()})});
+  const louv=(w,h)=>cv(w,h,(x,w,h)=>{const r=w/2;x.beginPath();x.moveTo(0,h);x.lineTo(0,r);x.arc(r,r,r,Math.PI,0);x.lineTo(w,h);x.closePath();x.fillStyle='#f7f3e8';x.fill();
+    x.save();x.clip();x.fillStyle='#3b3630';x.fillRect(w*.14,r*.55,w*.72,h);x.fillStyle='#d6cfbd';for(let yy=r+4;yy<h-6;yy+=h/18)x.fillRect(w*.14,yy,w*.72,h/30);x.restore();x.strokeStyle='#ffffff';x.lineWidth=w*.08;x.stroke()});
+  const louvT=louv(64,160),bellT=louv(96,192);
+  const clockM=new THREE.MeshLambertMaterial({map:clockT,alphaTest:.5}),louvM=new THREE.MeshLambertMaterial({map:louvT,alphaTest:.5}),bellM=new THREE.MeshLambertMaterial({map:bellT,alphaTest:.5});
   const faces=(half,fn)=>{for(let k=0;k<4;k++){const a=k*Math.PI/2,s=Math.sin(a),c=Math.cos(a);fn((lx,y,o)=>{o.position.set(s*(half+.03)+c*lx,y,c*(half+.03)-s*lx);o.rotation.y=a;return o})}};
-  const plane=(w,h,m)=>{const o=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);g.add(o);return o};
-  const gable=(w,h,half,y)=>{faces(half,put=>{const s=new THREE.Shape();s.moveTo(-w/2,0);s.lineTo(w/2,0);s.lineTo(0,h);s.lineTo(-w/2,0);const o=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.3,bevelEnabled:false}),WH);o.castShadow=true;g.add(o);put(0,y,o);o.translateZ(-.33);
-    const s2=new THREE.Shape();s2.moveTo(-w/2+.45,.15);s2.lineTo(w/2-.45,.15);s2.lineTo(0,h-.32);s2.lineTo(-w/2+.45,.15);const i=new THREE.Mesh(new THREE.ShapeGeometry(s2),YEL);g.add(i);put(0,y,i);i.translateZ(.005)})};
+  const plane=(w,h,m)=>{const o=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);tgt.add(o);return o};
+  const gable=(w,h,half,y)=>{faces(half,put=>{const s=new THREE.Shape();s.moveTo(-w/2,0);s.lineTo(w/2,0);s.lineTo(0,h);s.lineTo(-w/2,0);const o=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.3,bevelEnabled:false}),WH);o.castShadow=true;tgt.add(o);put(0,y,o);o.translateZ(-.33);
+    const s2=new THREE.Shape();s2.moveTo(-w/2+.45,.15);s2.lineTo(w/2-.45,.15);s2.lineTo(0,h-.32);s2.lineTo(-w/2+.45,.15);const i=new THREE.Mesh(new THREE.ShapeGeometry(s2),YEL);tgt.add(i);put(0,y,i);i.translateZ(.005)})};
   const finials=(half,y,s)=>{for(const [cx,cz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){add(new THREE.CylinderGeometry(.1*s,.22*s,.55*s,8),WH,cx*half,y+.27*s,cz*half);add(new THREE.SphereGeometry(.2*s,8,6),WH,cx*half,y+.7*s,cz*half)}};
   const pil=(half,y0,y1,w)=>{for(const [cx,cz] of [[1,1],[1,-1],[-1,1],[-1,-1]])add(new THREE.BoxGeometry(w,y1-y0,w),WH,cx*(half-w/2+.04),(y0+y1)/2,cz*(half-w/2+.04))};
-  // base de la torre (asoma detrás del ático) con su cornisa blanca
-  bx(8.4,4.6,7,YEL,0,H+2.3,-.4);pil(3.5,H,H+4.6,.45);bx(9,.45,7.6,WH,0,H+4.82,-.4);
-  // cuerpo del reloj
-  const Y1=H+5.05;bx(5.4,4.55,5.4,YEL,0,Y1+2.27,0);pil(2.7,Y1,Y1+4.55,.45);
-  faces(2.7,put=>{put(0,Y1+2.45,plane(2.15,2.15,clockM));put(-1.78,Y1+2.2,plane(.66,1.65,louvM));put(1.78,Y1+2.2,plane(.66,1.65,louvM))});
+  // la torre va sobre la cara de afuera, pegada detrás del ático de la portada (como en las fotos); el adarve queda detrás, hacia la plaza
+  const tg=new THREE.Group();tg.position.z=HW-3.9;g.add(tg);tgt=tg;
+  // base de la torre (asoma detrás del ático) con pilastras, cornisa blanca y una ventanita a cada lado
+  bx(8.4,4.6,7,YEL,0,H+2.3,0);pil(3.5,H,H+4.6,.45);bx(9,.45,7.6,WH,0,H+4.82,0);bx(9.2,.18,7.8,WH,0,H+4.52,0);
+  for(const sx of [-1,1]){const o=plane(.9,1.5,louvM);o.position.set(sx*4.23,H+2.6,-.6);o.rotation.y=sx*Math.PI/2}
+  // cuerpo del reloj: esfera grande con aro blanco en cada cara entre dos ventanas de persiana; manecillas de hierro
+  const Y1=H+5.05;bx(5.4,4.55,5.4,YEL,0,Y1+2.27,0);pil(2.7,Y1,Y1+4.55,.45);bx(5.6,.25,5.6,WH,0,Y1+.12,0);
+  faces(2.7,put=>{put(0,Y1+2.4,plane(2.45,2.45,clockM));const ring=new THREE.Mesh(new THREE.TorusGeometry(1.29,.09,6,28),WH);tgt.add(ring);put(0,Y1+2.4,ring);
+    put(-1.85,Y1+2.2,plane(.6,1.55,louvM));put(1.85,Y1+2.2,plane(.6,1.55,louvM));
+    const hp=new THREE.Object3D(),mp=new THREE.Object3D();tgt.add(hp);tgt.add(mp);put(0,Y1+2.4,hp).translateZ(.05);put(0,Y1+2.4,mp).translateZ(.08);
+    const hg=new THREE.BoxGeometry(.11,.62,.03);hg.translate(0,.24,0);const mg=new THREE.BoxGeometry(.07,.96,.03);mg.translate(0,.4,0);
+    hp.add(new THREE.Mesh(hg,IRON));mp.add(new THREE.Mesh(mg,IRON));const cap=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.05,10),IRON);cap.rotation.x=Math.PI/2;mp.add(cap);
+    TORRE_FX.hands.push([hp,mp])});
   bx(6,.4,6,WH,0,Y1+4.75,0);gable(5.3,1.3,2.85,Y1+4.95);finials(2.85,Y1+4.95,1);
-  // campanario
-  const Y2=Y1+4.95;bx(3.8,3.5,3.8,YEL,0,Y2+1.75,0);pil(1.9,Y2,Y2+3.5,.35);
-  faces(1.9,put=>{put(-.68,Y2+1.75,plane(.5,1.45,louvM));put(.68,Y2+1.75,plane(.5,1.45,louvM))});
+  // campanario: una persiana grande en arco por cara, pilastras blancas, cornisa, frontoncitos y remates
+  const Y2=Y1+4.95;bx(3.8,3.5,3.8,YEL,0,Y2+1.75,0);pil(1.9,Y2,Y2+3.5,.35);bx(4,.2,4,WH,0,Y2+.1,0);
+  faces(1.9,put=>{put(0,Y2+1.72,plane(1.2,2.45,bellM))});
   bx(4.3,.35,4.3,WH,0,Y2+3.67,0);gable(3.9,1,2.1,Y2+3.85);finials(2.1,Y2+3.85,.75);
-  // chapitel de cuatro caras con aristas y franjas blancas, collarín, bola y veleta de hierro
+  // chapitel de cuatro caras con aristas y franjas blancas, collarín, bola y cruz de hierro
   const Y3=Y2+3.85,SH=5.6,hb=1.5;const sp=add(new THREE.ConeGeometry(hb*Math.SQRT2,SH,4),YEL,0,Y3+SH/2,0);sp.rotation.y=Math.PI/4;
   const rib=(ax,az)=>{const a=new THREE.Vector3(ax,Y3,az),b=new THREE.Vector3(0,Y3+SH,0),d=b.clone().sub(a),o=add(new THREE.CylinderGeometry(.06,.09,d.length(),6),WH,ax/2,Y3+SH/2,az/2);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize())};
   for(const [ax,az] of [[hb,hb],[hb,-hb],[-hb,hb],[-hb,-hb],[hb+.03,0],[-hb-.03,0],[0,hb+.03],[0,-hb-.03]])rib(ax,az);
-  bx(.75,.28,.75,WH,0,Y3+SH*.78,0);add(new THREE.SphereGeometry(.24,10,8),WH,0,Y3+SH+.15,0);
+  bx(3.1,.22,3.1,WH,0,Y3+.11,0);bx(.75,.28,.75,WH,0,Y3+SH*.78,0);add(new THREE.SphereGeometry(.24,10,8),WH,0,Y3+SH+.15,0);
   add(new THREE.BoxGeometry(.07,1.6,.07),IRON,0,Y3+SH+1,0);add(new THREE.BoxGeometry(.8,.07,.07),IRON,0,Y3+SH+1.35,0);add(new THREE.BoxGeometry(.07,.07,.6),IRON,0,Y3+SH+.9,0);
+  tgt=g;
   // colisión: los macizos entre arcos
   const W=(lx,lz)=>[px+T.u[0]*lx+T.n[0]*lz,pz+T.u[1]*lx+T.n[1]*lz];
   for(const [a,b] of [[X0,-12.2],[-8.8,-2.1],[2.1,8.8],[12.2,X1]])addSolidPoly([...W(a,-HW),...W(b,-HW),...W(b,HW+.9),...W(a,HW+.9)]);
+  // Plaza de la Paz, afuera: piso rosado en abanico desde la puerta (rayas claras, arcos y las gradas frente al arco); llega hasta las calles, el agua o los edificios
+  {const OZ=HW+.9,R=46,N=48,free=(x,z)=>!isWater(x,z)&&!solidAt(x,z)&&!nearestRoad(x,z,2.6,s=>!s.walk);
+    let rs=[];for(let i=0;i<=N;i++){const th=-Math.PI/2+.05+(Math.PI-.1)*i/N,dx=Math.sin(th),dz=Math.cos(th);let r=2;
+      while(r<R){const lx=dx*(r+1),lz=OZ+dz*(r+1);if(Math.abs(lx)>40)break;const q=W(lx,lz);if(!free(q[0],q[1]))break;r+=1}rs.push({dx,dz,r})}
+    rs=rs.map((o,i)=>({...o,r:Math.min(o.r,(rs[i-1]||o).r+3,(rs[i+1]||o).r+3)}));
+    const tex=cvT(1024,512,(x,w,h)=>{const sx=w/(2*R),O=[w/2,h];x.fillStyle='#b47b6c';x.fillRect(0,0,w,h);
+      let sd=3;const Rn=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let i=0;i<5000;i++){x.fillStyle=Rn()<.5?'rgba(255,240,230,.12)':'rgba(120,60,50,.10)';x.fillRect(Rn()*w,Rn()*h,3,3)}
+      x.strokeStyle='#d6b9a8';x.lineWidth=sx*.75;for(let k=0;k<=16;k++){const a=-Math.PI/2+Math.PI*k/16;x.beginPath();x.moveTo(O[0]+Math.sin(a)*sx*8,O[1]-Math.cos(a)*sx*8);x.lineTo(O[0]+Math.sin(a)*w,O[1]-Math.cos(a)*w);x.stroke()}
+      for(const r of [16,27,38]){x.lineWidth=sx*(r===16?1.2:.75);x.beginPath();x.arc(O[0],O[1],r*sx,Math.PI,0);x.stroke()}
+      for(let k=0;k<6;k++){x.fillStyle=k%2?'#c9a796':'#d8bcab';x.beginPath();x.arc(O[0],O[1],(8-k)*sx,Math.PI,0);x.fill();x.strokeStyle='rgba(90,60,50,.45)';x.lineWidth=2;x.stroke()}});
+    const P=[],U=[],I=[],K=6,vert=(lx,lz)=>{const q=W(lx,lz);P.push(q[0],ground(q[0],q[1])+.08,q[1]);U.push((lx+R)/(2*R),(lz-OZ)/R);return P.length/3-1};
+    const c0=vert(0,OZ),ring=[];for(const o of rs){const col=[];for(let k=1;k<=K;k++){const r=o.r*k/K;col.push(vert(o.dx*r,OZ+o.dz*r))}ring.push(col)}
+    for(let i=0;i<N;i++){const A=ring[i],B=ring[i+1];I.push(c0,B[0],A[0]);for(let k=0;k<K-1;k++)I.push(A[k],B[k],B[k+1],A[k],B[k+1],A[k+1])}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));geo.setIndex(I);geo.computeVertexNormals();
+    if(geo.attributes.normal.array[1]<0)for(let i=0;i<I.length;i+=3){const t=I[i+1];I[i+1]=I[i+2];I[i+2]=t}geo.setIndex(I);geo.computeVertexNormals();
+    const pm=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:tex,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4}));pm.receiveShadow=true;scene.add(pm);
+    TORRE_FX.plaza=[...W(-41,HW-.5),...rs.flatMap(o=>W(o.dx*(o.r+2),OZ+o.dz*(o.r+2))),...W(41,HW-.5)];
+    // jardines al pie de la muralla, a los dos lados de los arcos, con su bordillo y las palmas
+    for(const sg of [-1,1]){let a=13.6,b=13.6;while(b<36){const q=W(sg*(b+1),HW+2);if(!free(q[0],q[1]))break;b+=1}if(b-a<5)continue;
+      const s0=sg*a,s1=sg*b,lo=Math.min(s0,s1),hi=Math.max(s0,s1);flatPoly([...W(lo,HW+.15),...W(hi,HW+.15),...W(hi,HW+3.6),...W(lo,HW+3.6)].map(v=>Math.round(v*100)/100),'grass',.14,3.2);
+      bx(hi-lo,.4,.25,CORAL2,(lo+hi)/2,.2,HW+3.7);
+      for(let t=a+2.5;t<b-1;t+=6.5)TORRE_FX.palms.push(W(sg*t,HW+1.9))}}
   return Y3+SH+1.8}
 // Castillo de San Felipe de Barajas sobre el cerro de San Lázaro, con la forma real de OpenStreetMap: muros de piedra gris en talud
 // (inclinados, más oscuros abajo) que suben en terrazas: el recinto de afuera; el segundo recinto con la cola larga hacia el norte, el brazo
@@ -1503,6 +1552,118 @@ function construirSitios(){
     const door=fP(eA,eA.L/2,6),top=fP(eF,TL/2,-TD/2);addLM(s.n,top[0],top[1],HT+8,1,door[0],door[1]);icon('hospital',door[0],door[1],s.n);
     window.__huc={gy,HT,eA:[eA.mx,eA.mz,eA.L],eU:[eU.mx,eU.mz,eU.L]}}
 
+  /* Iglesia de la Santísima Trinidad (Getsemaní), modelada a partir de fotos sobre su planta de OpenStreetMap: la fachada amarilla con el
+     frontón triangular, su óculo y los remates blancos de las pilastras; la portada de piedra coralina con la puerta verde oscura y la
+     ventanita con su frontón encima; la torre a la izquierda con el campanario de arcos y pináculos; el cuerpo de la derecha con sus dos
+     ventanas de reja; techos de teja; y el atrio de piedra con sus escalones hacia la plaza. La Plaza de la Trinidad: el ladrillo rojo con
+     franjas grises, la palma, el monumento a Pedro Romero, las bancas amarillas y el puesto de sombreros vueltiaos */
+  function trinidad(s,P){
+    const YEL='#f0bf2e',YD='#e3ae25',WH='#f7f2e4',ST='#c3bcaa',STD='#8f897d',RED='#b4583c';
+    const eF=fNear(fEdges(P),394,220.7);           // la fachada hacia la plaza: s de izquierda (la torre, al este) a derecha; o hacia afuera
+    const TW0=-2.2,TW1=3.8,N0=TW1,N1=14.5,R1=19,D=-26,H=10,APEX=15,PL=.8,c=(N0+N1)/2,TD=-6;
+    const gy=minG([...fP(eF,TW0,D),...fP(eF,R1,D),...fP(eF,R1,4.5),...fP(eF,TW0,4.5)]);
+    const pbox=(s0,s1,y0,y1,o0,o1,col)=>fbox(eF,gy,s0,s1,y0,y1,o0,o1,col);
+    const rect=(s0,s1,o0,o1)=>[...fP(eF,s0,o1),...fP(eF,s1,o1),...fP(eF,s1,o0),...fP(eF,s0,o0)];
+    const at=(s,y,o)=>{const p=fP(eF,s,o);return[p[0],gy+y,p[1]]};
+    const face=(s,y,o,w,h,mat,dy)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);const p=fP(eF,s,o);m.position.set(p[0],gy+y,p[1]);m.rotation.y=eF.yaw+(dy||0);m.receiveShadow=true;scene.add(m);return m};
+    const pin=(s,o,y,z)=>{const p=fP(eF,s,o);geoInto('plain',new THREE.BoxGeometry(z,z*1.1,z),colObj(WH),place(p[0],gy+y+z*.55,p[1],0,eF.yaw,0));
+      geoInto('plain',new THREE.ConeGeometry(z*.42,z*1.5,4),colObj(WH),place(p[0],gy+y+z*1.85,p[1],0,eF.yaw+Math.PI/4,0));geoInto('plain',new THREE.SphereGeometry(z*.2,6,4),colObj(WH),place(p[0],gy+y+z*2.75,p[1]))};
+    // ventana de reja: marco claro, fondo verde oscuro y barrotes
+    const winM=smat(ctex(128,160,(g,w,h)=>{g.fillStyle='#efe6cf';g.fillRect(0,0,w,h);g.fillStyle='#1d2c25';g.fillRect(12,12,w-24,h-24);g.fillStyle='#2b4035';g.fillRect(12,h/2-2,w-24,4);
+      g.fillStyle='#5d7a69';for(let x=22;x<w-14;x+=14)g.fillRect(x,12,4,h-24);g.fillRect(12,40,w-24,4);g.fillRect(12,h-46,w-24,4)}));
+    // el cuerpo: nave (con la fachada del frontón), el cuerpo bajo de la derecha y el anexo detrás de la torre; techos de teja
+    const C=colObj(YEL),nave=rect(N0,N1,D,0),ala=rect(N1,R1,D,0),anexo=rect(TW0,TW1,D,TD);
+    band(nave,gy-2,gy+H,'plain',C,0,1,1,false);gableRoof(nave,gy+H,'plain',C);
+    band(ala,gy-2,gy+H-1.5,'plain',C,0,1,1,false);gableRoof(ala,gy+H-1.5,'plain',C);pbox(N1,R1,H-1.6,H,-.6,0,YEL);
+    band(anexo,gy-2,gy+H-2.5,'plain',C,0,1,1,false);gableRoof(anexo,gy+H-2.5,'plain',C);
+    fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(N0,H-.3);sh.lineTo(N1,H-.3);sh.lineTo(c,APEX);sh.lineTo(N0,H-.3);return sh})(),-.6,0,YEL);
+    // la fachada pintada: frontón, portada, ventanas y manchas de humedad (transparente fuera de la silueta)
+    const FW=R1-N0;
+    const facT=ctex(1024,1024,(g,w,h)=>{g.setTransform(w/FW,0,0,-h/APEX,0,h);const nw=N1-N0,cc=c-N0;
+      g.fillStyle=YEL;g.beginPath();g.moveTo(0,0);g.lineTo(FW,0);g.lineTo(FW,H);g.lineTo(nw,H);g.lineTo(cc,APEX);g.lineTo(0,H);g.closePath();g.fill();
+      let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let i=0;i<22;i++){const x=R()*FW,y=H*(.6+R()*.4),l=.8+R()*2.2;g.fillStyle=`rgba(120,90,30,${.03+R()*.05})`;g.fillRect(x,y-l,.12+R()*.25,l)}
+      const gr=g.createLinearGradient(0,0,0,2.2);gr.addColorStop(0,'rgba(90,70,30,.35)');gr.addColorStop(1,'rgba(90,70,30,0)');g.fillStyle=gr;g.fillRect(0,0,FW,2.2);
+      // ventanas del cuerpo de la derecha
+      const win=(x,y0,ww,hh)=>{g.fillStyle='#efe6cf';g.fillRect(x-ww/2-.15,y0-.15,ww+.3,hh+.3);g.fillStyle='#1d2c25';g.fillRect(x-ww/2,y0,ww,hh);g.fillStyle='#5d7a69';
+        for(let q=x-ww/2+.18;q<x+ww/2-.05;q+=.2)g.fillRect(q,y0,.05,hh);g.fillRect(x-ww/2,y0+hh*.25,ww,.05);g.fillRect(x-ww/2,y0+hh*.75,ww,.05);g.fillStyle='#e2d8bd';g.fillRect(x-ww/2-.3,y0-.3,ww+.6,.18)};
+      const rx=(N1+R1)/2-N0;win(rx,2.1,1.5,2.1);win(rx,6.3,1.3,1.6);
+      // portada de piedra: jambas, puerta verde oscura de dos hojas con tableros, entablamento, ventanita con frontón y remates
+      g.fillStyle=ST;g.fillRect(cc-2.3,PL,4.6,4.4);g.fillRect(cc-2.55,PL+4.4,5.1,.75);g.fillRect(cc-1.1,PL+5.15,2.2,2.35);
+      g.fillStyle='rgba(0,0,0,.12)';for(let y=PL+.45;y<PL+4.4;y+=.45){g.fillRect(cc-2.3,y,.9,.03);g.fillRect(cc+1.4,y,.9,.03)}
+      g.fillStyle='#182520';g.fillRect(cc-1.35,PL,2.7,4.3);g.fillStyle='#24362d';for(const sx of [-1,1])for(let k=0;k<3;k++)g.fillRect(cc+sx*.68-.48,PL+.35+k*1.35,.96,1.05);
+      g.fillStyle='#0f1814';g.fillRect(cc-.03,PL,.06,4.3);g.fillStyle='#c9b27a';g.fillRect(cc-.22,PL+2.1,.12,.12);g.fillRect(cc+.1,PL+2.1,.12,.12);
+      g.fillStyle='#2d3a40';g.fillRect(cc-.6,PL+5.55,1.2,1.6);g.fillStyle='#55656c';g.fillRect(cc-.03,PL+5.55,.06,1.6);g.fillRect(cc-.6,PL+6.3,1.2,.05);
+      g.fillStyle=ST;g.beginPath();g.moveTo(cc-1.45,PL+7.5);g.lineTo(cc+1.45,PL+7.5);g.lineTo(cc,PL+8.25);g.closePath();g.fill();
+      // óculo y bordes blancos del frontón
+      g.fillStyle=WH;g.beginPath();g.arc(cc,H+1.9,.78,0,TAU);g.fill();g.fillStyle='#4b5357';g.beginPath();g.arc(cc,H+1.9,.5,0,TAU);g.fill();
+      g.strokeStyle=WH;g.lineWidth=.3;g.beginPath();g.moveTo(0,H);g.lineTo(cc,APEX-.2);g.lineTo(nw,H);g.stroke()},false);
+    face(N0+FW/2,APEX/2,.03,FW,APEX,smat(facT,{transparent:true,alphaTest:.5}));
+    // relieve: pilastras con capiteles y remates blancos, cornisa, cornisas del frontón, óculo y la portada de piedra
+    for(const [a,b] of [[N0,N0+.75],[N1-.75,N1],[R1-.65,R1]]){pbox(a,b,PL,H-.5,0,.28,YD);pbox(a-.08,b+.08,H-.75,H-.25,0,.4,WH);pin((a+b)/2,.15,H+.25,.62)}
+    pbox(N0-.1,R1+.12,H-.25,H+.25,0,.45,WH);
+    for(const sg of [-1,1]){const x0=sg<0?N0-.3:N1+.3;fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(x0,H+.1);sh.lineTo(c,APEX+.05);sh.lineTo(c,APEX+.45);sh.lineTo(x0,H+.5);sh.lineTo(x0,H+.1);return sh})(),0,.38,WH)}
+    pin(c,0,APEX+.3,.5);
+    geoInto('plain',new THREE.TorusGeometry(.66,.14,6,18),colObj(WH),place(...at(c,H+1.9,.1),0,eF.yaw,0));
+    for(const sx of [-1,1]){pbox(c+sx*1.83-.47,c+sx*1.83+.47,PL,PL+4.4,0,.32,ST);
+      const p=fP(eF,c+sx*2.25,.3);geoInto('plain',new THREE.SphereGeometry(.3,8,6),colObj(ST),place(p[0],gy+PL+5.55,p[1],0,0,0,1,1.35,1));geoInto('plain',new THREE.CylinderGeometry(.2,.25,.3,8),colObj(ST),place(p[0],gy+PL+5.3,p[1]))}
+    pbox(c-2.6,c+2.6,PL+4.4,PL+5.15,0,.5,ST);pbox(c-2.75,c+2.75,PL+5.05,PL+5.25,0,.6,'#d2cbb9');
+    pbox(c-1.15,c-.75,PL+5.15,PL+7.5,0,.25,ST);pbox(c+.75,c+1.15,PL+5.15,PL+7.5,0,.25,ST);pbox(c-1.4,c+1.4,PL+7.4,PL+7.65,0,.35,ST);
+    // la torre: cuerpo amarillo hasta la cornisa, un cuerpo intermedio y el campanario de dos arcos por cara, cornisa, pináculos y cruz
+    pbox(TW0,TW1,-1,H+.6,TD,0,YEL);for(const a of [TW0,TW1-.55])pbox(a,a+.55,PL,H-.25,0,.18,YD);
+    pbox(TW0-.15,TW1+.15,H-.25,H+.25,TD-.15,.45,WH);pbox(TW0-.08,TW1+.08,H+.6,H+.9,TD-.08,.08,WH);
+    face((TW0+TW1)/2,6.4,.04,1.1,1.5,winM);face((TW0+TW1)/2,2.6,.04,1.1,1.6,winM);face(TW0-.04,6.4,TD/2,1.1,1.5,winM,-Math.PI/2);
+    const t0=TW0+.2,t1=TW1-.2,u0=TD+.2,u1=-.2,tc=(TW0+TW1)/2,oc=TD/2;
+    pbox(t0,t1,H+.9,H+3.4,u0,u1,YEL);pbox(t0-.1,t1+.1,H+3.4,H+3.75,u0-.1,u1+.1,WH);
+    const b0=TW0+.35,b1=TW1-.35,v0=TD+.35,v1=-.35,BH0=H+3.75,BH1=H+7.6,bw=b1-b0,bh=BH1-BH0;
+    pbox(b0,b1,BH0,BH1,v0,v1,YEL);
+    const belT=ctex(512,384,(g,w,h)=>{g.setTransform(w/bw,0,0,-h/bh,0,h);g.fillStyle=YEL;g.fillRect(0,0,bw,bh);g.fillStyle=WH;g.fillRect(0,0,.42,bh);g.fillRect(bw-.42,0,.42,bh);g.fillRect(0,bh-.35,bw,.35);
+      for(const x of [bw*.3,bw*.7]){const aw=1.25,top=bh-.75,sp=top-aw/2;g.fillStyle=WH;g.beginPath();g.moveTo(x-aw/2-.14,.25);g.lineTo(x-aw/2-.14,sp);g.arc(x,sp,aw/2+.14,Math.PI,0,true);g.lineTo(x+aw/2+.14,.25);g.closePath();g.fill();
+        g.fillStyle='#1c1a17';g.beginPath();g.moveTo(x-aw/2,.4);g.lineTo(x-aw/2,sp);g.arc(x,sp,aw/2,Math.PI,0,true);g.lineTo(x+aw/2,.4);g.closePath();g.fill();
+        g.fillStyle='#6f5a2e';g.beginPath();g.arc(x,sp-.55,.32,0,TAU);g.fill();g.fillStyle=WH;g.fillRect(x-aw/2-.2,.25,aw+.4,.18)}},false);
+    const belM=smat(belT);face((b0+b1)/2,(BH0+BH1)/2,v1+.03,bw,bh,belM);face((b0+b1)/2,(BH0+BH1)/2,v0-.03,bw,bh,belM,Math.PI);face(b1+.03,(BH0+BH1)/2,oc,bw,bh,belM,Math.PI/2);face(b0-.03,(BH0+BH1)/2,oc,bw,bh,belM,-Math.PI/2);
+    pbox(b0-.25,b1+.25,BH1,BH1+.55,v0-.25,v1+.25,WH);pbox(b0-.05,b1+.05,BH1+.55,BH1+.95,v0-.05,v1+.05,YEL);
+    for(const [a,o] of [[b0,v0],[b1,v0],[b0,v1],[b1,v1]])pin(a,o,BH1+.95,.55);
+    {const p=fP(eF,tc,oc);geoInto('roof_tile',new THREE.ConeGeometry(bw*.62,1.7,4,1,true),colObj('#e0e0e0'),place(p[0],gy+BH1+.95+.85,p[1],0,eF.yaw+Math.PI/4,0));
+      geoInto('plain',new THREE.BoxGeometry(.1,1.4,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.2,p[1],0,eF.yaw,0));geoInto('plain',new THREE.BoxGeometry(.7,.1,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.45,p[1],0,eF.yaw,0))}
+    // ventanas de los costados (la nave por el oeste, el anexo por el este)
+    for(const o of [-6,-12.5,-19])face(R1+.04,3.4,o,1.2,1.7,winM,Math.PI/2);for(const o of [-9,-14,-19])face(R1+.04,6.6,o-1.5,.9,1.1,winM,Math.PI/2);
+    for(const o of [-10,-16,-22])face(TW0-.04,3,o,1.1,1.6,winM,-Math.PI/2);
+    // el atrio: plataforma de piedra coralina a lo ancho de la fachada y los tres escalones frente a la puerta
+    pbox(TW0-.4,R1+.4,-1,PL-.06,0,3.2,STD);pbox(TW0-.5,R1+.5,PL-.08,PL+.04,0,3.3,'#a7a194');
+    pbox(c-2.9,c+2.9,-1,PL*2/3,3.2,3.8,'#9a9488');pbox(c-2.9,c+2.9,-1,PL/3,3.8,4.4,'#a49e91');
+    addSolidPoly(rect(TW0,R1,D,0));addSolidPoly(rect(TW0-.5,R1+.5,0,4.4));addSpecial(rect(TW0-1,R1+1,D-1,4.6));
+    CHURCH_NAMES[s.n]=[...fP(eF,tc,oc),gy+BH1+4];icon('church',...fP(eF,c,D/2),s.n);
+    /* la Plaza de la Trinidad: franjas grises sobre el ladrillo, la palma y el monumento a Pedro Romero (al lado de la torre), bancas
+       amarillas de concreto y el puesto de sombreros vueltiaos */
+    const SQ=MAP.squares.find(q=>inPoly(q,...fP(eF,10,10)));for(const q of MAP.squares)if(inPoly(q,...fP(eF,10,10)))q.propia=1;   // sin los árboles al azar de las plazas
+    if(SQ){const clip=(poly)=>{let out=poly;const n=SQ.length/2;const ccwq=signedArea(SQ)>0;
+        for(let i=0;i<n&&out.length;i++){const ax=SQ[i*2],az=SQ[i*2+1],bx=SQ[(i+1)%n*2],bz=SQ[(i+1)%n*2+1];const side=(x,z)=>((bx-ax)*(z-az)-(bz-az)*(x-ax))*(ccwq?1:-1)>=0;
+          const inp=out;out=[];for(let j=0;j<inp.length;j+=2){const px=inp[j],pz=inp[j+1],qx=inp[(j+2)%inp.length],qz=inp[(j+3)%inp.length],pi=side(px,pz),qi=side(qx,qz);
+            if(pi)out.push(px,pz);if(pi!==qi){const d1=(bx-ax)*(pz-az)-(bz-az)*(px-ax),d2=(bx-ax)*(qz-az)-(bz-az)*(qx-ax),t=d1/(d1-d2);out.push(px+(qx-px)*t,pz+(qz-pz)*t)}}}return out};
+      const stripe=(s0,s1,o0,o1)=>{const q=clip(rect(s0,s1,o0,o1));if(q.length>=6)flatPoly(q.map(v=>Math.round(v*100)/100),'paint',.075,4,colObj('#9d968a'))};
+      for(const o of [5.6,11,16.4,21.8])stripe(-6,32,o,o+.5);stripe(c-.25,c+.25,4.4,30);stripe(-6,32,4.4,4.75);
+      XPALMS.push(fP(eF,2.6,12.5));XPALMS.push(fP(eF,23.2,15.5));XTREES.push(fP(eF,21.5,19));
+      // monumento a Pedro Romero: pedestal de piedra con su placa y el busto de bronce mirando a la plaza
+      {const p=fP(eF,3.3,7.3),y=ground(p[0],p[1]),yw=eF.yaw+Math.PI/2.4,B=colObj('#3f3a33');box(1.6,.35,1.6,'#b9b3a5',p[0],y+.17,p[1],yw);box(1.05,1.8,1.05,'#d8d2c2',p[0],y+1.25,p[1],yw);box(1.2,.2,1.2,'#c9c2b1',p[0],y+2.2,p[1],yw);
+        const fw=[Math.sin(yw),Math.cos(yw)];box(.7,.4,.03,'#7b6a3c',p[0]+fw[0]*.54,y+1.3,p[1]+fw[1]*.54,yw);
+        geoInto('plain',new THREE.CylinderGeometry(.38,.52,.85,10),B,place(p[0],y+2.72,p[1],0,yw,0,1,1,.7));geoInto('plain',new THREE.SphereGeometry(.24,10,8),B,place(p[0],y+3.38,p[1],0,yw,0,.92,1.08,1));
+        geoInto('plain',new THREE.CylinderGeometry(.1,.12,.2,8),B,place(p[0],y+3.15,p[1]));addSolidPoly(rectPts(p[0],p[1],1.7,1.7,yw))}
+      // bancas amarillas de concreto (sin espaldar), a lo largo de la fachada y hacia el oeste
+      const banca=(s0,o0,along)=>{const p=fP(eF,s0,o0),y=ground(p[0],p[1]),yw=eF.yaw+(along?0:Math.PI/2),dx=Math.cos(yw),dz=-Math.sin(yw);
+        box(2.8,.14,.55,'#e9c434',p[0],y+.47,p[1],yw);for(const k of [-1,1])box(.3,.42,.5,'#d4ae25',p[0]+dx*k*1.05,y+.21,p[1]+dz*k*1.05,yw);addSolidPoly(rectPts(p[0],p[1],2.9,.6,yw))};
+      banca(6.2,9,1);banca(13.4,9,1);banca(22.2,6.5,0);banca(21.6,12,0);banca(15,17.5,1);
+      // el puesto de sombreros vueltiaos: un armazón de madera con los sombreros colgados y una mesita
+      {const sv=1.9,ov=5.4,p=fP(eF,sv,ov),y=ground(p[0],p[1]),yw=eF.yaw-Math.PI/5,dx=Math.cos(yw),dz=-Math.sin(yw),fx=Math.sin(yw),fz=Math.cos(yw),W='#6d4c2f';
+        for(const k of [-1,1])box(.08,2,.08,W,p[0]+dx*k*.75,y+1,p[1]+dz*k*.75,yw);for(const yy of [.75,1.3,1.85])box(1.6,.05,.05,W,p[0],y+yy,p[1],yw);
+        for(let r=0;r<3;r++)for(let k=0;k<3;k++){const lx=(k-1)*.5,hx=p[0]+dx*lx+fx*.07,hz=p[1]+dz*lx+fz*.07,hy=y+.55+r*.55;
+          const disc=(r0,r1,h)=>{const g=new THREE.CylinderGeometry(r0,r1,h,14);g.rotateX(Math.PI/2);return g};
+          geoInto('plain',disc(.24,.24,.03),colObj('#f2ecd9'),place(hx,hy,hz,0,yw,0));geoInto('plain',disc(.17,.17,.035),colObj('#2a2420'),place(hx+fx*.01,hy,hz+fz*.01,0,yw,0));
+          geoInto('plain',disc(.11,.13,.12),colObj('#efe8d3'),place(hx+fx*.05,hy,hz+fz*.05,0,yw,0))}
+        const t=[p[0]+fx*1.1,p[1]+fz*1.1];box(1.2,.7,.6,W,t[0],y+.35,t[1],yw);for(let k=0;k<3;k++)geoInto('plain',new THREE.CylinderGeometry(.26,.28,.05,14),colObj(k%2?'#2a2420':'#f2ecd9'),place(t[0]+dx*(k-1)*.35,y+.73,t[1]+dz*(k-1)*.35));
+        addSolidPoly(rectPts(p[0]+fx*.5,p[1]+fz*.5,1.8,1.7,yw));const v=[p[0]+fx*1.4+dx*1.1,p[1]+fz*1.4+dz*1.1];LATER.push(()=>stayAt('vendor',v[0],v[1],yw,''))}}
+    window.__trin={gy,c,eF:[eF.lx,eF.lz,eF.yaw,eF.L]}}
+
   /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
      almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
      y el túnel a nivel del suelo hasta el callejón; por dentro tendidos grises con pasillos rojos, el anillo de en medio con los vomitorios
@@ -1667,6 +1828,7 @@ function construirSitios(){
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
     if(k==='castellana'){castellana(s,P);continue}
     if(k==='huc'){hospitalCaribe(s,P);continue}
+    if(k==='trinidad'){trinidad(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
@@ -1840,13 +2002,15 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
     let acc=hash(Math.round(p[0]),Math.round(p[1]))*14;for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],L=Math.hypot(bx-ax,bz-az);if(L<1)continue;const dx=(bx-ax)/L,dz=(bz-az)/L;
       for(let s=acc;s<L;s+=16){const off=RW[ty]/2+2.2;for(const sg of [1,-1]){const x=ax+dx*s-dz*off*sg,z=az+dz*s+dx*off*sg;if(ok(x,z))PALMS.push([x,z])}}acc=(acc-L)%16;if(acc<0)acc+=16}});
   // parks and squares
-  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
+  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{if(p.propia)return;let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
     const ar=(x1-x0)*(z1-z0),k=Math.min(30,Math.floor(ar/260));for(let t=0;t<k;t++){const x=rr(x0,x1),z=rr(z0,z1);if(!inPoly(p,x,z)||!ok(x,z))continue;(rand()<.45||isBoca(x,z)?PALMS:TREES).push([x,z])}});
   // a sprinkle of almond / mango trees in residential streets
   MAP.roads.forEach(r=>{const [ty,,,,,p]=r;if(ty!==4||rand()>.35)return;const i=2*Math.floor(rand()*(p.length/2-1));const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3];const L=Math.hypot(bx-ax,bz-az)||1;const s=rand(),o=(RW[4]/2+2.6)*(rand()<.5?1:-1);
     const x=lerp(ax,bx,s)-(bz-az)/L*o,z=lerp(az,bz,s)+(bx-ax)/L*o;if(ok(x,z)&&!inCentro(x,z))TREES.push([x,z])});
   // the Cerro de La Popa is covered in dry tropical forest
   for(let k=0;k<1400&&TREES.length<2600;k++){const a=rr(-1,1),b=rr(-1,1);if(a*a+b*b>1)continue;const x=HX+(a*700*HCA-b*400*HSA),z=HZ+(a*700*HSA+b*400*HCA);if(groundRaw(x,z)>2&&ok(x,z)&&!nearestRoad(x,z,6))TREES.push([x,z])}
+  // la Plaza de la Paz (frente a la Torre del Reloj) queda despejada, salvo las palmas de sus jardines
+  if(TORRE_FX.plaza){for(const A of [PALMS,TREES])for(let i=A.length-1;i>=0;i--)if(inPoly(TORRE_FX.plaza,A[i][0],A[i][1]))A.splice(i,1);PALMS.push(...TORRE_FX.palms)}
   const o=new THREE.Object3D();
   // palm: gently curved trunk + crown of drooping fronds
   const trunk=new THREE.CylinderGeometry(.2,.32,9,5,4,true);trunk.translate(0,4.5,0);{const pa=trunk.attributes.position;for(let i=0;i<pa.count;i++){const y=pa.getY(i);pa.setX(i,pa.getX(i)+Math.pow(y/9,2)*.9)}trunk.computeVertexNormals()}
@@ -3331,7 +3495,8 @@ function updateDay(dt){gameH=(gameH+dt*DAYRATE)%24;const a=(gameH-6)/12*Math.PI,
   if(el>-.05)SUNDIR.set(Math.cos(a),Math.max(.14,el),.38).normalize();else SUNDIR.set(-.3,.85,-.42).normalize();
   sun.intensity=el>-.05?.12+.86*dayK+.15*dusk:.34;sun.color.copy(el>-.05?C_SUND:C_MOON);if(el>-.05)sun.color.lerp(C_SUNS,dusk);
   hemi.intensity=.5+.1*dayK+.55*clamp(NIGHT.value,0,1);hemi.groundColor.copy(C_HGN).lerp(C_HGD,dayK);U_NIGHT.value=clamp(NIGHT.value*1.3-.15,0,1);
-  {const fl=clamp(NIGHT.value*1.3-.2,0,1)*.32;MATS.coral.emissive.setRGB(fl,fl*.72,fl*.45);MATS.coralS.emissive.setRGB(fl,fl*.72,fl*.45)}hemi.color.copy(C_HN).lerp(C_HD,dayK);
+  {const fl=clamp(NIGHT.value*1.3-.2,0,1)*.32;MATS.coral.emissive.setRGB(fl,fl*.72,fl*.45);MATS.coralS.emissive.setRGB(fl,fl*.72,fl*.45)}
+  {const k=clamp(NIGHT.value*1.3-.2,0,1);for(const [m,r,gg,b] of TORRE_FX.mats)m.emissive.setRGB(r*k,gg*k,b*k);const hh=gameH%12,mm=(gameH*60)%60;for(const [h,m] of TORRE_FX.hands){h.rotation.z=-hh/12*TAU;m.rotation.z=-mm/60*TAU}}hemi.color.copy(C_HN).lerp(C_HD,dayK);
   skyDome.material.color.copy(C_NIGHT).lerp(C_DAYSKY,dayK).lerp(C_DUSK,dusk*.65);
   scene.fog.color.copy(C_FOGN).lerp(C_FOGD,dayK).lerp(C_FOGS,dusk*.5);renderer.setClearColor(scene.fog.color);
   stars.material.opacity=clamp(NIGHT.value*1.2-.2,0,1);placeGlow.material.opacity=lampGlow.material.opacity=headGlow.material.opacity=tailGlow.material.opacity=lanternGlow.material.opacity=clamp(NIGHT.value*1.4-.2,0,1);lightPools.opacity=clamp(NIGHT.value*1.4-.2,0,1)*.9;
@@ -3535,7 +3700,7 @@ $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
 {const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
   b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
-window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild,LM,MALL_SHOPS,CHURCH_NAMES,solidAt,onLand,isWater,roadClear,inSpecial};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__gyRaw=groundRaw;window.__hilly=hilly;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__TORRE=TORRE;window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild,LM,MALL_SHOPS,CHURCH_NAMES,solidAt,onLand,isWater,roadClear,inSpecial};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__gyRaw=groundRaw;window.__hilly=hilly;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>
