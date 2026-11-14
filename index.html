@@ -646,7 +646,9 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
 // C.C. Paseo de La Castellana: su edificio real de ciudad-osm.js (al sur de la Av. Pedro de Heredia, frente a la estación de Transcaribe) y el ala curva vecina; el modelo está en construirSitios
 {const O=window.CIUDAD_OSM;if(O&&O.bld){const at=(x,z,amin)=>{let best=null,bd=30;for(const b of O.bld){const p=b[2];if(p.length<8)continue;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1]}cx/=p.length/2;cz/=p.length/2;
     const d=Math.hypot(cx-x,cz-z);if(d<bd&&Math.abs(signedArea(p))>amin){bd=d;best=p}}return best};
-  const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing})}}
+  const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing});
+  // Hospital Universitario del Caribe (Zaragocilla): su planta real de ciudad-osm.js (10 pisos en OpenStreetMap); el modelo está en construirSitios
+  const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -1209,13 +1211,13 @@ function construirSitios(){
   // techo de lámina (gris, acanalado) a cuatro aguas sobre s0..s1 / o0..o1 desde la altura y
   const corr=ctex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#9da3a5');gr.addColorStop(.25,'#e4e7e6');gr.addColorStop(.5,'#c3c8c9');gr.addColorStop(.75,'#f1f2f0');gr.addColorStop(1,'#9da3a5');g.fillStyle=gr;g.fillRect(0,0,w,h)},true);
   const roofM=new THREE.MeshLambertMaterial({map:corr,color:'#a9aeb0',side:THREE.DoubleSide});
-  const hipRoof=(e,gy,x0,x1,z0,z1,y,rise)=>{const d=(z1-z0)/2,zc=(z0+z1)/2,xa=Math.min(x0+d,(x0+x1)/2),xb=Math.max(x1-d,(x0+x1)/2),yr=y+rise,Pp=[],U=[],k=.8,sl=Math.hypot(d,rise),hs=Math.hypot(xa-x0,rise);
+  const hipRoof=(e,gy,x0,x1,z0,z1,y,rise,mt)=>{const d=(z1-z0)/2,zc=(z0+z1)/2,xa=Math.min(x0+d,(x0+x1)/2),xb=Math.max(x1-d,(x0+x1)/2),yr=y+rise,Pp=[],U=[],k=.8,sl=Math.hypot(d,rise),hs=Math.hypot(xa-x0,rise);
     const T=(a,b,c,ua,ub,uc)=>{Pp.push(...a,...b,...c);U.push(...ua,...ub,...uc)};
     T([x0,y,z1],[x1,y,z1],[xb,yr,zc],[x0/k,0],[x1/k,0],[xb/k,sl/4]);T([x0,y,z1],[xb,yr,zc],[xa,yr,zc],[x0/k,0],[xb/k,sl/4],[xa/k,sl/4]);
     T([x1,y,z0],[x0,y,z0],[xa,yr,zc],[x1/k,0],[x0/k,0],[xa/k,sl/4]);T([x1,y,z0],[xa,yr,zc],[xb,yr,zc],[x1/k,0],[xa/k,sl/4],[xb/k,sl/4]);
     T([x0,y,z0],[x0,y,z1],[xa,yr,zc],[z0/k,0],[z1/k,0],[zc/k,hs/4]);T([x1,y,z1],[x1,y,z0],[xb,yr,zc],[z1/k,0],[z0/k,0],[zc/k,hs/4]);
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.applyMatrix4(fM(e,gy));g.computeVertexNormals();
-    const m=new THREE.Mesh(g,roofM);m.castShadow=true;m.receiveShadow=true;scene.add(m)};
+    const m=new THREE.Mesh(g,mt||roofM);m.castShadow=true;m.receiveShadow=true;scene.add(m)};
 
   // Mallplaza El Castillo (Chambacú / El Espinal): muros granate, franja beige arriba, esquina de vidrio hacia la avenida, panel "mallplaza",
   // jardín vertical, paneles solares en el techo, plaza de ladrillo rojo y parqueadero
@@ -1315,6 +1317,78 @@ function construirSitios(){
     const door=fP(eP,eP.L/2,3.5),wall=fP(eP,eP.L/2,1.2);
     MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eP.nx,nz:eP.nz,len:16,yaw:eP.yaw,gy,type:'mall',name:s.n,mall:true,custom:true});
     addLM(s.n,s.x,s.z,26,1,door[0],door[1]);icon('mall',door[0],door[1],s.n)}
+  /* Hospital Universitario del Caribe (Zaragocilla), modelado a partir de fotos sobre su planta real de OpenStreetMap: la torre blanca
+     de doce pisos con franjas corridas de ventanitas, el extremo oeste con los balcones hundidos y escalonados, la caseta del techo con el
+     logo azul «HUC», la base blanca de tres pisos con techos de lámina azul, el letrero rojo de la entrada, el patio de urgencias con
+     su ambulancia, el jardín con árboles y el muro de grafitis de la calle */
+  function hospitalCaribe(s,P){
+    const gy=minG(P),WH='#f3f3ee',H0=12.6,FH=3.6,NF=9,HT=H0+NF*FH,E=fEdges(P);
+    // ventanas: franja de ventanitas por piso (la torre) y ventanas más grandes en la base
+    const winTex=(fh,n,w0,y0,y1)=>ctex(128,Math.round(128*fh/4),(g,w,h)=>{g.fillStyle='#fbfbf8';g.fillRect(0,0,w,h);g.fillStyle='#dcdcd5';g.fillRect(0,0,w,3);
+      const a=h*(1-y1),b=h*(1-y0),st=w/n;for(let i=0;i<n;i++){const x=i*st+(st-w0)/2,gr=g.createLinearGradient(0,a,0,b);gr.addColorStop(0,'#2c353d');gr.addColorStop(1,'#56636d');g.fillStyle=gr;g.fillRect(x,a,w0,b-a);
+        g.fillStyle='rgba(255,255,255,.16)';g.fillRect(x+w0*.55,a,w0*.18,b-a)}g.fillStyle='#e2e2da';g.fillRect(0,b,w,3)},true);
+    const lit={emissive:'#3b3b37'},towM=smat(winTex(FH,6,13,.34,.7),lit),podM=smat(winTex(4.2,3,26,.3,.72),lit);
+    // la base: tres pisos blancos sobre toda la planta, con su pretil y el techo claro
+    band(P,gy-2,gy+H0,'plain',colObj(WH),0,1,1,false);ring(P,gy+H0-.05,gy+H0+1,0,colObj(WH),'plain');flatRoof(P,gy+H0+.15,'plain',colObj('#d9d9d2'),6);addSolidPoly(P);addSpecial(P);
+    for(const e of E)if(e.L>=5)fmesh(e,gy,e.L/2,H0/2+.2,.05,e.L-1,H0-1.2,podM,(e.L-1)/4,3);
+    // la torre: de oeste a este sobre la base, con el frente hacia el sur (la calle y la entrada)
+    const XW=4888,XE=4966,ZF=2446,TD=18,ZB=ZF-TD,TL=XE-XW;
+    const eF=fr(XE,ZF,XW,ZF,null),eB=fr(XW,ZB,XE,ZB,null),eWs=fr(XW,ZF,XW,ZB,null),eEs=fr(XE,ZB,XE,ZF,null);
+    fbox(eF,gy,0,TL,H0,HT,-TD,0,WH);for(const e of [eF,eB,eWs,eEs])fmesh(e,gy,e.L/2,(H0+HT)/2,.05,e.L,HT-H0,towM,e.L/4,NF);
+    for(let i=0;i<=NF;i++)fbox(eF,gy,-.15,TL+.15,H0+i*FH-.12,H0+i*FH+.18,-TD-.15,.15,WH);   // losas que marcan cada piso
+    fbox(eF,gy,0,TL,HT,HT+1.1,-.35,0,WH);fbox(eF,gy,0,TL,HT,HT+1.1,-TD,-TD+.35,WH);fbox(eF,gy,0,.35,HT,HT+1.1,-TD,0,WH);fbox(eF,gy,TL-.35,TL,HT,HT+1.1,-TD,0,WH);
+    // extremo oeste: el bloque de los balcones hundidos, un piso más bajo (escalonado), con antepechos blancos y el fondo oscuro
+    {const s0=-7,o0=-TD+2,o1=2,top=HT-FH;fbox(eF,gy,s0,0,H0,top,o0,o1-.6,WH);fbox(eF,gy,s0-.2,.1,top,top+1,o0-.2,o1+.2,WH);
+      for(let i=0;i<NF-1;i++){const y=H0+i*FH;
+        fpane(eF,gy,s0/2,y+(FH+1.25)/2,-s0-.8,FH-1.4,o1-.58,'#4b555c');fbox(eF,gy,s0,0,y-.1,y+.3,o0,o1,WH);fbox(eF,gy,s0,0,y+.3,y+1.25,o1-.3,o1,WH);
+        fpane(eWs,gy,TD/2+2,y+(FH+1.25)/2,TD-.8,FH-1.4,7.02,'#4b555c');fbox(eWs,gy,2,TD+2,y+.3,y+1.25,7,7.3,WH)}
+      for(let q=2.3;q<TD+2;q+=3.1)fbox(eWs,gy,q-.2,q+.2,H0,top,7,7.35,WH);
+      for(let i=0;i<NF-1;i++){const y=H0+i*FH;fbox(eF,gy,s0,s0+.35,y+.3,y+1.25,o0,o1,WH)}
+      for(let x=s0+.3;x<0;x+=2.3)fbox(eF,gy,x-.18,x+.18,H0,top,o1-.35,o1-.05,WH)}
+    // caseta del techo con el logo «HUC» (azul) por delante y por detrás; cuarto de ascensores y equipos
+    const logo=smat(ctex(512,256,(g,w,h)=>{g.fillStyle='#f6f6f2';g.fillRect(0,0,w,h);g.fillStyle='#1d4f9c';const r=(x,y,a,b,c)=>{g.beginPath();g.moveTo(x+c,y);g.arcTo(x+a,y,x+a,y+b,c);g.arcTo(x+a,y+b,x,y+b,c);g.arcTo(x,y+b,x,y,c);g.arcTo(x,y,x+a,y,c);g.fill()};
+      r(30,38,180,180,26);g.fillStyle='#fff';g.fillRect(98,62,44,132);g.fillRect(54,106,132,44);g.fillStyle='#1d4f9c';g.beginPath();g.arc(120,128,15,0,TAU);g.fill();
+      g.font='900 150px "Arial Black",Arial,sans-serif';g.textAlign='left';g.textBaseline='middle';g.fillText('HUC',232,136,262)}));
+    {const a=TL-23,b=TL-7;fbox(eF,gy,a,b,HT,HT+6.4,-TD+3,-3,WH);fbox(eF,gy,a-.2,b+.2,HT+6.4,HT+6.9,-TD+2.8,-2.8,'#e6e6e0');
+      fmesh(eF,gy,(a+b)/2,HT+3.5,-2.94,11,5.5,logo);fmesh(eB,gy,TL-(a+b)/2,HT+3.5,-2.94,11,5.5,logo);
+      fbox(eF,gy,9,19,HT,HT+4.2,-TD+4,-5,'#ecece6');for(let i=0;i<6;i++)fbox(eF,gy,24+i*6.5,28+i*6.5,HT,HT+1.6,-TD+5,-TD+8,'#b9bcbc');
+      for(let i=0;i<4;i++)fbox(eF,gy,26+i*9,29+i*9,HT,HT+2.2,-6,-3,'#c9cbca')}
+    // techos de lámina azul sobre la base (alas del frente, como en las fotos)
+    const blueM=new THREE.MeshLambertMaterial({map:ctex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#1f5fae');gr.addColorStop(.3,'#5b9ae0');gr.addColorStop(.55,'#3477c8');gr.addColorStop(.8,'#79b0ea');gr.addColorStop(1,'#1f5fae');g.fillStyle=gr;g.fillRect(0,0,w,h)},true),side:THREE.DoubleSide});
+    hipRoof(eF,gy,-6.5,23,1.2,12.6,H0+.9,1.5,blueM);hipRoof(eF,gy,49,TL+4,2,9.5,H0+.9,1.2,blueM);hipRoof(eF,gy,49,TL+4,12,24.5,H0+.9,1.4,blueM);
+    // entrada principal hacia la calle del sur: alero, puerta de vidrio y el letrero rojo; cruz
+    const eA=fNear(E,4916.5,2507.8);
+    {const L=eA.L,c=L/2,gy=(q=>ground(q[0],q[1]))(fP(eA,c,2));fpane(eA,gy,c,2,Math.min(12,L-4),3.6,.1,'#2b3238');fbox(eA,gy,c-7,c+7,3.9,4.5,0,4.2,WH);for(const q of [c-6.4,c+6.4])fbox(eA,gy,q-.22,q+.22,0,3.9,3.6,4.05,WH);
+      fbox(eA,gy,1,L-1,6.2,9.6,0,.45,'#a7262a');
+      fmesh(eA,gy,c,7.9,.47,L-2.4,3.1,smat(ctex(1024,140,(g,w,h)=>{g.fillStyle='#a7262a';g.fillRect(0,0,w,h);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.font='800 62px Arial,sans-serif';
+        g.fillText('HOSPITAL UNIVERSITARIO DEL CARIBE',w/2,58,w-40);g.font='600 30px Arial,sans-serif';g.fillText('E.S.E.  ·  CARTAGENA DE INDIAS',w/2,112)})));
+      signAt(crossTex,...(()=>{const q=fP(eA,c-9.2,.14);return[q[0],gy+2.6,q[1]]})(),eA.yaw,2.2,2.2);fflat(eA,-1,L+1,0,4.6,'plaza',.11,3.2);fsolid(eA,c-7,c+7,0,4.3)}
+    // patio de urgencias (el de la entrada de carros, al oeste de la entrada): puerta, alero, letrero y la ambulancia
+    const eU=fNear(E,4928.4,2475.7);
+    {const L=eU.L,c=L/2,gy=(q=>ground(q[0],q[1]))(fP(eU,c,2));fpane(eU,gy,c,1.9,Math.min(8,L-2),3.4,.1,'#2b3238');fbox(eU,gy,c-5,c+5,3.8,4.3,0,3.5,WH);
+      signAt(txtSign('URGENCIAS','','#c41a1a','#ffffff'),...(()=>{const q=fP(eU,c,3.56);return[q[0],gy+4.05,q[1]]})(),eU.yaw,6,1.3);
+      const p=fP(eU,c+1,6.2),y=ground(p[0],p[1]),yw=eU.yaw;
+      box(2.2,2.3,5.6,'#f7f7f4',p[0],y+1.55,p[1],yw);box(2.25,.32,5.65,'#c62828',p[0],y+1.4,p[1],yw);box(1.4,.22,.5,'#e53935',...(()=>{const q=[p[0]+Math.sin(yw)*1.6,p[1]+Math.cos(yw)*1.6];return[q[0],y+2.82,q[1]]})(),yw);
+      for(const [a,b] of [[-.95,-1.7],[.95,-1.7],[-.95,1.8],[.95,1.8]]){const q=[p[0]+Math.cos(yw)*a+Math.sin(yw)*b,p[1]-Math.sin(yw)*a+Math.cos(yw)*b];geoInto('plain',new THREE.CylinderGeometry(.38,.38,.3,10),colObj('#222'),place(q[0],y+.4,q[1],0,yw,Math.PI/2))}
+      addSolidPoly(rectPts(p[0],p[1],2.3,5.7,yw))}
+    // jardín con árboles entre la base y las calles (al oeste de la entrada y al este), sin pisar calles ni edificios
+    const tree=(x,z)=>{if(onLand(x,z)&&!solidAt(x,z)&&!inPoly(P,x,z)&&roadClear(x,z,3.5))XTREES.push([x,z])};
+    for(let x=4880;x<4904;x+=7.5)for(let z=2482;z<2512;z+=7)tree(x+hash(x,z)*2,z+hash(z,x)*2);
+    for(let x=4885;x<4910;x+=8)tree(x,2464.5);for(let x=4940;x<4975;x+=7)tree(x,2478+hash(x,7)*3);
+    // el muro de grafitis a lo largo de la calle del sureste
+    {const mural=smat(ctex(1024,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#2bb3c0');gr.addColorStop(.35,'#f2c14e');gr.addColorStop(.7,'#ef6f6c');gr.addColorStop(1,'#2bb3c0');g.fillStyle=gr;g.fillRect(0,0,w,h);
+        let sd=11;const R=()=>(sd=(sd*16807)%2147483647)/2147483647,C=['#1d4f9c','#e4572e','#2e8b57','#f7d038','#8e44ad','#ffffff','#d81b60','#00897b'];
+        for(let i=0;i<26;i++){g.fillStyle=C[Math.floor(R()*C.length)];g.globalAlpha=.85;g.beginPath();g.ellipse(R()*w,R()*h,20+R()*70,14+R()*50,R()*3,0,TAU);g.fill()}
+        g.globalAlpha=1;g.lineWidth=7;for(let i=0;i<8;i++){g.strokeStyle=C[Math.floor(R()*C.length)];g.beginPath();g.moveTo(R()*w,R()*h);g.bezierCurveTo(R()*w,R()*h,R()*w,R()*h,R()*w,R()*h);g.stroke()}
+        g.font='900 92px "Arial Black",Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=10;g.strokeStyle='#1b1b1b';g.strokeText('SALUD',w*.3,h*.55);g.fillStyle='#fff';g.fillText('SALUD',w*.3,h*.55);
+        g.strokeText('CARIBE',w*.74,h*.48);g.fillStyle='#f7d038';g.fillText('CARIBE',w*.74,h*.48);g.fillStyle='#e9e6df';g.fillRect(0,0,w,10)},true));
+      const A=[4940,2489],B=[4994,2475],L=Math.hypot(B[0]-A[0],B[1]-A[1]),ux=(B[0]-A[0])/L,uz=(B[1]-A[1])/L,off=6;
+      for(let t=2;t<L-2;t+=6){const t1=Math.min(t+6,L-2),a=[A[0]+ux*t1+uz*off,A[1]+uz*t1-ux*off],b=[A[0]+ux*t+uz*off,A[1]+uz*t-ux*off],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+        if(solidAt(m[0],m[1])||inPoly(P,m[0],m[1])||!roadClear(m[0],m[1],2))continue;const e=fr(a[0],a[1],b[0],b[1],null),gw=ground(m[0],m[1]);
+        fbox(e,gw,0,e.L,-1,2.6,-.35,0,'#e9e6df');fbox(e,gw,-.1,e.L+.1,2.6,2.8,-.45,.1,'#d5d1c8');fmesh(e,gw,e.L/2,1.25,.03,e.L,2.5,mural,e.L/10,1);fsolid(e,0,e.L,-.35,0)}}
+    const door=fP(eA,eA.L/2,6),top=fP(eF,TL/2,-TD/2);addLM(s.n,top[0],top[1],HT+8,1,door[0],door[1]);icon('hospital',door[0],door[1],s.n);
+    window.__huc={gy,HT,eA:[eA.mx,eA.mz,eA.L],eU:[eU.mx,eU.mz,eU.L]}}
+
   /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
      almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
      y el túnel a nivel del suelo hasta el callejón; por dentro tendidos grises con pasillos rojos, el anillo de en medio con los vomitorios
@@ -1478,6 +1552,7 @@ function construirSitios(){
       let fx=cx,fz=cz;if(!inPoly(P,fx,fz)){fx=P[0]*.7+cx*.3;fz=P[1]*.7+cz*.3}cyl(.12,.12,9,'#d9d9d9',fx,gy+10.5,fz,6);box(4.5,1,.06,'#fcd116',fx+2.3,gy+14.2,fz);box(4.5,.5,.06,'#003893',fx+2.3,gy+13.45,fz);box(4.5,.5,.06,'#ce1126',fx+2.3,gy+12.95,fz);
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
     if(k==='castellana'){castellana(s,P);continue}
+    if(k==='huc'){hospitalCaribe(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
@@ -1573,6 +1648,7 @@ function construirSitios(){
         geoInto('plain',new THREE.CylinderGeometry(.04,.04,2.4,5),colObj('#ddd'),place(px,ground(px,pz)+1.2,pz));geoInto('plain',new THREE.ConeGeometry(1.4,.6,8,1,true),colObj(col),place(px,ground(px,pz)+2.4,pz));
         if(i%3===0)LATER.push(()=>stayAt(rand()<.5?'tourist':'vendor',px+1.2,pz,rr(0,TAU),rand()<.5?'cooler':''))}continue}
     const box=k==='estadio'?{w:L.r*2+12,d:L.r*2+12}:k==='cai'?{w:5,d:5}:k==='parque'?{w:64,d:48}:k==='iglesia'?{w:18,d:34}:k==='mall'?{w:L.w,d:L.d+26}:k==='terminal'?{w:L.w,d:L.d+32}:{w:L.w||30,d:L.d||20};
+    if(SIT.some(q=>q.n===L.name&&q.p))continue;   // ya tiene su modelo propio en su planta real (construirSitios)
     const sp=findSpot(L.x,L.z,box.w,box.d,k==='cai'?.3:1.2);if(!sp){console.warn('sin lugar para',L.name);continue}
     const fr=frontOf(sp,box.d,4);
     if(k==='hospital'||k==='salud'||k==='universidad'){const fl=k==='hospital'?4:k==='universidad'?2:1;const B=boxBuilding(sp.x,sp.z,box.w,box.d,sp.yaw,fl,k==='universidad'?'col2':'mod',k==='universidad'?'#f1e3c2':'#ffffff');addSpecial(rectPts(sp.x,sp.z,box.w+4,box.d+4,sp.yaw));
