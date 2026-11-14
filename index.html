@@ -649,6 +649,8 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
   const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing});
   // Hospital Universitario del Caribe (Zaragocilla): su planta real de ciudad-osm.js (10 pisos en OpenStreetMap); el modelo está en construirSitios
   const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
+// Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
+{const b=MAP.buildings.find(b=>b[2]==='Iglesia de la Trinidad');if(b){SIT.push({n:'Iglesia de la Trinidad',k:'trinidad',x:394,z:234,p:b[3]});SIT_SKIP.push(b[3])}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -1436,6 +1438,118 @@ function construirSitios(){
     const door=fP(eA,eA.L/2,6),top=fP(eF,TL/2,-TD/2);addLM(s.n,top[0],top[1],HT+8,1,door[0],door[1]);icon('hospital',door[0],door[1],s.n);
     window.__huc={gy,HT,eA:[eA.mx,eA.mz,eA.L],eU:[eU.mx,eU.mz,eU.L]}}
 
+  /* Iglesia de la Santísima Trinidad (Getsemaní), modelada a partir de fotos sobre su planta de OpenStreetMap: la fachada amarilla con el
+     frontón triangular, su óculo y los remates blancos de las pilastras; la portada de piedra coralina con la puerta verde oscura y la
+     ventanita con su frontón encima; la torre a la izquierda con el campanario de arcos y pináculos; el cuerpo de la derecha con sus dos
+     ventanas de reja; techos de teja; y el atrio de piedra con sus escalones hacia la plaza. La Plaza de la Trinidad: el ladrillo rojo con
+     franjas grises, la palma, el monumento a Pedro Romero, las bancas amarillas y el puesto de sombreros vueltiaos */
+  function trinidad(s,P){
+    const YEL='#f0bf2e',YD='#e3ae25',WH='#f7f2e4',ST='#c3bcaa',STD='#8f897d',RED='#b4583c';
+    const eF=fNear(fEdges(P),394,220.7);           // la fachada hacia la plaza: s de izquierda (la torre, al este) a derecha; o hacia afuera
+    const TW0=-2.2,TW1=3.8,N0=TW1,N1=14.5,R1=19,D=-26,H=10,APEX=15,PL=.8,c=(N0+N1)/2,TD=-6;
+    const gy=minG([...fP(eF,TW0,D),...fP(eF,R1,D),...fP(eF,R1,4.5),...fP(eF,TW0,4.5)]);
+    const pbox=(s0,s1,y0,y1,o0,o1,col)=>fbox(eF,gy,s0,s1,y0,y1,o0,o1,col);
+    const rect=(s0,s1,o0,o1)=>[...fP(eF,s0,o1),...fP(eF,s1,o1),...fP(eF,s1,o0),...fP(eF,s0,o0)];
+    const at=(s,y,o)=>{const p=fP(eF,s,o);return[p[0],gy+y,p[1]]};
+    const face=(s,y,o,w,h,mat,dy)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);const p=fP(eF,s,o);m.position.set(p[0],gy+y,p[1]);m.rotation.y=eF.yaw+(dy||0);m.receiveShadow=true;scene.add(m);return m};
+    const pin=(s,o,y,z)=>{const p=fP(eF,s,o);geoInto('plain',new THREE.BoxGeometry(z,z*1.1,z),colObj(WH),place(p[0],gy+y+z*.55,p[1],0,eF.yaw,0));
+      geoInto('plain',new THREE.ConeGeometry(z*.42,z*1.5,4),colObj(WH),place(p[0],gy+y+z*1.85,p[1],0,eF.yaw+Math.PI/4,0));geoInto('plain',new THREE.SphereGeometry(z*.2,6,4),colObj(WH),place(p[0],gy+y+z*2.75,p[1]))};
+    // ventana de reja: marco claro, fondo verde oscuro y barrotes
+    const winM=smat(ctex(128,160,(g,w,h)=>{g.fillStyle='#efe6cf';g.fillRect(0,0,w,h);g.fillStyle='#1d2c25';g.fillRect(12,12,w-24,h-24);g.fillStyle='#2b4035';g.fillRect(12,h/2-2,w-24,4);
+      g.fillStyle='#5d7a69';for(let x=22;x<w-14;x+=14)g.fillRect(x,12,4,h-24);g.fillRect(12,40,w-24,4);g.fillRect(12,h-46,w-24,4)}));
+    // el cuerpo: nave (con la fachada del frontón), el cuerpo bajo de la derecha y el anexo detrás de la torre; techos de teja
+    const C=colObj(YEL),nave=rect(N0,N1,D,0),ala=rect(N1,R1,D,0),anexo=rect(TW0,TW1,D,TD);
+    band(nave,gy-2,gy+H,'plain',C,0,1,1,false);gableRoof(nave,gy+H,'plain',C);
+    band(ala,gy-2,gy+H-1.5,'plain',C,0,1,1,false);gableRoof(ala,gy+H-1.5,'plain',C);pbox(N1,R1,H-1.6,H,-.6,0,YEL);
+    band(anexo,gy-2,gy+H-2.5,'plain',C,0,1,1,false);gableRoof(anexo,gy+H-2.5,'plain',C);
+    fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(N0,H-.3);sh.lineTo(N1,H-.3);sh.lineTo(c,APEX);sh.lineTo(N0,H-.3);return sh})(),-.6,0,YEL);
+    // la fachada pintada: frontón, portada, ventanas y manchas de humedad (transparente fuera de la silueta)
+    const FW=R1-N0;
+    const facT=ctex(1024,1024,(g,w,h)=>{g.setTransform(w/FW,0,0,-h/APEX,0,h);const nw=N1-N0,cc=c-N0;
+      g.fillStyle=YEL;g.beginPath();g.moveTo(0,0);g.lineTo(FW,0);g.lineTo(FW,H);g.lineTo(nw,H);g.lineTo(cc,APEX);g.lineTo(0,H);g.closePath();g.fill();
+      let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let i=0;i<22;i++){const x=R()*FW,y=H*(.6+R()*.4),l=.8+R()*2.2;g.fillStyle=`rgba(120,90,30,${.03+R()*.05})`;g.fillRect(x,y-l,.12+R()*.25,l)}
+      const gr=g.createLinearGradient(0,0,0,2.2);gr.addColorStop(0,'rgba(90,70,30,.35)');gr.addColorStop(1,'rgba(90,70,30,0)');g.fillStyle=gr;g.fillRect(0,0,FW,2.2);
+      // ventanas del cuerpo de la derecha
+      const win=(x,y0,ww,hh)=>{g.fillStyle='#efe6cf';g.fillRect(x-ww/2-.15,y0-.15,ww+.3,hh+.3);g.fillStyle='#1d2c25';g.fillRect(x-ww/2,y0,ww,hh);g.fillStyle='#5d7a69';
+        for(let q=x-ww/2+.18;q<x+ww/2-.05;q+=.2)g.fillRect(q,y0,.05,hh);g.fillRect(x-ww/2,y0+hh*.25,ww,.05);g.fillRect(x-ww/2,y0+hh*.75,ww,.05);g.fillStyle='#e2d8bd';g.fillRect(x-ww/2-.3,y0-.3,ww+.6,.18)};
+      const rx=(N1+R1)/2-N0;win(rx,2.1,1.5,2.1);win(rx,6.3,1.3,1.6);
+      // portada de piedra: jambas, puerta verde oscura de dos hojas con tableros, entablamento, ventanita con frontón y remates
+      g.fillStyle=ST;g.fillRect(cc-2.3,PL,4.6,4.4);g.fillRect(cc-2.55,PL+4.4,5.1,.75);g.fillRect(cc-1.1,PL+5.15,2.2,2.35);
+      g.fillStyle='rgba(0,0,0,.12)';for(let y=PL+.45;y<PL+4.4;y+=.45){g.fillRect(cc-2.3,y,.9,.03);g.fillRect(cc+1.4,y,.9,.03)}
+      g.fillStyle='#182520';g.fillRect(cc-1.35,PL,2.7,4.3);g.fillStyle='#24362d';for(const sx of [-1,1])for(let k=0;k<3;k++)g.fillRect(cc+sx*.68-.48,PL+.35+k*1.35,.96,1.05);
+      g.fillStyle='#0f1814';g.fillRect(cc-.03,PL,.06,4.3);g.fillStyle='#c9b27a';g.fillRect(cc-.22,PL+2.1,.12,.12);g.fillRect(cc+.1,PL+2.1,.12,.12);
+      g.fillStyle='#2d3a40';g.fillRect(cc-.6,PL+5.55,1.2,1.6);g.fillStyle='#55656c';g.fillRect(cc-.03,PL+5.55,.06,1.6);g.fillRect(cc-.6,PL+6.3,1.2,.05);
+      g.fillStyle=ST;g.beginPath();g.moveTo(cc-1.45,PL+7.5);g.lineTo(cc+1.45,PL+7.5);g.lineTo(cc,PL+8.25);g.closePath();g.fill();
+      // óculo y bordes blancos del frontón
+      g.fillStyle=WH;g.beginPath();g.arc(cc,H+1.9,.78,0,TAU);g.fill();g.fillStyle='#4b5357';g.beginPath();g.arc(cc,H+1.9,.5,0,TAU);g.fill();
+      g.strokeStyle=WH;g.lineWidth=.3;g.beginPath();g.moveTo(0,H);g.lineTo(cc,APEX-.2);g.lineTo(nw,H);g.stroke()},false);
+    face(N0+FW/2,APEX/2,.03,FW,APEX,smat(facT,{transparent:true,alphaTest:.5}));
+    // relieve: pilastras con capiteles y remates blancos, cornisa, cornisas del frontón, óculo y la portada de piedra
+    for(const [a,b] of [[N0,N0+.75],[N1-.75,N1],[R1-.65,R1]]){pbox(a,b,PL,H-.5,0,.28,YD);pbox(a-.08,b+.08,H-.75,H-.25,0,.4,WH);pin((a+b)/2,.15,H+.25,.62)}
+    pbox(N0-.1,R1+.12,H-.25,H+.25,0,.45,WH);
+    for(const sg of [-1,1]){const x0=sg<0?N0-.3:N1+.3;fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(x0,H+.1);sh.lineTo(c,APEX+.05);sh.lineTo(c,APEX+.45);sh.lineTo(x0,H+.5);sh.lineTo(x0,H+.1);return sh})(),0,.38,WH)}
+    pin(c,0,APEX+.3,.5);
+    geoInto('plain',new THREE.TorusGeometry(.66,.14,6,18),colObj(WH),place(...at(c,H+1.9,.1),0,eF.yaw,0));
+    for(const sx of [-1,1]){pbox(c+sx*1.83-.47,c+sx*1.83+.47,PL,PL+4.4,0,.32,ST);
+      const p=fP(eF,c+sx*2.25,.3);geoInto('plain',new THREE.SphereGeometry(.3,8,6),colObj(ST),place(p[0],gy+PL+5.55,p[1],0,0,0,1,1.35,1));geoInto('plain',new THREE.CylinderGeometry(.2,.25,.3,8),colObj(ST),place(p[0],gy+PL+5.3,p[1]))}
+    pbox(c-2.6,c+2.6,PL+4.4,PL+5.15,0,.5,ST);pbox(c-2.75,c+2.75,PL+5.05,PL+5.25,0,.6,'#d2cbb9');
+    pbox(c-1.15,c-.75,PL+5.15,PL+7.5,0,.25,ST);pbox(c+.75,c+1.15,PL+5.15,PL+7.5,0,.25,ST);pbox(c-1.4,c+1.4,PL+7.4,PL+7.65,0,.35,ST);
+    // la torre: cuerpo amarillo hasta la cornisa, un cuerpo intermedio y el campanario de dos arcos por cara, cornisa, pináculos y cruz
+    pbox(TW0,TW1,-1,H+.6,TD,0,YEL);for(const a of [TW0,TW1-.55])pbox(a,a+.55,PL,H-.25,0,.18,YD);
+    pbox(TW0-.15,TW1+.15,H-.25,H+.25,TD-.15,.45,WH);pbox(TW0-.08,TW1+.08,H+.6,H+.9,TD-.08,.08,WH);
+    face((TW0+TW1)/2,6.4,.04,1.1,1.5,winM);face((TW0+TW1)/2,2.6,.04,1.1,1.6,winM);face(TW0-.04,6.4,TD/2,1.1,1.5,winM,-Math.PI/2);
+    const t0=TW0+.2,t1=TW1-.2,u0=TD+.2,u1=-.2,tc=(TW0+TW1)/2,oc=TD/2;
+    pbox(t0,t1,H+.9,H+3.4,u0,u1,YEL);pbox(t0-.1,t1+.1,H+3.4,H+3.75,u0-.1,u1+.1,WH);
+    const b0=TW0+.35,b1=TW1-.35,v0=TD+.35,v1=-.35,BH0=H+3.75,BH1=H+7.6,bw=b1-b0,bh=BH1-BH0;
+    pbox(b0,b1,BH0,BH1,v0,v1,YEL);
+    const belT=ctex(512,384,(g,w,h)=>{g.setTransform(w/bw,0,0,-h/bh,0,h);g.fillStyle=YEL;g.fillRect(0,0,bw,bh);g.fillStyle=WH;g.fillRect(0,0,.42,bh);g.fillRect(bw-.42,0,.42,bh);g.fillRect(0,bh-.35,bw,.35);
+      for(const x of [bw*.3,bw*.7]){const aw=1.25,top=bh-.75,sp=top-aw/2;g.fillStyle=WH;g.beginPath();g.moveTo(x-aw/2-.14,.25);g.lineTo(x-aw/2-.14,sp);g.arc(x,sp,aw/2+.14,Math.PI,0,true);g.lineTo(x+aw/2+.14,.25);g.closePath();g.fill();
+        g.fillStyle='#1c1a17';g.beginPath();g.moveTo(x-aw/2,.4);g.lineTo(x-aw/2,sp);g.arc(x,sp,aw/2,Math.PI,0,true);g.lineTo(x+aw/2,.4);g.closePath();g.fill();
+        g.fillStyle='#6f5a2e';g.beginPath();g.arc(x,sp-.55,.32,0,TAU);g.fill();g.fillStyle=WH;g.fillRect(x-aw/2-.2,.25,aw+.4,.18)}},false);
+    const belM=smat(belT);face((b0+b1)/2,(BH0+BH1)/2,v1+.03,bw,bh,belM);face((b0+b1)/2,(BH0+BH1)/2,v0-.03,bw,bh,belM,Math.PI);face(b1+.03,(BH0+BH1)/2,oc,bw,bh,belM,Math.PI/2);face(b0-.03,(BH0+BH1)/2,oc,bw,bh,belM,-Math.PI/2);
+    pbox(b0-.25,b1+.25,BH1,BH1+.55,v0-.25,v1+.25,WH);pbox(b0-.05,b1+.05,BH1+.55,BH1+.95,v0-.05,v1+.05,YEL);
+    for(const [a,o] of [[b0,v0],[b1,v0],[b0,v1],[b1,v1]])pin(a,o,BH1+.95,.55);
+    {const p=fP(eF,tc,oc);geoInto('roof_tile',new THREE.ConeGeometry(bw*.62,1.7,4,1,true),colObj('#e0e0e0'),place(p[0],gy+BH1+.95+.85,p[1],0,eF.yaw+Math.PI/4,0));
+      geoInto('plain',new THREE.BoxGeometry(.1,1.4,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.2,p[1],0,eF.yaw,0));geoInto('plain',new THREE.BoxGeometry(.7,.1,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.45,p[1],0,eF.yaw,0))}
+    // ventanas de los costados (la nave por el oeste, el anexo por el este)
+    for(const o of [-6,-12.5,-19])face(R1+.04,3.4,o,1.2,1.7,winM,Math.PI/2);for(const o of [-9,-14,-19])face(R1+.04,6.6,o-1.5,.9,1.1,winM,Math.PI/2);
+    for(const o of [-10,-16,-22])face(TW0-.04,3,o,1.1,1.6,winM,-Math.PI/2);
+    // el atrio: plataforma de piedra coralina a lo ancho de la fachada y los tres escalones frente a la puerta
+    pbox(TW0-.4,R1+.4,-1,PL-.06,0,3.2,STD);pbox(TW0-.5,R1+.5,PL-.08,PL+.04,0,3.3,'#a7a194');
+    pbox(c-2.9,c+2.9,-1,PL*2/3,3.2,3.8,'#9a9488');pbox(c-2.9,c+2.9,-1,PL/3,3.8,4.4,'#a49e91');
+    addSolidPoly(rect(TW0,R1,D,0));addSolidPoly(rect(TW0-.5,R1+.5,0,4.4));addSpecial(rect(TW0-1,R1+1,D-1,4.6));
+    CHURCH_NAMES[s.n]=[...fP(eF,tc,oc),gy+BH1+4];icon('church',...fP(eF,c,D/2),s.n);
+    /* la Plaza de la Trinidad: franjas grises sobre el ladrillo, la palma y el monumento a Pedro Romero (al lado de la torre), bancas
+       amarillas de concreto y el puesto de sombreros vueltiaos */
+    const SQ=MAP.squares.find(q=>inPoly(q,...fP(eF,10,10)));for(const q of MAP.squares)if(inPoly(q,...fP(eF,10,10)))q.propia=1;   // sin los árboles al azar de las plazas
+    if(SQ){const clip=(poly)=>{let out=poly;const n=SQ.length/2;const ccwq=signedArea(SQ)>0;
+        for(let i=0;i<n&&out.length;i++){const ax=SQ[i*2],az=SQ[i*2+1],bx=SQ[(i+1)%n*2],bz=SQ[(i+1)%n*2+1];const side=(x,z)=>((bx-ax)*(z-az)-(bz-az)*(x-ax))*(ccwq?1:-1)>=0;
+          const inp=out;out=[];for(let j=0;j<inp.length;j+=2){const px=inp[j],pz=inp[j+1],qx=inp[(j+2)%inp.length],qz=inp[(j+3)%inp.length],pi=side(px,pz),qi=side(qx,qz);
+            if(pi)out.push(px,pz);if(pi!==qi){const d1=(bx-ax)*(pz-az)-(bz-az)*(px-ax),d2=(bx-ax)*(qz-az)-(bz-az)*(qx-ax),t=d1/(d1-d2);out.push(px+(qx-px)*t,pz+(qz-pz)*t)}}}return out};
+      const stripe=(s0,s1,o0,o1)=>{const q=clip(rect(s0,s1,o0,o1));if(q.length>=6)flatPoly(q.map(v=>Math.round(v*100)/100),'paint',.075,4,colObj('#9d968a'))};
+      for(const o of [5.6,11,16.4,21.8])stripe(-6,32,o,o+.5);stripe(c-.25,c+.25,4.4,30);stripe(-6,32,4.4,4.75);
+      XPALMS.push(fP(eF,2.6,12.5));XPALMS.push(fP(eF,23.2,15.5));XTREES.push(fP(eF,21.5,19));
+      // monumento a Pedro Romero: pedestal de piedra con su placa y el busto de bronce mirando a la plaza
+      {const p=fP(eF,3.3,7.3),y=ground(p[0],p[1]),yw=eF.yaw+Math.PI/2.4,B=colObj('#3f3a33');box(1.6,.35,1.6,'#b9b3a5',p[0],y+.17,p[1],yw);box(1.05,1.8,1.05,'#d8d2c2',p[0],y+1.25,p[1],yw);box(1.2,.2,1.2,'#c9c2b1',p[0],y+2.2,p[1],yw);
+        const fw=[Math.sin(yw),Math.cos(yw)];box(.7,.4,.03,'#7b6a3c',p[0]+fw[0]*.54,y+1.3,p[1]+fw[1]*.54,yw);
+        geoInto('plain',new THREE.CylinderGeometry(.38,.52,.85,10),B,place(p[0],y+2.72,p[1],0,yw,0,1,1,.7));geoInto('plain',new THREE.SphereGeometry(.24,10,8),B,place(p[0],y+3.38,p[1],0,yw,0,.92,1.08,1));
+        geoInto('plain',new THREE.CylinderGeometry(.1,.12,.2,8),B,place(p[0],y+3.15,p[1]));addSolidPoly(rectPts(p[0],p[1],1.7,1.7,yw))}
+      // bancas amarillas de concreto (sin espaldar), a lo largo de la fachada y hacia el oeste
+      const banca=(s0,o0,along)=>{const p=fP(eF,s0,o0),y=ground(p[0],p[1]),yw=eF.yaw+(along?0:Math.PI/2),dx=Math.cos(yw),dz=-Math.sin(yw);
+        box(2.8,.14,.55,'#e9c434',p[0],y+.47,p[1],yw);for(const k of [-1,1])box(.3,.42,.5,'#d4ae25',p[0]+dx*k*1.05,y+.21,p[1]+dz*k*1.05,yw);addSolidPoly(rectPts(p[0],p[1],2.9,.6,yw))};
+      banca(6.2,9,1);banca(13.4,9,1);banca(22.2,6.5,0);banca(21.6,12,0);banca(15,17.5,1);
+      // el puesto de sombreros vueltiaos: un armazón de madera con los sombreros colgados y una mesita
+      {const sv=1.9,ov=5.4,p=fP(eF,sv,ov),y=ground(p[0],p[1]),yw=eF.yaw-Math.PI/5,dx=Math.cos(yw),dz=-Math.sin(yw),fx=Math.sin(yw),fz=Math.cos(yw),W='#6d4c2f';
+        for(const k of [-1,1])box(.08,2,.08,W,p[0]+dx*k*.75,y+1,p[1]+dz*k*.75,yw);for(const yy of [.75,1.3,1.85])box(1.6,.05,.05,W,p[0],y+yy,p[1],yw);
+        for(let r=0;r<3;r++)for(let k=0;k<3;k++){const lx=(k-1)*.5,hx=p[0]+dx*lx+fx*.07,hz=p[1]+dz*lx+fz*.07,hy=y+.55+r*.55;
+          const disc=(r0,r1,h)=>{const g=new THREE.CylinderGeometry(r0,r1,h,14);g.rotateX(Math.PI/2);return g};
+          geoInto('plain',disc(.24,.24,.03),colObj('#f2ecd9'),place(hx,hy,hz,0,yw,0));geoInto('plain',disc(.17,.17,.035),colObj('#2a2420'),place(hx+fx*.01,hy,hz+fz*.01,0,yw,0));
+          geoInto('plain',disc(.11,.13,.12),colObj('#efe8d3'),place(hx+fx*.05,hy,hz+fz*.05,0,yw,0))}
+        const t=[p[0]+fx*1.1,p[1]+fz*1.1];box(1.2,.7,.6,W,t[0],y+.35,t[1],yw);for(let k=0;k<3;k++)geoInto('plain',new THREE.CylinderGeometry(.26,.28,.05,14),colObj(k%2?'#2a2420':'#f2ecd9'),place(t[0]+dx*(k-1)*.35,y+.73,t[1]+dz*(k-1)*.35));
+        addSolidPoly(rectPts(p[0]+fx*.5,p[1]+fz*.5,1.8,1.7,yw));const v=[p[0]+fx*1.4+dx*1.1,p[1]+fz*1.4+dz*1.1];LATER.push(()=>stayAt('vendor',v[0],v[1],yw,''))}}
+    window.__trin={gy,c,eF:[eF.lx,eF.lz,eF.yaw,eF.L]}}
+
   /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
      almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
      y el túnel a nivel del suelo hasta el callejón; por dentro tendidos grises con pasillos rojos, el anillo de en medio con los vomitorios
@@ -1600,6 +1714,7 @@ function construirSitios(){
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
     if(k==='castellana'){castellana(s,P);continue}
     if(k==='huc'){hospitalCaribe(s,P);continue}
+    if(k==='trinidad'){trinidad(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
@@ -1773,7 +1888,7 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
     let acc=hash(Math.round(p[0]),Math.round(p[1]))*14;for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],L=Math.hypot(bx-ax,bz-az);if(L<1)continue;const dx=(bx-ax)/L,dz=(bz-az)/L;
       for(let s=acc;s<L;s+=16){const off=RW[ty]/2+2.2;for(const sg of [1,-1]){const x=ax+dx*s-dz*off*sg,z=az+dz*s+dx*off*sg;if(ok(x,z))PALMS.push([x,z])}}acc=(acc-L)%16;if(acc<0)acc+=16}});
   // parks and squares
-  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
+  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{if(p.propia)return;let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
     const ar=(x1-x0)*(z1-z0),k=Math.min(30,Math.floor(ar/260));for(let t=0;t<k;t++){const x=rr(x0,x1),z=rr(z0,z1);if(!inPoly(p,x,z)||!ok(x,z))continue;(rand()<.45||isBoca(x,z)?PALMS:TREES).push([x,z])}});
   // a sprinkle of almond / mango trees in residential streets
   MAP.roads.forEach(r=>{const [ty,,,,,p]=r;if(ty!==4||rand()>.35)return;const i=2*Math.floor(rand()*(p.length/2-1));const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3];const L=Math.hypot(bx-ax,bz-az)||1;const s=rand(),o=(RW[4]/2+2.6)*(rand()<.5?1:-1);
