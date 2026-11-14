@@ -30,6 +30,7 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
   - **Hospital Naval de Cartagena** en Bocagrande.
   - **Universidad de Cartagena · Claustro de San Agustín**, con su torre y su letrero.
   - **Monumento a Blas de Lezo** frente al Castillo de San Felipe.
+  - **Castillo de San Felipe de Barajas** con su forma real de OpenStreetMap: muros de piedra gris en talud (inclinados y más oscuros abajo) que suben en terrazas por el cerro de San Lázaro: el muro bajo de afuera con el talud de pasto; el segundo recinto con la cola larga hacia el norte, el baluarte del oriente y los cuartos sin techo del sur; la terraza del sur con su plaza hundida; y arriba la plataforma alta con el caballero de las dos garitas, la escalera roja y la bandera de Colombia. Tiene cordón de piedra, parapetos con cañoneras, garitas en las puntas de los baluartes, bordes de ladrillo, casetas de teja de barro, cañones, la rampa de la entrada con pilares y cadenas, la rampa del foso, la taquilla y el pasto alrededor.
   - **Iglesia de La Ermita** (Pie de la Popa), blanca con su campanario.
   - Torres de Bocagrande con su altura real: **Hotel Estelar · Torre Bocagrande** (52 pisos, 202 m), **Edificio Gran Bahía** y **Palmetto Eliptic**.
   - Los **baluartes de la muralla** con su nombre: San Ignacio, San Francisco Javier, Santiago Apóstol, Santo Domingo, Santa Cruz, Santa Catalina, San Lucas, San Pedro Mártir, San Miguel, Santa Teresa, Santa Bárbara, San José, El Reducto y San Juan Evangelista.

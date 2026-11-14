@@ -91,17 +91,17 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="mapa.js?v=20261113g"></script>
-<script src="alturas.js?v=20261113g"></script>
-<script src="ciudad-osm.js?v=20261113g"></script>
-<script src="relieve.js?v=20261113g"></script>
-<script src="ambiente.js?v=20261113g"></script>
-<script src="ciudad.js?v=20261113g"></script>
-<script src="modelos.js?v=20261113g"></script>
-<script src="carga.js?v=20261113g"></script>
-<script src="gente.js?v=20261113g"></script>
-<script src="lugares.js?v=20261113g"></script>
-<script src="vehiculos.js?v=20261113g"></script><script src="extra.js?v=20261113g"></script><script src="celular.js?v=20261113g"></script><script src="animales.js?v=20261113g"></script><script src="sitios.js?v=20261113g"></script>
+<script src="mapa.js?v=20261114a"></script>
+<script src="alturas.js?v=20261114a"></script>
+<script src="ciudad-osm.js?v=20261114a"></script>
+<script src="relieve.js?v=20261114a"></script>
+<script src="ambiente.js?v=20261114a"></script>
+<script src="ciudad.js?v=20261114a"></script>
+<script src="modelos.js?v=20261114a"></script>
+<script src="carga.js?v=20261114a"></script>
+<script src="gente.js?v=20261114a"></script>
+<script src="lugares.js?v=20261114a"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -620,7 +620,8 @@ function pisosZona(zn,ar,k,r,r2,cx,cz){const q=Math.round;
   if(k===4)return 5+q(r*8);if(k===2)return 1;
   if(zn==='El Bosque'||zn==='Pie de la Popa'||zn==='El Prado')return ar>500?(r<.4?4+q(r2*6):2+q(r2*2)):1+q(r*2);
   return ar>2500?3+q(r*3):ar>700?2+q(r*2):(r<.55?1:2)}
-function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0))return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
+// (los edificios del castillo y su taquilla tienen modelo propio)
+function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0)||Math.hypot(cx0-996,cz0-28)<9)return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
   let cx=0,cz=0;for(let i=0;i<n;i++){cx+=pts[i*2];cz+=pts[i*2+1]}cx/=n;cz/=n;const ar=Math.abs(signedArea(pts));
   if(Math.hypot(cx-GM.popa[0],cz-GM.popa[1])<40)return;if(inPoly(pts,TORRE.P[0],TORRE.P[1]))return; // la Torre del Reloj tiene su propio modelo
   if(sitioSkip(cx,cz))return;if(name==='Iglesia La Hermita')name='Iglesia de La Ermita';
@@ -834,11 +835,141 @@ function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
   const W=(lx,lz)=>[px+T.u[0]*lx+T.n[0]*lz,pz+T.u[1]*lx+T.n[1]*lz];
   for(const [a,b] of [[X0,-12.2],[-8.8,-2.1],[2.1,8.8],[12.2,X1]])addSolidPoly([...W(a,-HW),...W(b,-HW),...W(b,HW+.9),...W(a,HW+.9)]);
   return Y3+SH+1.8}
-function castle(pts){const n=pts.length/2;let cx=0,cz=0;for(let i=0;i<pts.length;i+=2){cx+=pts[i];cz+=pts[i+1]}cx/=n;cz/=n;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
-  const g=ground(cx,cz);const lv=[[1,-1,10],[.8,10,18],[.6,18,25],[.4,25,31]];const C=colObj('#e9dcc0');
-  lv.forEach(l=>{const p=[];for(let i=0;i<pts.length;i+=2)p.push(cx+(pts[i]-cx)*l[0],cz+(pts[i+1]-cz)*l[0]);band(p,g+l[1],g+l[2],'coralS',C,g,5,5,false);ring(p,g+l[2]-.1,g+l[2]+.9,.0,C,'coralS');flatRoof(p,g+l[2],'coralS',colObj('#d4c4a0'),5)});
-  // garitas on the outer corners of the top level
-  addSolidPoly(pts);box(.3,10,.3,'#4a3b28',cx,g+31,cz);const fl=box(5,3,.2,'#f0b429',cx+2.5,g+38,cz);fl.castShadow=false;return[cx,cz]}
+// Castillo de San Felipe de Barajas sobre el cerro de San Lázaro, con la forma real de OpenStreetMap: muros de piedra gris en talud
+// (inclinados, más oscuros abajo) que suben en terrazas: el recinto de afuera; el segundo recinto con la cola larga hacia el norte, el brazo
+// hacia el oriente y los cuartos sin techo del sur; la terraza del sur con su plaza hundida; y arriba la plataforma alta con el caballero de
+// las dos garitas, la escalera roja y la bandera de Colombia. Cordón de piedra, parapetos con cañoneras, garitas en las puntas de los
+// baluartes, bordes de ladrillo, casetas de teja de barro, la rampa de la entrada con sus pilares y cadenas, y el pasto alrededor.
+// Muros interiores de OpenStreetMap: way/669458617 (segundo recinto), 462964521 (terraza del sur), 462964524 (plaza), 462964522 (plataforma alta), 462964509 (cuartos).
+const CASTLE_W={
+  r2:[1052.5,61.7,1045.6,66.6,1053.4,76.4,1061.3,84.7,1057.2,88.4,1047.3,84.1,1044.7,92.6,1052.3,96.1,1057,105,1057.3,121.8,1061.1,126.3,1079.4,131.6,1080.8,127.2,1095.1,119.9,1101.9,119.9,1110.7,101.9,1128.7,77.4,1146.3,45.6,1153.5,45.8,1164.3,25.6,1173.7,27.7,1186.4,16.6,1176.8,4.6,1185.2,-5.9,1192.5,-18.1,1190.2,-29.2,1179.9,-25.7,1167.6,-4.7,1166.2,3.2,1160.2,14.8,1144.7,10.2,1109.6,-1.8,1093.3,-5.2,1097.2,-19.9,1094.6,-37.1,1094.5,-44.7,1102.1,-59.9,1107.4,-67.7,1108.7,-72.6,1126.3,-134.8,1124.8,-144.3,1127.2,-147.1,1122.3,-162.3,1104.2,-157.6,1076.2,-88.4,1053.1,-66,1047.1,-49.3,1052.7,-8.3,1058.8,-6,1059,7.5,1052.9,42],
+  sur:[1069.8,10.5,1070.3,28.1,1070.7,39.1,1071.5,53.3,1078,71.7,1109.4,88.4,1142,35.3,1148,36,1149.9,31.2,1090,15.6,1091.5,6.2,1093.3,-5.2],
+  plaza:[1081,41.5,1083.1,42.5,1081.2,52.2,1087,59.8,1093,60.1,1111,75.2,1120.2,59.3,1117.4,56.7,1126.5,43.3,1133.3,33.4,1109.5,34.5,1108.6,39.3,1098,38,1098.3,35.1,1079.1,33.9],
+  alto:[1102.1,-59.9,1094,-61.3,1085.9,-57.2,1081.7,-60.3,1082.4,-65.5,1074.5,-80.4,1066,-59,1060.4,-58.5,1055.4,-50.8,1058.3,-47.3,1060.5,-39.6,1059.1,-24.1,1068,-22.9,1073,-1.4,1088.9,.1,1091.7,-22.1,1092.1,-31.4,1091.8,-36.5,1094.6,-37.1],
+  cuartos:[1064.9,98.3,1081.8,101.3,1079.2,117.4,1062.1,114.2]};
+function castle(pts){const n0=pts.length/2;let cx=0,cz=0;for(let i=0;i<pts.length;i+=2){cx+=pts[i];cz+=pts[i+1]}cx/=n0;cz/=n0;const FULL=pts.slice();
+  // contorno antihorario, sin puntos repetidos ni lados diminutos
+  const prep=p=>{if(signedArea(p)<0){const q=[];for(let i=p.length/2-1;i>=0;i--)q.push(p[i*2],p[i*2+1]);p=q}const o=[];
+    for(let i=0;i<p.length;i+=2){const m=o.length;if(m&&Math.hypot(p[i]-o[m-2],p[i+1]-o[m-1])<.8)continue;o.push(p[i],p[i+1])}
+    while(o.length>6&&Math.hypot(o[0]-o[o.length-2],o[1]-o[o.length-1])<.8)o.splice(-2,2);return o};
+  // contorno metido d metros hacia adentro (esquinas en inglete, limitadas)
+  const inset=(p,d)=>{const n=p.length/2,o=[];for(let i=0;i<n;i++){const h=(i+n-1)%n,j=(i+1)%n,ax=p[h*2],az=p[h*2+1],bx=p[i*2],bz=p[i*2+1],qx=p[j*2],qz=p[j*2+1];
+    const l1=Math.hypot(bx-ax,bz-az)||1,l2=Math.hypot(qx-bx,qz-bz)||1,n1x=-(bz-az)/l1,n1z=(bx-ax)/l1,n2x=-(qz-bz)/l2,n2z=(qx-bx)/l2;
+    let mx=n1x+n2x,mz=n1z+n2z;const ml=Math.hypot(mx,mz);if(ml<1e-3){mx=n1x;mz=n1z}else{mx/=ml;mz/=ml}
+    const k=d*Math.min(1/Math.max(mx*n1x+mz*n1z,.3),2.2);o.push(bx+mx*k,bz+mz*k)}return o};
+  const edgesOf=p=>{const n=p.length/2,E=[];for(let i=0;i<n;i++){const j=(i+1)%n;E.push([p[i*2],p[i*2+1],p[j*2],p[j*2+1],i,j])}return E};
+  const triC=(b,P,U,C)=>{for(let i=0;i<3;i++){b.p.push(P[i][0],P[i][1],P[i][2]);b.u.push(U[i][0],U[i][1]);b.c.push(C[i].r,C[i].g,C[i].b)}};
+  const shade=(c,k)=>({r:c.r*k,g:c.g*k,b:c.b*k});
+  const STB=colObj('#625e57'),STT=colObj('#bcb6ab'),CORD=colObj('#d2cbbd'),PAR=colObj('#c3bcae'),FLO=colObj('#bdb9b0'),BRK=colObj('#a3634e');
+  let g0=1e9;for(let i=0;i<pts.length;i+=2)g0=Math.min(g0,groundRaw(pts[i],pts[i+1]));g0-=.8;
+  // muro: tramo recto de y0 a yb y talud de yb a y1 (arriba queda metido bat·(y1-yb)); manchas oscuras por tramos de ~5 m
+  const wall=(p,y0,yb,y1,bat)=>{const top=bat>0?inset(p,bat*(y1-yb)):p.slice();let uAcc=0;
+    for(const [ax,az,bx,bz,i,j] of edgesOf(p)){const L=Math.hypot(bx-ax,bz-az);const m=Math.max(1,Math.round(L/5));const tx0=top[i*2],tz0=top[i*2+1],tx1=top[j*2],tz1=top[j*2+1];
+      for(let s=0;s<m;s++){const t0=s/m,t1=(s+1)/m,k=.78+.3*hash(Math.round(ax*7+s*13),Math.round(az*5+s*3)),kb=k*(.85+.25*hash(Math.round(az+s),Math.round(ax-s)));
+        const A0=[ax+(bx-ax)*t0,0,az+(bz-az)*t0],B0=[ax+(bx-ax)*t1,0,az+(bz-az)*t1],A1=[tx0+(tx1-tx0)*t0,y1,tz0+(tz1-tz0)*t0],B1=[tx0+(tx1-tx0)*t1,y1,tz0+(tz1-tz0)*t1];
+        const b=bucket('stone',(A0[0]+B0[0])/2,(A0[2]+B0[2])/2),u0=(uAcc+L*t0)/4,u1=(uAcc+L*t1)/4,cB=shade(STB,kb),cM=shade(STB,(kb+k)*.62),cT=shade(STT,k);
+        if(yb>y0){const a=[A0[0],y0,A0[2]],bb=[B0[0],y0,B0[2]],a1=[A0[0],yb,A0[2]],b1=[B0[0],yb,B0[2]],v0=y0/4,v1=yb/4;
+          triC(b,[a,a1,b1],[[u0,v0],[u0,v1],[u1,v1]],[cB,cM,cM]);triC(b,[a,b1,bb],[[u0,v0],[u1,v1],[u1,v0]],[cB,cM,cB])}
+        const a=[A0[0],yb,A0[2]],bb=[B0[0],yb,B0[2]],v0=yb/4,v1=y1/4;
+        triC(b,[a,A1,B1],[[u0,v0],[u0,v1],[u1,v1]],[cM,cT,cT]);triC(b,[a,B1,bb],[[u0,v0],[u1,v1],[u1,v0]],[cM,cT,cM])}
+      uAcc+=L}return top};
+  // parapeto con cañoneras: cara de afuera sobre el borde, cara de adentro, remate y los cachetes de cada tronera
+  const parapet=(p,y,h,th,bay)=>{const q=inset(p,th);for(const [ax,az,bx,bz,i,j] of edgesOf(p)){const L=Math.hypot(bx-ax,bz-az),ix0=q[i*2],iz0=q[i*2+1],ix1=q[j*2],iz1=q[j*2+1];
+    const m=L>bay*1.2?Math.round(L/bay):0,b=bucket('coral',(ax+bx)/2,(az+bz)/2),gw=Math.min(.45,1.1/Math.max(L,1)*m);const parts=[];
+    if(!m)parts.push([0,1,h]);else for(let s=0;s<m;s++){const t0=s/m,t1=(s+1)/m,tc=t1-gw/m;parts.push([t0,tc,h],[tc,t1,.55])}
+    for(const [t0,t1,hh] of parts){const O0=[ax+(bx-ax)*t0,az+(bz-az)*t0],O1=[ax+(bx-ax)*t1,az+(bz-az)*t1],I0=[ix0+(ix1-ix0)*t0,iz0+(iz1-iz0)*t0],I1=[ix0+(ix1-ix0)*t1,iz0+(iz1-iz0)*t1];
+      const u0=L*t0/4,u1=L*t1/4,v1=hh/4,y1=y+hh;
+      quad(b,[O0[0],y,O0[1]],[O0[0],y1,O0[1]],[O1[0],y1,O1[1]],[O1[0],y,O1[1]],[[u0,0],[u0,v1],[u1,v1],[u1,0]],PAR);
+      quad(b,[I1[0],y,I1[1]],[I1[0],y1,I1[1]],[I0[0],y1,I0[1]],[I0[0],y,I0[1]],[[u1,0],[u1,v1],[u0,v1],[u0,0]],shade(PAR,.9));
+      quadW(b,[I0[0],y1,I0[1]],[I1[0],y1,I1[1]],[O1[0],y1,O1[1]],[O0[0],y1,O0[1]],3,CORD);
+      if(hh<h)for(const [P,Q] of [[O0,I0],[O1,I1]]){const c=shade(PAR,.8);quad(b,[P[0],y+hh,P[1]],[P[0],y+h,P[1]],[Q[0],y+h,Q[1]],[Q[0],y+hh,Q[1]],null,c);quad(b,[Q[0],y+hh,Q[1]],[Q[0],y+h,Q[1]],[P[0],y+h,P[1]],[P[0],y+hh,P[1]],null,c)}}}
+    return q};
+  // piso con huecos (patios hundidos)
+  const floor=(p,holes,y,mk,col,s)=>{const V=a=>{const o=[];for(let i=0;i<a.length;i+=2)o.push(new THREE.Vector2(a[i],a[i+1]));return o};const ct=V(p),hs=holes.map(V);let t;
+    try{t=THREE.ShapeUtils.triangulateShape(ct,hs)}catch(e){t=[]}const all=ct.concat(...hs);
+    for(const q of t){const a=all[q[0]],bb=all[q[1]],c=all[q[2]],b=bucket(mk,(a.x+bb.x+c.x)/3,(a.y+bb.y+c.y)/3);const cr=(bb.x-a.x)*(c.y-a.y)-(bb.y-a.y)*(c.x-a.x);const P=v=>[v.x,y,v.y];
+      if(cr>0)triW(b,P(a),P(c),P(bb),s,col);else triW(b,P(a),P(bb),P(c),s,col)}};
+  // franja de ladrillo por dentro del parapeto
+  const brick=(p,y,w)=>{const q=inset(p,w);for(const [ax,az,bx,bz,i,j] of edgesOf(p)){const b=bucket('stone',(ax+bx)/2,(az+bz)/2);
+    quadW(b,[q[i*2],y,q[i*2+1]],[q[j*2],y,q[j*2+1]],[bx,y,bz],[ax,y,az],2.5,BRK)}return q};
+  // garita: torreón redondo con cúpula, colgado de la punta del baluarte
+  const garita=(x,z,y,s)=>{s=s||1;const C=colObj('#d6cdbb'),D=colObj('#2a221c');
+    geoInto('coralS',new THREE.CylinderGeometry(1.05*s,1.05*s,2.5*s,10,1,true),C,place(x,y+1.25*s,z));
+    geoInto('coralS',new THREE.ConeGeometry(1.05*s,1.4*s,10,1,true),C,place(x,y-.7*s,z,Math.PI,0,0));
+    geoInto('coralS',new THREE.CylinderGeometry(1.25*s,1.25*s,.25*s,10),C,place(x,y+2.55*s,z));
+    geoInto('coralS',new THREE.SphereGeometry(1.15*s,10,5,0,TAU,0,Math.PI/2),C,place(x,y+2.65*s,z));
+    geoInto('coralS',new THREE.SphereGeometry(.22*s,6,4),C,place(x,y+3.95*s,z));
+    for(let k=0;k<4;k++){const a=k/4*TAU;geoInto('plain',new THREE.PlaneGeometry(.32*s,.85*s),D,place(x+Math.sin(a)*1.07*s,y+1.5*s,z+Math.cos(a)*1.07*s,0,a,0))}};
+  // garitas en las puntas agudas (convexas) de un contorno
+  const puntas=(p,y,minL,maxCos)=>{const n=p.length/2;for(let i=0;i<n;i++){const h=(i+n-1)%n,j=(i+1)%n,d1=[p[i*2]-p[h*2],p[i*2+1]-p[h*2+1]],d2=[p[j*2]-p[i*2],p[j*2+1]-p[i*2+1]];
+    const l1=Math.hypot(...d1),l2=Math.hypot(...d2);if(l1<minL||l2<minL)continue;if(d1[0]*d2[1]-d1[1]*d2[0]<=0)continue;if((d1[0]*d2[0]+d1[1]*d2[1])/(l1*l2)>maxCos)continue;
+    let ox=d1[0]/l1-d2[0]/l2,oz=d1[1]/l1-d2[1]/l2;const ol=Math.hypot(ox,oz)||1;garita(p[i*2]+ox/ol*.5,p[i*2+1]+oz/ol*.5,y+.3)}};
+  // caseta con techo de cuatro aguas en teja de barro
+  const caseta=(x,z,w,d,yaw,y,h)=>{h=h||2.8;geoInto('coral',new THREE.BoxGeometry(w,h,d),colObj('#d8ccb2'),place(x,y+h/2,z,0,yaw,0));
+    const r=new THREE.ConeGeometry(Math.SQRT1_2,1,4,1);r.rotateY(Math.PI/4);geoInto('roof_tile',r,colObj('#c4643f'),place(x,y+h+.7,z,0,yaw,0,w+.9,1.4,d+.9));
+    const fx=Math.sin(yaw),fz=Math.cos(yaw);geoInto('plain',new THREE.PlaneGeometry(1,2),colObj('#3a2a1e'),place(x+fx*(d/2+.02),y+1,z+fz*(d/2+.02),0,yaw,0))};
+  const terrace=(p,y0,yb,y1,bat,opt)=>{opt=opt||{};const top=wall(p,y0,yb,y1,bat);ring(top,y1-.75,y1-.35,.32,CORD,'coralS');
+    floor(top,opt.holes||[],y1,opt.grass?'grass':'coralS',opt.grass?colObj('#ffffff'):FLO,5);const q=parapet(top,y1,opt.ph||1.5,1,opt.bay||6.5);if(!opt.grass)brick(q,y1+.04,1.2);if(opt.garitas!==false)puntas(top,y1,opt.minL||7,opt.maxCos==null?.25:opt.maxCos);return top};
+  // patio hundido: piso abajo y muros mirando hacia adentro
+  const hundido=(p,yf,yt)=>{const r=[];for(let i=p.length/2-1;i>=0;i--)r.push(p[i*2],p[i*2+1]);wall(r,yf,yf,yt,0);floor(p,[],yf,'coralS',colObj('#b7af9d'),4)};
+  const H1=8,H2=22,H3=27,H4=34;
+  // 1) recinto de afuera: muro bajo y adentro el talud de pasto (sin la rampa de la entrada, que va aparte)
+  const F=prep(pts.filter((_,k)=>{const i=k-(k&1),x=pts[i],z=pts[i+1];return!(x<1010.5&&z>29&&z<40)}));
+  terrace(F,g0,g0,H1,.15,{grass:true,garitas:false,ph:1.1,bay:60});
+  // 2) segundo recinto: cola hacia el norte, brazo al oriente y los cuartos sin techo del sur
+  const R2=prep(CASTLE_W.r2),CU=prep(CASTLE_W.cuartos);
+  terrace(R2,g0,H1-1,H2,.16,{holes:[CU]});hundido(CU,H2-4.5,H2);
+  {const [a,b,c,d]=[[1064.9,98.3],[1081.8,101.3],[1079.2,117.4],[1062.1,114.2]],y=H2-4.5;
+    for(const t of [.36,.68]){const p0=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],p1=[d[0]+(c[0]-d[0])*t,d[1]+(c[1]-d[1])*t],L=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]);
+      geoInto('coral',new THREE.BoxGeometry(.8,3.2,L),colObj('#8f897e'),place((p0[0]+p1[0])/2,y+1.6,(p0[1]+p1[1])/2,0,Math.atan2(p1[0]-p0[0],p1[1]-p0[1]),0))}}
+  // 3) terraza del sur con la plaza hundida
+  const SU=prep(CASTLE_W.sur),PL=prep(CASTLE_W.plaza);
+  terrace(SU,g0,H2-1,H3,.18,{holes:[PL],maxCos:.15});hundido(PL,H3-3.2,H3);
+  // 4) plataforma alta
+  const AL=prep(CASTLE_W.alto);const ALt=terrace(AL,g0,H2-1,H4,.2,{minL:6});
+  // caballero de la cima: bloque con dos garitas mirando a la ciudad y su escalera roja
+  {const bx=1082.5,bz=-13,w=11,d=11,y=H4,h=5.5;const P=[bx-w/2,bz-d/2,bx-w/2,bz+d/2,bx+w/2,bz+d/2,bx+w/2,bz-d/2];const top=wall(prep(P),y-.5,y-.5,y+h,.12);
+    ring(top,y+h-.6,y+h-.25,.25,CORD,'coralS');floor(top,[],y+h,'coralS',FLO,5);parapet(top,y+h,1.3,.8,5);
+    garita(top[0]-.4,top[1]-.4,y+h+.2,1.15);garita(top[2]-.4,top[3]+.4,y+h+.2,1.15);
+    const RED=colObj('#a8302a'),sx=bx-w/2-1.4;
+    for(let s=0;s<10;s++){const t=s/10;geoInto('plain',new THREE.BoxGeometry(1.6,.12,.7),RED,place(sx,y+.3+t*(h+.3),bz+3.6-t*7.2))}
+    for(const ox of [-.8,.8]){const p0=[sx+ox,y+.3,bz+3.9],p1=[sx+ox,y+h+.6,bz-3.9],L=Math.hypot(p1[1]-p0[1],p1[2]-p0[2]);
+      geoInto('plain',new THREE.BoxGeometry(.12,.25,L),RED,place(sx+ox,(p0[1]+p1[1])/2,(p0[2]+p1[2])/2,Math.atan2(p1[1]-p0[1],p0[2]-p1[2]),0,0));
+      geoInto('plain',new THREE.BoxGeometry(.06,.06,L),RED,place(sx+ox,(p0[1]+p1[1])/2+1,(p0[2]+p1[2])/2,Math.atan2(p1[1]-p0[1],p0[2]-p1[2]),0,0))}
+}
+  // bandera de Colombia en el asta de la plataforma alta
+  {const fx=1064,fz=-52,y=H4;geoInto('plain',new THREE.CylinderGeometry(.09,.13,13,6),colObj('#d8d8d8'),place(fx,y+6.5,fz));geoInto('plain',new THREE.SphereGeometry(.2,6,4),colObj('#d9b44a'),place(fx,y+13.1,fz));
+    for(const [c,h,yc] of [['#fcd116',2,11.6],['#003893',1,10.1],['#ce1126',1,9.1]])geoInto('plain',new THREE.BoxGeometry(6,h,.06),colObj(c),place(fx+3.1,y+yc,fz));
+    geoInto('plain',new THREE.BoxGeometry(2.4,.9,1.6),colObj('#cfc6b4'),place(fx,y+.45,fz))}
+  // casetas de teja: en la punta de la cola, en la plataforma alta, junto a la plaza y en el baluarte del oriente
+  caseta(1117,-148,6,5,-.32,H2);caseta(1111,-134,5,4.5,-.32,H2);caseta(1080,-42,6,5,.15,H4);caseta(1081,17,10,5,0,H3);caseta(1113,28.6,14,4.2,-.255,H3);caseta(1182,-15,4.5,4.5,.5,H2);
+  // cañones asomados por las troneras de la plataforma alta
+  for(const [x,z,a] of [[1062,-30,-Math.PI/2],[1063,-42,-Math.PI/2],[1080,-4,0],[1090,-56.5,Math.PI]]){const IRON=colObj('#2b2b2b'),cg=new THREE.CylinderGeometry(.2,.3,2.6,8);cg.rotateX(Math.PI/2);
+    geoInto('plain',cg,IRON,place(x,H4+.9,z,0,a,0));geoInto('plain',new THREE.BoxGeometry(1,.6,1.5),colObj('#5a3d24'),place(x,H4+.3,z,0,a,0))}
+  // rampas: la de la entrada sube desde la calle entre pilares de piedra y cadenas; la otra sube por el foso en V hasta la puerta; ambas con pretiles
+  const rampa=(A,B,yA,yB,W,pil)=>{const L=Math.hypot(B[0]-A[0],B[1]-A[1]),ux=(B[0]-A[0])/L,uz=(B[1]-A[1])/L,nx=-uz,nz=ux,yaw=Math.atan2(ux,uz);
+    const at=(t,s,dy)=>[A[0]+ux*L*t+nx*s,yA+(yB-yA)*t+(dy||0),A[1]+uz*L*t+nz*s];const SURF=colObj('#cbc3b2'),SIDE=colObj('#9d968a');
+    for(let s=0;s<6;s++){const t0=s/6,t1=(s+1)/6,b=bucket('coralS',A[0]+ux*L*t0,A[1]+uz*L*t0);quadW(b,at(t0,-W),at(t0,W),at(t1,W),at(t1,-W),3,SURF);
+      for(const sd of [-1,1]){const s0=sd*W,p0=at(t0,s0),p1=at(t1,s0),q0=[p0[0],ground(p0[0],p0[2])-.5,p0[2]],q1=[p1[0],ground(p1[0],p1[2])-.5,p1[2]],bb=bucket('stone',p0[0],p0[2]);
+        if(sd<0)quad(bb,q0,p0,p1,q1,[[t0*L/4,q0[1]/4],[t0*L/4,p0[1]/4],[t1*L/4,p1[1]/4],[t1*L/4,q1[1]/4]],SIDE);else quad(bb,q1,p1,p0,q0,[[t1*L/4,q1[1]/4],[t1*L/4,p1[1]/4],[t0*L/4,p0[1]/4],[t0*L/4,q0[1]/4]],SIDE)}}
+    for(const sd of [-1,1]){const p0=at(.08,sd*(W-.25)),p1=at(1,sd*(W-.25)),dl=Math.hypot(p1[0]-p0[0],p1[2]-p0[2]);
+      const pg=new THREE.BoxGeometry(.5,1,Math.hypot(dl,p1[1]-p0[1]));pg.rotateX(-Math.atan2(p1[1]-p0[1],dl));geoInto('coral',pg,PAR,place((p0[0]+p1[0])/2,(p0[1]+p1[1])/2+.5,(p0[2]+p1[2])/2,0,yaw,0));
+      if(pil){const c=at(0,sd*(W+.2));geoInto('stone',new THREE.BoxGeometry(1.5,4,1.5),colObj('#cdbf9f'),place(c[0],yA+2,c[2],0,yaw,0));geoInto('stone',new THREE.BoxGeometry(1.9,.45,1.9),colObj('#d8ccae'),place(c[0],yA+4.2,c[2],0,yaw,0));
+      geoInto('stone',new THREE.BoxGeometry(1.2,.5,1.2),colObj('#d8ccae'),place(c[0],yA+4.65,c[2],0,yaw,0))}}
+    if(pil){const IRON=colObj('#1c1c1c');let prev=null;for(const s of [-2.6,-.9,.9,2.6]){const p=at(0,s);p[0]-=ux*.9;p[2]-=uz*.9;geoInto('plain',new THREE.CylinderGeometry(.11,.15,.95,6),IRON,place(p[0],yA+.47,p[2]));
+      geoInto('plain',new THREE.SphereGeometry(.13,6,4),IRON,place(p[0],yA+1,p[2]));if(prev){const L2=Math.hypot(p[0]-prev[0],p[2]-prev[2]);geoInto('plain',new THREE.BoxGeometry(.05,.05,L2),IRON,place((p[0]+prev[0])/2,yA+.72,(p[2]+prev[2])/2,0,yaw+Math.PI/2,0))}prev=p}}
+    {const a=at(0,-W-.3),b=at(0,W+.3),c=at(1,W+.3),d=at(1,-W-.3);addSolidPoly([a[0],a[2],b[0],b[2],c[0],c[2],d[0],d[2]])}
+    const G=at(1,0);geoInto('coral',new THREE.BoxGeometry(2*W+2,5,3),PAR,place(G[0]+ux*1.2,yB+2,G[2]+uz*1.2,0,yaw,0));
+    const D=colObj('#231c16'),gx=G[0]-ux*.32,gz=G[2]-uz*.32;geoInto('plain',new THREE.PlaneGeometry(3,3.2),D,place(gx,yB+1.6,gz,0,yaw+Math.PI,0));
+    geoInto('plain',new THREE.CircleGeometry(1.5,10,0,Math.PI),D,place(gx,yB+3.2,gz,0,yaw+Math.PI,0))};
+  rampa([989.4,34.6],[1012.2,38.2],ground(989.4,34.6)+.12,H1-.3,3.7,true);rampa([1033,50],[1027.6,25.5],ground(1033,50)+.12,H1-.3,2.4,false);
+  // taquilla junto a la rampa
+  caseta(997.8,25.4,6.6,6.4,-Math.PI/2,ground(997.8,25.4),3.2);addSolidPoly([994.4,22,1001.2,22,1001.2,28.8,994.4,28.8]);
+  // pasto alrededor del castillo (envolvente convexa ampliada 14 m)
+  {const P=[];for(let i=0;i<FULL.length;i+=2)P.push([FULL[i],FULL[i+1]]);P.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);const lo=[],hi=[];
+    for(const p of P){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(let i=P.length-1;i>=0;i--){const p=P[i];while(hi.length>1&&cr(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p)}
+    const hull=lo.slice(0,-1).concat(hi.slice(0,-1)),hp=[];hull.forEach(p=>hp.push(p[0],p[1]));const ex=inset(prep(hp),-14);flatPoly(ex,'grass',.04,5)}
+  addSolidPoly(FULL);return[cx,cz]}
 // Convento de La Popa: claustro blanco de dos pisos alrededor de un patio, tejas de barro, capilla con espadaña
 function popaConvent(x,z){const y=ground(x,z)-.6;const grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
   const W=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#fbf6ea'}),T=new THREE.MeshLambertMaterial({map:TX.roof_tiles||null,color:'#b4583c',side:THREE.DoubleSide}),Dk=mat('#2b2420'),Wd=mat('#6b4428');
