@@ -101,7 +101,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -129,12 +129,19 @@ function hillR(x,z){const dx=x-HX,dz=z-HZ;const a=(dx*HCA+dz*HSA)/700,b=(-dx*HSA
 // porque las calles y los andenes cruzan los pliegues de la malla.
 const RV=window.RELIEVE,RG=(function(){if(!RV)return null;const bin=atob(RV.d),NX=RV.nx,NZ=RV.nz,N=NX*NZ,H=new Float32Array(N),HB=new Float32Array(N),FLAT=new Uint8Array(N);
   for(let i=0;i<N;i++){const v=bin.charCodeAt(i)/255;H[i]=v*v*RV.hmax}
+  // el Cerro de La Popa: la cuadrícula de 20 m lo redondea y le baja la cima; arriba de los 10 m sube más empinado, como el real,
+  // y la cima llega a sus ~150 m (las faldas y la ciudad no cambian)
+  for(let b=0;b<NZ;b++)for(let a=0;a<NX;a++){const i=b*NX+a,h=H[i];if(h<=10)continue;const r=hillR(RV.x0+a*RV.cell,RV.z0+b*RV.cell),w=clamp((2.5-r)/.8,0,1);if(w<=0)continue;
+    const hp=10+140*Math.pow(Math.min(1,(h-10)/133),.72);H[i]=h+(hp-h)*w*w*(3-2*w)}
   for(let b=0;b<NZ;b++)for(let a=0;a<NX;a++){const i=b*NX+a,h=H[i];let d=0;
     if(a>0)d=Math.max(d,Math.abs(h-H[i-1]));if(a<NX-1)d=Math.max(d,Math.abs(h-H[i+1]));if(b>0)d=Math.max(d,Math.abs(h-H[i-NX]));if(b<NZ-1)d=Math.max(d,Math.abs(h-H[i+NX]));
     HB[i]=h+(d>0?Math.min(.45,.06+d*.1):0);
     // celda plana: sus cuatro esquinas a nivel 0
     if(a<NX-1&&b<NZ-1)FLAT[i]=h===0&&H[i+1]===0&&H[i+NX]===0&&H[i+NX+1]===0?1:0}
   return{H,HB,FLAT,NX,NZ,x0:RV.x0,z0:RV.z0,c:RV.cell}})();
+// la cima de La Popa es plana donde está el convento (la cuadrícula de 20 m la redondea): los nodos de la explanada suben a su altura
+if(RG){const lv=149.5;for(let b=0;b<RG.NZ;b++)for(let a=0;a<RG.NX;a++){const x=RG.x0+a*RG.c,z=RG.z0+b*RG.c,i=b*RG.NX+a;
+  if(x>=POPA_GM[0]-30&&x<=POPA_GM[0]+35&&z>=POPA_GM[1]-52&&z<=POPA_GM[1]+12&&RG.H[i]<lv){RG.H[i]=lv;RG.HB[i]=lv+.06;RG.FLAT[i]=0}}}
 // (fuera de la cuadrícula sigue la altura del borde, para las calles que salen del mundo)
 function triH(A,x,z){const gx=clamp((x-RG.x0)/RG.c,0,RG.NX-1.001),gz=clamp((z-RG.z0)/RG.c,0,RG.NZ-1.001),a=Math.floor(gx),b=Math.floor(gz);
   const fx=gx-a,fz=gz-b,i=b*RG.NX+a,h00=A[i],h10=A[i+1],h01=A[i+RG.NX],h11=A[i+RG.NX+1];
@@ -657,6 +664,8 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
   const ig=at(GM.santoDomingo[0],GM.santoDomingo[1]),am=at(-305,-200),pl=MAP.squares.find(p=>inPoly(p,-330,-200));
   if(ig&&pl){SIT.push({n:'Plaza de Santo Domingo',k:'santodomingo',x:-330,z:-200,p:ig,amarillo:am,plaza:pl});SIT_SKIP.push(ig);if(am)SIT_SKIP.push(am);
     CHURCH_NAMES['Iglesia de Santo Domingo']=[-347.8,-185.1,ground(-347.8,-185.1)+40]}}
+// Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
+{const b=MAP.buildings.find(b=>b[2]==='Iglesia de la Trinidad');if(b){SIT.push({n:'Iglesia de la Trinidad',k:'trinidad',x:394,z:234,p:b[3]});SIT_SKIP.push(b[3])}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -785,37 +794,151 @@ PORTALS.forEach(p=>{const S=colObj('#c4b08a'),D=colObj('#3a2a1e'),Dk=colObj('#a8
     const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute([...g1.attributes.position.array,...g2.attributes.position.array],3));bg.setAttribute('uv',new THREE.Float32BufferAttribute([...g1.attributes.uv.array,...g2.attributes.uv.array],2));bg.computeVertexNormals();
     instChunks(bg,new THREE.MeshLambertMaterial({map:TX.bougain,alphaTest:.5,side:THREE.DoubleSide}),BOUG.map((q,i)=>({x:q.x,z:q.z,m:place(q.x,q.y,q.z,0,q.yaw,0,.8+hash(i,1)*.5,.8+hash(i,2)*.5,1)})),'boug',false)}
 })();
-/* ---------- city walls of coral stone, with gates where streets pass and garitas on the bastions ---------- */
+/* ---------- murallas de piedra coralina ----------
+   OpenStreetMap dibuja cada tramo como un anillo cerrado: el contorno del cuerpo de la muralla (unos 12 m de grueso en los lienzos,
+   más en los baluartes). Cada anillo se levanta macizo, como en las fotos: cara de afuera en talud con manchas oscuras abajo,
+   cordón de piedra, parapeto redondeado (con cañoneras en los baluartes), adarve enladrillado encima, cara de adentro casi vertical,
+   garitas colgadas de las puntas de los baluartes y túneles abovedados donde una calle atraviesa la muralla. */
 MATS.roof_tile.side=THREE.DoubleSide;
-const WALLC=colObj('#e8dcc4'),WALLTOP=colObj('#cbb995');
-const GARITAS=[];
-MAP.walls.forEach(pts=>{const np=pts.length/2;
-  for(let i=0;i<pts.length-2;i+=2){const ax=pts[i],az=pts[i+1],bx=pts[i+2],bz=pts[i+3];const L=Math.hypot(bx-ax,bz-az);if(L<.5)continue;
-  const n=Math.max(1,Math.ceil(L/4)),dx=(bx-ax)/L,dz=(bz-az)/L,nx=-dz,nz=dx,hw=4.5;
-  for(let k=0;k<n;k++){const s0=k*L/n,s1=(k+1)*L/n,mx=ax+dx*(s0+s1)/2,mz=az+dz*(s0+s1)/2;
-    const rd=nearestRoad(mx,mz,10,s=>!s.walk);const gate=rd&&rd.d<rd.s.w/2+2.5;
-    const p0x=ax+dx*s0,p0z=az+dz*s0,p1x=ax+dx*s1,p1z=az+dz*s1;
-    const c=[[p0x+nx*hw,p0z+nz*hw],[p1x+nx*hw,p1z+nz*hw],[p1x-nx*hw,p1z-nz*hw],[p0x-nx*hw,p0z-nz*hw]];
-    const y0=gate?6:-1,y1=9,b=bucket('coral',mx,mz);
-    for(let q=0;q<4;q++){const A=c[q],B=c[(q+1)%4];const ua=(q%2?0:s0)/4,ub=(q%2?hw*2:s1)/4;quad(b,[A[0],y0,A[1]],[B[0],y0,B[1]],[B[0],y1,B[1]],[A[0],y1,A[1]],[[ua,y0/4],[ub,y0/4],[ub,y1/4],[ua,y1/4]],WALLC)}
-    quadW(bucket('coral',mx,mz),[c[0][0],y1,c[0][1]],[c[3][0],y1,c[3][1]],[c[2][0],y1,c[2][1]],[c[1][0],y1,c[1][1]],4,WALLTOP);
-    // parapet on both edges of the walkway
-    for(const e of [[c[0],c[1]],[c[3],c[2]]]){const A=e[0],B=e[1];const bb=bucket('coral',mx,mz);const ix=(e[0]===c[0]?-nx:nx)*.6,iz=(e[0]===c[0]?-nz:nz)*.6;
-      quad(bb,[A[0],y1,A[1]],[B[0],y1,B[1]],[B[0],y1+1.1,B[1]],[A[0],y1+1.1,A[1]],[[s0/4,0],[s1/4,0],[s1/4,.28],[s0/4,.28]],WALLC);
-      quadW(bb,[A[0],y1+1.1,A[1]],[B[0],y1+1.1,B[1]],[B[0]+ix,y1+1.1,B[1]+iz],[A[0]+ix,y1+1.1,A[1]+iz],4,WALLTOP)}
-    if(gate)quadW(bucket('coral',mx,mz),[c[0][0],y0,c[0][1]],[c[1][0],y0,c[1][1]],[c[2][0],y0,c[2][1]],[c[3][0],y0,c[3][1]],4,WALLTOP);
-    if(!gate)addSolidPoly([c[0][0],c[0][1],c[1][0],c[1][1],c[2][0],c[2][1],c[3][0],c[3][1]])}}
-  // garitas (sentry boxes) at sharp corners of the bastions
-  for(let i=1;i<np-1;i++){const ax=pts[i*2-2],az=pts[i*2-1],bx=pts[i*2],bz=pts[i*2+1],cx=pts[i*2+2],cz=pts[i*2+3];
-    const d1=[bx-ax,bz-az],d2=[cx-bx,cz-bz];const l1=Math.hypot(...d1),l2=Math.hypot(...d2);if(l1<6||l2<6)continue;
-    const cos=(d1[0]*d2[0]+d1[1]*d2[1])/(l1*l2);if(cos>.35)continue;
-    // point outward: away from the bisector of the inner angle
-    let ox=d1[0]/l1-d2[0]/l2,oz=d1[1]/l1-d2[1]/l2;const ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;
-    GARITAS.push([bx+ox*4.2,bz+oz*4.2])}});
-(function(){const C=colObj('#efe4cc'),D=colObj('#2a221c');
-  GARITAS.forEach(([x,z])=>{const y=9;geoInto('coralS',new THREE.CylinderGeometry(1.1,1.1,2.6,10,1,true),C,place(x,y+1.3,z));geoInto('coralS',new THREE.ConeGeometry(1.1,1.4,10,1,true),C,place(x,y-.7,z,Math.PI,0,0));
-    geoInto('coralS',new THREE.SphereGeometry(1.25,10,5,0,TAU,0,Math.PI/2),C,place(x,y+2.6,z));geoInto('coralS',new THREE.SphereGeometry(.22,6,4),C,place(x,y+3.9,z));
-    for(let k=0;k<4;k++){const a=k/4*TAU;geoInto('plain',new THREE.PlaneGeometry(.35,.9),D,place(x+Math.sin(a)*1.12,y+1.6,z+Math.cos(a)*1.12,0,a,0))}})})();
+const WALL_TOP=9,WALL_RINGS=[],GARITAS=[];
+(function(){
+  const STK=colObj('#7a7366'),STM=colObj('#d2c5ab'),STT=colObj('#fbf0d8'),CORD=colObj('#fff6e2'),PAR=colObj('#f4e8cf'),PAV=colObj('#c49c80'),TUN=colObj('#8b8172'),GRS=colObj('#ffffff');
+  const SQ=MAP.squares;
+  const shade=(c,k)=>({r:c.r*k,g:c.g*k,b:c.b*k}),mix=(a,b,t)=>({r:a.r+(b.r-a.r)*t,g:a.g+(b.g-a.g)*t,b:a.b+(b.b-a.b)*t});
+  const prep=p=>{const o=[];for(let i=0;i<p.length;i+=2){const m=o.length;if(m&&Math.hypot(p[i]-o[m-2],p[i+1]-o[m-1])<.8)continue;o.push(p[i],p[i+1])}
+    while(o.length>6&&Math.hypot(o[0]-o[o.length-2],o[1]-o[o.length-1])<.8)o.splice(-2,2);
+    if(signedArea(o)<0){const q=[];for(let i=o.length/2-1;i>=0;i--)q.push(o[i*2],o[i*2+1]);return q}return o};
+  // contorno con cada lado metido hacia adentro su propia distancia d[i] (lado i va del vértice i al i+1)
+  const insetE=(p,d)=>{const n=p.length/2,o=[];for(let i=0;i<n;i++){const h=(i+n-1)%n,j=(i+1)%n,ax=p[h*2],az=p[h*2+1],bx=p[i*2],bz=p[i*2+1],qx=p[j*2],qz=p[j*2+1];
+    const l1=Math.hypot(bx-ax,bz-az)||1,l2=Math.hypot(qx-bx,qz-bz)||1,n1x=-(bz-az)/l1,n1z=(bx-ax)/l1,n2x=-(qz-bz)/l2,n2z=(qx-bx)/l2,d1=d[h],d2=d[i];
+    const det=n1x*n2z-n1z*n2x,c1=d1,c2=d2;let mx,mz;
+    if(Math.abs(det)<.15){let ax2=n1x+n2x,az2=n1z+n2z;const al=Math.hypot(ax2,az2);if(al<1e-3){ax2=n1x;az2=n1z}else{ax2/=al;az2/=al}mx=ax2*(d1+d2)/2;mz=az2*(d1+d2)/2}
+    else{mx=(c1*n2z-c2*n1z)/det;mz=(n1x*c2-n2x*c1)/det}
+    const ml=Math.hypot(mx,mz),lim=2.4*Math.max(d1,d2);if(ml>lim){mx*=lim/ml;mz*=lim/ml}o.push(bx+mx,bz+mz)}return o};
+  // edificios cerca: lado de la ciudad
+  const BG=new Map();MAP.buildings.forEach(b=>{const p=b[3];let x=0,z=0;for(let i=0;i<p.length;i+=2){x+=p[i];z+=p[i+1]}x/=p.length/2;z/=p.length/2;const k=Math.floor(x/20)+'|'+Math.floor(z/20);BG.set(k,(BG.get(k)||0)+1)});
+  const bNear=(x,z)=>{let c=0;const i0=Math.floor(x/20),j0=Math.floor(z/20);for(let i=i0-1;i<=i0+1;i++)for(let j=j0-1;j<=j0+1;j++)c+=BG.get(i+'|'+j)||0;return c};
+  // la Boca del Puente la levanta torreDelReloj
+  const T=TORRE,inTorre=(x,z)=>{const a=(x-T.S[0])*T.u[0]+(z-T.S[1])*T.u[1],b=(x-T.S[0])*T.n[0]+(z-T.S[1])*T.n[1];return a>-1&&a<T.L+1&&Math.abs(b)<T.hw+1.5};
+  // calles (no peatonales) para buscar dónde cruzan
+  const RD=[];{const seen=new Set();for(const a of roadSegs.values())for(const s of a){if(seen.has(s)||s.walk)continue;seen.add(s);RD.push(s)}}
+  const segX=(ax,az,bx,bz,cx,cz,dx,dz)=>{const rx=bx-ax,rz=bz-az,sx=dx-cx,sz=dz-cz,den=rx*sz-rz*sx;if(Math.abs(den)<1e-9)return null;const t=((cx-ax)*sz-(cz-az)*sx)/den,u=((cx-ax)*rz-(cz-az)*rx)/den;return t>=0&&t<=1&&u>=0&&u<=1?[t,u]:null};
+  const triO=(b,P,U,C,want)=>{const e1=[P[1][0]-P[0][0],P[1][1]-P[0][1],P[1][2]-P[0][2]],e2=[P[2][0]-P[0][0],P[2][1]-P[0][1],P[2][2]-P[0][2]];
+    const nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];const ord=nx*want[0]+ny*want[1]+nz*want[2]<0?[0,2,1]:[0,1,2];
+    for(const i of ord){b.p.push(P[i][0],P[i][1],P[i][2]);b.u.push(U[i][0],U[i][1]);b.c.push(C[i].r,C[i].g,C[i].b)}};
+  let nGates=0;
+  MAP.walls.forEach((raw,ri)=>{const p=prep(raw),n=p.length/2;if(n<3)return;
+    let gmin=1e9,gmax=-1e9;for(let i=0;i<n;i++){const g=groundRaw(p[i*2],p[i*2+1]);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g)}
+    const y0=gmin-1.2,y1=Math.max(WALL_TOP,gmax+7.5),H=y1-y0;
+    // cada lado: largo, dirección, normal hacia adentro, si mira afuera (foso, mar, avenida) o a la ciudad, y el grueso de muralla detrás
+    const E=[];for(let i=0;i<n;i++){const j=(i+1)%n,ax=p[i*2],az=p[i*2+1],bx=p[j*2],bz=p[j*2+1],L=Math.hypot(bx-ax,bz-az)||1,dx=(bx-ax)/L,dz=(bz-az)/L,nx=-dz,nz=dx,mx=(ax+bx)/2,mz=(az+bz)/2;
+      let th=0;while(th<70&&inPoly(p,mx+nx*(th+.5),mz+nz*(th+.5)))th+=.5;
+      const water=isWater(mx-nx*14,mz-nz*14)||isWater(mx-nx*35,mz-nz*35);const out=water||bNear(mx-nx*20,mz-nz*20)<3;
+      E.push({i,j,ax,az,bx,bz,L,dx,dz,nx,nz,th:Math.max(th,1),out,wide:th>17,bat:out?.2:.05})}
+    const top=insetE(p,E.map(e=>e.bat*H));WALL_RINGS.push({p,top,y1});
+    // punto de la cara del lado e a la distancia s del vértice y a la altura y (lineal en s: interpola entre el borde de abajo y el de arriba)
+    const FB=(e,f)=>{const tx=top[e.i*2],tz=top[e.i*2+1],ux=top[e.j*2],uz=top[e.j*2+1];return{bx:e.ax+(tx-e.ax)*f,bz:e.az+(tz-e.az)*f,dx:((e.bx-e.ax)+((ux-tx)-(e.bx-e.ax))*f)/e.L,dz:((e.bz-e.az)+((uz-tz)-(e.bz-e.az))*f)/e.L}};
+    const F=(e,s,y)=>{const f=(y-y0)/H,q=FB(e,f);return[q.bx+q.dx*s,y,q.bz+q.dz*s]};
+    // s donde la recta (px,pz)+(ux,uz)t corta la cara del lado e a la altura y
+    const sAt=(e,y,px,pz,ux,uz)=>{const q=FB(e,(y-y0)/H),den=q.dx*uz-q.dz*ux;if(Math.abs(den)<1e-6)return null;return((px-q.bx)*uz-(pz-q.bz)*ux)/den};
+    const colY=(y,k)=>{const t=(y-y0)/H;return t<.28?mix(shade(STK,k),shade(STM,k),t/.28):mix(shade(STM,k),shade(STT,k),Math.min(1,(t-.28)/.5))};
+    // calles que cruzan: entrada por un lado, salida por otro (túnel)
+    const G=E.map(()=>[]);const cross=[];
+    for(const s of RD){if(Math.max(s.ax,s.bx)<Math.min(...p.filter((_,k)=>!(k&1)))-5)continue;
+      for(const e of E){const r=segX(s.ax,s.az,s.bx,s.bz,e.ax,e.az,e.bx,e.bz);if(r)cross.push({s,e,x:s.ax+(s.bx-s.ax)*r[0],z:s.az+(s.bz-s.az)*r[0]})}}
+    const used=new Set();
+    for(const c of cross){if(used.has(c))continue;used.add(c);const s=c.s,e=c.e;if(inTorre(c.x,c.z))continue;
+      let ux=s.bx-s.ax,uz=s.bz-s.az;const ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;if(ux*e.nx+uz*e.nz<0){ux=-ux;uz=-uz}
+      const cosI=ux*e.nx+uz*e.nz;if(cosI<.35)continue;
+      let t=.3;while(t<45&&inPoly(p,c.x+ux*t,c.z+uz*t))t+=.3;if(t>=45||t<2)continue;
+      const qx=c.x+ux*t,qz=c.z+uz*t;let e2=null,bd=4;for(const f of E){if(f===e)continue;const ex=f.bx-f.ax,ez=f.bz-f.az,l2=ex*ex+ez*ez;const k=clamp(((qx-f.ax)*ex+(qz-f.az)*ez)/l2,0,1),d=Math.hypot(f.ax+ex*k-qx,f.az+ez*k-qz);if(d<bd){bd=d;e2=f}}
+      if(!e2||-(ux*e2.nx+uz*e2.nz)<.35)continue;
+      for(const o of cross)if(!used.has(o)&&Math.hypot(o.x-qx,o.z-qz)<6)used.add(o);
+      const hw=clamp((s.w||7)/2+.6,2.2,5.5),gy=groundRaw(c.x,c.z),crown=Math.min(gy+6.4,y1-1.6),spring=Math.max(gy+2.8,crown-hw);
+      // perfil del túnel: (desplazamiento lateral, altura) de abajo a la izquierda, por la bóveda, a abajo a la derecha
+      const PR=[[-hw,y0]];const NA=10;for(let k=0;k<=NA;k++){const a=Math.PI-k/NA*Math.PI;PR.push([Math.cos(a)*hw,spring+Math.sin(a)*(crown-spring)])}PR.push([hw,y0]);
+      const vx=-uz,vz=ux;const sides=[];
+      let ok=true;for(const [f,dir] of [[e,1],[e2,-1]]){const S=PR.map(([l,y])=>sAt(f,y,c.x+vx*l,c.z+vz*l,ux,uz));if(S.some(v=>v===null||v<.4||v>f.L-.4)){ok=false;break}
+        const lo=Math.min(...S)-1.2,hi=Math.max(...S)+1.2;if(G[f.i].some(g=>!(hi<g.lo||lo>g.hi))){ok=false;break}sides.push({f,S,lo:Math.max(0,lo),hi:Math.min(f.L,hi)})}
+      if(!ok)continue;nGates++;
+      for(const sd of sides)G[sd.f.i].push({lo:sd.lo,hi:sd.hi,S:sd.S,PR,gl:Math.min(sd.S[0],sd.S[sd.S.length-1]),gr:Math.max(sd.S[0],sd.S[sd.S.length-1])});
+      // bóveda y paredes del túnel, de cara a cara
+      const [A,B]=sides,b=bucket('coral',(c.x+qx)/2,(c.z+qz)/2);let ua=0;
+      for(let k=0;k<PR.length-1;k++){const P0=F(A.f,A.S[k],PR[k][1]),P1=F(A.f,A.S[k+1],PR[k+1][1]),Q0=F(B.f,B.S[k],PR[k][1]),Q1=F(B.f,B.S[k+1],PR[k+1][1]);
+        const ml=(PR[k][0]+PR[k+1][0])/2,my=(PR[k][1]+PR[k+1][1])/2,want=[-vx*ml,(spring-my)*.5+.01,-vz*ml];const seg=Math.hypot(PR[k+1][0]-PR[k][0],PR[k+1][1]-PR[k][1])/4,len=t/4;
+        const c0=shade(TUN,PR[k][1]<gy+1.5?.75:1),c1=shade(TUN,PR[k+1][1]<gy+1.5?.75:1);
+        triO(b,[P0,P1,Q1],[[ua,0],[ua+seg,0],[ua+seg,len]],[c0,c1,c1],want);triO(b,[P0,Q1,Q0],[[ua,0],[ua+seg,len],[ua,len]],[c0,c1,c0],want);ua+=seg}
+      // que no se pueda atravesar la muralla por los lados del túnel
+      for(const sg of [-1,1]){const l0=sg*hw,l1=sg*(hw+1.6);addSolidPoly([c.x+vx*l0,c.z+vz*l0,qx+vx*l0,qz+vz*l0,qx+vx*l1,qz+vz*l1,c.x+vx*l1,c.z+vz*l1])}}
+    // caras
+    for(const e of E){const gates=G[e.i].sort((a,b)=>a.lo-b.lo),want=[-e.nx,0,-e.nz],k0=.82+.3*hash(ri*31+e.i,7);
+      const solid=[];let s=0;for(const g of gates){if(g.lo>s)solid.push([s,g.lo]);s=g.hi}if(s<e.L)solid.push([s,e.L]);
+      for(const [a,bnd] of solid){const m=Math.max(1,Math.round((bnd-a)/5));for(let q=0;q<m;q++){const s0=a+(bnd-a)*q/m,s1=a+(bnd-a)*(q+1)/m;const mx=e.ax+e.dx*(s0+s1)/2,mz=e.az+e.dz*(s0+s1)/2;if(inTorre(mx,mz))continue;
+        const k=k0*(.86+.24*hash(Math.round(mx*3),Math.round(mz*3))),kb=k*(.8+.3*hash(Math.round(mz*5),Math.round(mx*5))),b=bucket('coral',mx,mz),ys=y0+H*.28,u0=s0/4,u1=s1/4;
+        const a0=F(e,s0,y0),a1=F(e,s1,y0),m0=F(e,s0,ys),m1=F(e,s1,ys),t0=F(e,s0,y1),t1=F(e,s1,y1),cB=shade(STK,kb),cM=shade(STM,(k+kb)/2),cT=shade(STT,k);
+        triO(b,[a0,a1,m1],[[u0,y0/4],[u1,y0/4],[u1,ys/4]],[cB,cB,cM],want);triO(b,[a0,m1,m0],[[u0,y0/4],[u1,ys/4],[u0,ys/4]],[cB,cM,cM],want);
+        triO(b,[m0,m1,t1],[[u0,ys/4],[u1,ys/4],[u1,y1/4]],[cM,cM,cT],want);triO(b,[m0,t1,t0],[[u0,ys/4],[u1,y1/4],[u0,y1/4]],[cM,cT,cT],want);
+        // colisión: franja maciza detrás de la cara (no más que el grueso de la muralla)
+        const dd=Math.min(7,e.th-.2);addSolidPoly([a0[0],a0[2],a1[0],a1[2],a1[0]+e.nx*dd,a1[2]+e.nz*dd,a0[0]+e.nx*dd,a0[2]+e.nz*dd]);
+        // prado del foso al pie de la cara de afuera, hasta la calle, el agua, un edificio o una plaza
+        if(e.out){const ext=[s0,s1].map(sv=>{const fx=e.ax+e.dx*sv,fz=e.az+e.dz*sv;let d=0;for(;d<26;d+=1){const x=fx-e.nx*(d+1),z=fz-e.nz*(d+1);
+            if(solidAt(x,z)||isWater(x,z)&&(d>=20||isWater(x-e.nx*14,z-e.nz*14)))break;const r=nearestRoad(x,z,12);if(r&&r.d<(r.s.w||4)/2+1)break;let sq=false;for(const P of SQ)if(inPoly(P,x,z)){sq=true;break}if(sq)break}return d});
+          if(ext[0]>1.5&&ext[1]>1.5){const P=(sv,d)=>{const x=e.ax+e.dx*sv-e.nx*d,z=e.az+e.dz*sv-e.nz*d;return[x,ground(x,z)+.05,z]};const gb=bucket('grass',mx,mz);
+            const A=P(s0,0),B=P(s1,0),C=P(s1,ext[1]),D=P(s0,ext[0]);triO(gb,[A,B,C],[[A[0]/5,A[2]/5],[B[0]/5,B[2]/5],[C[0]/5,C[2]/5]],[GRS,GRS,GRS],[0,1,0]);triO(gb,[A,C,D],[[A[0]/5,A[2]/5],[C[0]/5,C[2]/5],[D[0]/5,D[2]/5]],[GRS,GRS,GRS],[0,1,0])}}}}
+      // la cara sobre cada arco
+      for(const g of gates){const S=g.S,PR=g.PR,C=[[g.lo,y0]];const lr=S[0]<S[S.length-1];const idx=PR.map((_,k)=>k);if(!lr)idx.reverse();
+        for(const k of idx)C.push([S[k],PR[k][1]]);C.push([g.hi,y0],[g.hi,y1],[g.lo,y1]);
+        const V=C.map(([x,y])=>new THREE.Vector2(x,y));let tr;try{tr=THREE.ShapeUtils.triangulateShape(V,[])}catch(err){tr=[]}
+        const mx=e.ax+e.dx*(g.lo+g.hi)/2,mz=e.az+e.dz*(g.lo+g.hi)/2,b=bucket('coral',mx,mz);
+        for(const q of tr){const P=q.map(i=>F(e,C[i][0],C[i][1]));triO(b,P,q.map(i=>[C[i][0]/4,C[i][1]/4]),q.map(i=>colY(C[i][1],k0)),want)}
+        // dovelas: un aro de piedra clara alrededor del arco
+        const CL=colObj('#efe6d2');for(let k=1;k<PR.length-2;k++){const i0=k,i1=k+1;const P0=F(e,S[i0],PR[i0][1]),P1=F(e,S[i1],PR[i1][1]);
+          const o0=[P0[0]-e.nx*.12,P0[1],P0[2]-e.nz*.12],o1=[P1[0]-e.nx*.12,P1[1],P1[2]-e.nz*.12];const r0=(PR[i0][1]-y0),r1=(PR[i1][1]-y0);
+          const up0=[o0[0],o0[1]+.55,o0[2]],up1=[o1[0],o1[1]+.55,o1[2]];if(r0<0||r1<0)continue;
+          triO(b,[o0,o1,up1],[[0,0],[.3,0],[.3,.15]],[CL,CL,CL],want);triO(b,[o0,up1,up0],[[0,0],[.3,.15],[0,.15]],[CL,CL,CL],want)}}}
+    // adarve: piso enladrillado arriba
+    {const V=[];for(let i=0;i<n;i++)V.push(new THREE.Vector2(top[i*2],top[i*2+1]));let tr;try{tr=THREE.ShapeUtils.triangulateShape(V,[])}catch(err){tr=[]}
+      for(const q of tr){const a=V[q[0]],bb=V[q[1]],c=V[q[2]],cx=(a.x+bb.x+c.x)/3,cz=(a.y+bb.y+c.y)/3;if(inTorre(cx,cz))continue;const k=.9+.15*hash(Math.round(cx/9),Math.round(cz/9));
+        triO(bucket('stone',cx,cz),[[a.x,y1,a.y],[bb.x,y1,bb.y],[c.x,y1,c.y]],[[a.x/2.5,a.y/2.5],[bb.x/2.5,bb.y/2.5],[c.x/2.5,c.y/2.5]],[shade(PAV,k),shade(PAV,k),shade(PAV,k)],[0,1,0])}}
+    // parapeto: por fuera alto, redondeado, con cañoneras en los baluartes; por dentro un pretil bajo
+    const PT=E.map(e=>e.out?1:.55),q=insetE(top,PT);
+    for(const e of E){const ax=top[e.i*2],az=top[e.i*2+1],bx=top[e.j*2],bz=top[e.j*2+1],L=Math.hypot(bx-ax,bz-az);if(L<.3)continue;
+      const ix0=q[e.i*2],iz0=q[e.i*2+1],ix1=q[e.j*2],iz1=q[e.j*2+1],h=e.out?1.3:.75,bay=e.out&&e.wide&&L>9?5.5:0,m=bay?Math.round(L/bay):0,gw=Math.min(.42,1.2*m/Math.max(L,1));
+      const parts=[];if(!m)parts.push([0,1,h]);else for(let s=0;s<m;s++){const t0=s/m,t1=(s+1)/m,tc=t1-gw/m;parts.push([t0,tc,h],[tc,t1,.45])}
+      const want=[-e.nx,0,-e.nz],wIn=[e.nx,0,e.nz];
+      for(const [t0,t1,hh] of parts){const O0=[ax+(bx-ax)*t0,az+(bz-az)*t0],O1=[ax+(bx-ax)*t1,az+(bz-az)*t1],I0=[ix0+(ix1-ix0)*t0,iz0+(iz1-iz0)*t0],I1=[ix0+(ix1-ix0)*t1,iz0+(iz1-iz0)*t1];
+        if(inTorre((O0[0]+O1[0])/2,(O0[1]+O1[1])/2))continue;const b=bucket('coral',(O0[0]+O1[0])/2,(O0[1]+O1[1])/2),u0=L*t0/4,u1=L*t1/4,yt=y1+hh,v1=hh/4,c=shade(PAR,.9+.15*hash(Math.round(O0[0]),Math.round(O0[1])));
+        triO(b,[[O0[0],y1,O0[1]],[O1[0],y1,O1[1]],[O1[0],yt,O1[1]]],[[u0,0],[u1,0],[u1,v1]],[c,c,c],want);triO(b,[[O0[0],y1,O0[1]],[O1[0],yt,O1[1]],[O0[0],yt,O0[1]]],[[u0,0],[u1,v1],[u0,v1]],[c,c,c],want);
+        const ci=shade(c,.88);triO(b,[[I0[0],y1,I0[1]],[I1[0],y1,I1[1]],[I1[0],yt,I1[1]]],[[u0,0],[u1,0],[u1,v1]],[ci,ci,ci],wIn);triO(b,[[I0[0],y1,I0[1]],[I1[0],yt,I1[1]],[I0[0],yt,I0[1]]],[[u0,0],[u1,v1],[u0,v1]],[ci,ci,ci],wIn);
+        // remate redondeado: dos planos inclinados hacia una arista central un poco más alta
+        const M0=[(O0[0]+I0[0])/2,yt+.18,(O0[1]+I0[1])/2],M1=[(O1[0]+I1[0])/2,yt+.18,(O1[1]+I1[1])/2],ct=CORD;
+        triO(b,[[O0[0],yt,O0[1]],[O1[0],yt,O1[1]],M1],[[u0,0],[u1,0],[u1,.12]],[ct,ct,ct],[-e.nx,1,-e.nz]);triO(b,[[O0[0],yt,O0[1]],M1,M0],[[u0,0],[u1,.12],[u0,.12]],[ct,ct,ct],[-e.nx,1,-e.nz]);
+        triO(b,[[I0[0],yt,I0[1]],[I1[0],yt,I1[1]],M1],[[u0,0],[u1,0],[u1,.12]],[ct,ct,ct],[e.nx,1,e.nz]);triO(b,[[I0[0],yt,I0[1]],M1,M0],[[u0,0],[u1,.12],[u0,.12]],[ct,ct,ct],[e.nx,1,e.nz]);
+        if(hh<h)for(const [P,Q,sg] of [[O0,I0,1],[O1,I1,-1]]){const cc=shade(PAR,.75),w=[e.dx*sg,0,e.dz*sg];
+          triO(b,[[P[0],y1+hh,P[1]],[Q[0],y1+hh,Q[1]],[Q[0],y1+h,Q[1]]],[[0,0],[.25,0],[.25,.2]],[cc,cc,cc],w);triO(b,[[P[0],y1+hh,P[1]],[Q[0],y1+h,Q[1]],[P[0],y1+h,P[1]]],[[0,0],[.25,.2],[0,.2]],[cc,cc,cc],w)}}
+      // cordón de piedra: moldura redonda que corre por debajo del parapeto en la cara de afuera
+      if(e.out){const cy0=y1-.6,cy1=y1-.12,o=.32,f0=(cy0-y0)/H,f1=(cy1-y0)/H;const m2=Math.max(1,Math.round(e.L/8));
+        for(let k=0;k<m2;k++){const s0=e.L*k/m2,s1=e.L*(k+1)/m2;const A0=F(e,s0,cy0),A1=F(e,s1,cy0),B0=F(e,s0,cy1),B1=F(e,s1,cy1);if(inTorre((A0[0]+A1[0])/2,(A0[2]+A1[2])/2))continue;
+          const ox=-e.nx*o,oz=-e.nz*o,b=bucket('coral',A0[0],A0[2]);const Om=(P,dy)=>[P[0]+ox,P[1]+dy,P[2]+oz];
+          triO(b,[Om(A0,.12),Om(A1,.12),Om(B1,-.1)],[[s0/4,0],[s1/4,0],[s1/4,.12]],[CORD,CORD,CORD],[-e.nx,0,-e.nz]);triO(b,[Om(A0,.12),Om(B1,-.1),Om(B0,-.1)],[[s0/4,0],[s1/4,.12],[s0/4,.12]],[CORD,CORD,CORD],[-e.nx,0,-e.nz]);
+          const cu=shade(CORD,1.05);triO(b,[Om(B0,-.1),Om(B1,-.1),B1],[[0,0],[1,0],[1,.1]],[cu,cu,cu],[-e.nx,1,-e.nz]);triO(b,[Om(B0,-.1),B1,B0],[[0,0],[1,.1],[0,.1]],[cu,cu,cu],[-e.nx,1,-e.nz]);
+          const cd=shade(CORD,.7);triO(b,[A0,A1,Om(A1,.12)],[[0,0],[1,0],[1,.1]],[cd,cd,cd],[-e.nx,-1,-e.nz]);triO(b,[A0,Om(A1,.12),Om(A0,.12)],[[0,0],[1,.1],[0,.1]],[cd,cd,cd],[-e.nx,-1,-e.nz])}}}
+    // garitas: en las puntas agudas de los baluartes que miran afuera
+    for(let i=0;i<n;i++){const e1=E[(i+n-1)%n],e2=E[i];if(!e1.out||!e2.out||e1.L<9||e2.L<9)continue;
+      const cr=e1.dx*e2.dz-e1.dz*e2.dx;if(cr<=0)continue;if(e1.dx*e2.dx+e1.dz*e2.dz>.3)continue;
+      let ox=e1.dx-e2.dx,oz=e1.dz-e2.dz;const ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;const x=top[i*2]+ox*.35,z=top[i*2+1]+oz*.35;if(inTorre(x,z))continue;GARITAS.push([x,z,y1])}
+  });
+  window.__walls={rings:WALL_RINGS.length,gates:nGates,garitas:GARITAS.length};
+})();
+// garita de Cartagena: torreón redondo con cúpula y bola, colgado de la punta del baluarte sobre una ménsula en cono
+(function(){const C=colObj('#ece1c9'),D=colObj('#2a221c');
+  GARITAS.forEach(([x,z,y])=>{y+=.2;geoInto('coralS',new THREE.CylinderGeometry(1.05,1.05,2.5,12,1,true),C,place(x,y+1.25,z));geoInto('coralS',new THREE.ConeGeometry(1.05,1.5,12,1,true),C,place(x,y-.75,z,Math.PI,0,0));
+    geoInto('coralS',new THREE.CylinderGeometry(1.25,1.25,.25,12),C,place(x,y+2.55,z));geoInto('coralS',new THREE.SphereGeometry(1.15,12,6,0,TAU,0,Math.PI/2),C,place(x,y+2.65,z));
+    geoInto('coralS',new THREE.CylinderGeometry(.14,.2,.35,6),C,place(x,y+3.9,z));geoInto('coralS',new THREE.SphereGeometry(.24,8,5),C,place(x,y+4.2,z));
+    for(let k=0;k<4;k++){const a=k/4*TAU+Math.PI/4;geoInto('plain',new THREE.PlaneGeometry(.3,.85),D,place(x+Math.sin(a)*1.07,y+1.5,z+Math.cos(a)*1.07,0,a,0))}})})();
+// punto del adarve más cercano a (x,z), metido hacia el centro de la muralla (para poner cosas encima)
+function wallTopNear(x,z,maxD){let best=null;for(const r of WALL_RINGS){const t=r.top,n=t.length/2;for(let i=0;i<n;i++){const j=(i+1)%n,ax=t[i*2],az=t[i*2+1],dx=t[j*2]-ax,dz=t[j*2+1]-az,l2=dx*dx+dz*dz||1;
+  const k=clamp(((x-ax)*dx+(z-az)*dz)/l2,0,1),qx=ax+dx*k,qz=az+dz*k,d=Math.hypot(qx-x,qz-z);if(d<maxD&&(!best||d<best.d)){const L=Math.sqrt(l2);best={d,x:qx-dz/L*3,z:qz+dx/L*3,ux:dx/L,uz:dz/L,y:r.y1}}}}return best}
 
 /* ---------- landmarks ---------- */
 const LM=[];
@@ -830,12 +953,19 @@ function label(name,x,y,z){const c=document.createElement('canvas');c.width=512;
      entablamento y un ático de remate curvo con volutas;
    - por dentro (Plaza de los Coches): todo el muro pintado de amarillo;
    - la torre amarilla con molduras blancas: base ancha, cuerpo del reloj (4 esferas y ventanas de persiana en arco),
-     frontones triangulares blancos con remates, campanario con persianas y chapitel con aristas blancas y veleta. */
+     frontones triangulares blancos con remates, campanario con una persiana grande en arco por cara y chapitel con aristas blancas y cruz;
+   - la torre se levanta sobre la cara de afuera, encima de la portada; detrás, el adarve de ladrillo rojo con sus pretiles;
+   - el reloj tiene números romanos y marca la hora del juego; de noche los arcos se iluminan de amarillo y la torre queda alumbrada;
+   - afuera, la Plaza de la Paz: piso rosado en abanico con rayas claras que salen de la puerta, las gradas frente al arco
+     y los jardines con palmas al pie de la muralla. */
+const TORRE_FX={hands:[],mats:[],plaza:null,palms:[]};
 function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
-  const g=new THREE.Group();g.position.set(px,y0,pz);g.rotation.y=T.yaw;scene.add(g);
+  const g=new THREE.Group();g.position.set(px,y0,pz);g.rotation.y=T.yaw;scene.add(g);let tgt=g;
   const CORAL=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#e3d6bc'}),CORAL2=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#efe4cc'}),
-    YEL=new THREE.MeshLambertMaterial({color:'#f7c22f'}),YEL2=new THREE.MeshLambertMaterial({color:'#d99a1c'}),WH=new THREE.MeshLambertMaterial({color:'#f7f3e8'}),IRON=mat('#26211c');
-  const add=(geo,m,x,y,z,rx,ry,rz)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
+    YEL=new THREE.MeshLambertMaterial({color:'#f5bd2c'}),YEL2=new THREE.MeshLambertMaterial({color:'#e3a51f'}),WH=new THREE.MeshLambertMaterial({color:'#f7f3e8'}),IRON=mat('#26211c');
+  const ARC=new THREE.MeshLambertMaterial({color:'#f2b623'});TORRE_FX.mats=[[ARC,.8,.6,.1],[CORAL,.32,.23,.144],[CORAL2,.32,.23,.144],[YEL2,.2,.14,.04],[YEL,.22,.16,.05],[WH,.2,.18,.14]];
+  const add=(geo,m,x,y,z,rx,ry,rz)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;tgt.add(o);return o};
+  const cvT=(w,h,fn,rep)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;if(rep)t.wrapS=t.wrapT=THREE.RepeatWrapping;return t};
   // caja con UV en metros (la piedra repite cada 4 m)
   const bx=(w,h,d,m,x,y,z)=>{const geo=new THREE.BoxGeometry(w,h,d),uv=geo.attributes.uv.array,F=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let f=0;f<6;f++)for(let k=0;k<4;k++){uv[(f*4+k)*2]*=F[f][0]/4;uv[(f*4+k)*2+1]*=F[f][1]/4}return add(geo,m,x,y,z)};
   const uvScale=(geo,s)=>{const a=geo.attributes.uv.array;for(let i=0;i<a.length;i++)a[i]*=s;return geo};
@@ -847,9 +977,16 @@ function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
   add(uvScale(new THREE.ExtrudeGeometry(body(),{depth:HW,bevelEnabled:false}),.25),CORAL,0,0,0);
   const inn=new THREE.ExtrudeGeometry(body(),{depth:HW,bevelEnabled:false});inn.translate(0,0,-HW);add(inn,YEL,0,0,0);
   // forro amarillo dentro de los arcos (como en las fotos)
-  ARCH.forEach(a=>{const s=arch(new THREE.Shape(),a[0],a[1],a[2],0);s.holes.push(arch(new THREE.Path(),a[0],a[1],a[2],.07));const l=new THREE.ExtrudeGeometry(s,{depth:HW*2-.02,bevelEnabled:false});l.translate(0,0,-HW+.01);add(l,YEL2,0,0,0)});
+  ARCH.forEach(a=>{const s=arch(new THREE.Shape(),a[0],a[1],a[2],0);s.holes.push(arch(new THREE.Path(),a[0],a[1],a[2],.07));const l=new THREE.ExtrudeGeometry(s,{depth:HW*2-.02,bevelEnabled:false});l.translate(0,0,-HW+.01);add(l,ARC,0,0,0)});
   // coronación y cordón de piedra por fuera; zócalo y cornisa por dentro
+  // adarve: losa de piedra, piso de ladrillo rojo (como se ve desde arriba en las fotos), pretil de piedra hacia afuera y pretil amarillo hacia la plaza
   bx(T.L,.35,HW*2+.3,CORAL2,(X0+X1)/2,H+.17,0);
+  {const brick=cvT(256,256,(x,w,h)=>{x.fillStyle='#a98270';x.fillRect(0,0,w,h);let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let r=0;r<16;r++)for(let c=-1;c<8;c++){const bx0=c*32+(r%2)*16,by=r*16;x.fillStyle=`hsl(${10+R()*8},${45+R()*14}%,${30+R()*9}%)`;x.fillRect(bx0+1.5,by+1.5,29,13)}},true);
+    const L=T.L,D=HW*2-1.6,tex=brick;tex.repeat.set(L/3,D/3);const m=new THREE.Mesh(new THREE.PlaneGeometry(L,D),new THREE.MeshLambertMaterial({map:tex}));
+    m.rotation.x=-Math.PI/2;m.position.set((X0+X1)/2,H+.36,-.2);m.receiveShadow=true;g.add(m)}
+  for(const [a,b] of [[X0,-3.4],[3.4,X1]]){bx(b-a,.85,.7,CORAL2,(a+b)/2,H+.77,HW-.2);bx(b-a,.12,.85,CORAL2,(a+b)/2,H+1.24,HW-.2)}
+  bx(T.L,.6,.45,YEL,(X0+X1)/2,H+.64,-HW+.1);bx(T.L,.1,.55,WH,(X0+X1)/2,H+.99,-HW+.1);
   for(const [a,b] of [[X0,-4.9],[4.9,X1]])bx(b-a,.25,.25,CORAL2,(a+b)/2,6.3,HW+.12);
   bx(T.L,.7,.12,YEL2,(X0+X1)/2,.35,-HW-.06);bx(T.L,.3,.25,YEL2,(X0+X1)/2,H-.4,-HW-.12);
   add(new THREE.TorusGeometry(2.2,.16,6,18,Math.PI),YEL2,0,4,-HW-.05);
@@ -866,40 +1003,73 @@ function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
     const cg=new THREE.ExtrudeGeometry(c,{depth:1.6,bevelEnabled:false});cg.translate(0,8.05,F-1.1);add(cg,CORAL2,0,0,0);
     for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.55,.55,1,14),CORAL2,sx*3.65,8.7,F+.1,Math.PI/2,0,0);add(new THREE.CylinderGeometry(.32,.32,.9,10),CORAL2,sx*3.35,9.6,F+.1,Math.PI/2,0,0)}
     bx(1.5,1.9,.25,CORAL,0,10.2,F+.5);bx(1.9,.25,.3,CORAL2,0,11.25,F+.5)}
-  // texturas dibujadas: esfera del reloj y ventana de persiana con arco
-  const cv=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t};
-  const clockT=cv(128,128,(x,w)=>{x.fillStyle='#1d1a17';x.beginPath();x.arc(64,64,63,0,TAU);x.fill();x.fillStyle='#fbfaf5';x.beginPath();x.arc(64,64,56,0,TAU);x.fill();
-    x.strokeStyle='#1d1a17';x.lineCap='round';for(let k=0;k<12;k++){const a=k/12*TAU;x.lineWidth=k%3?3:5;x.beginPath();x.moveTo(64+Math.sin(a)*44,64-Math.cos(a)*44);x.lineTo(64+Math.sin(a)*52,64-Math.cos(a)*52);x.stroke()}
-    x.lineWidth=5;x.beginPath();x.moveTo(64,64);x.lineTo(64+Math.sin(-1.05)*28,64-Math.cos(-1.05)*28);x.stroke();x.lineWidth=3;x.beginPath();x.moveTo(64,64);x.lineTo(64+Math.sin(1.05)*42,64-Math.cos(1.05)*42);x.stroke();
-    x.fillStyle='#1d1a17';x.beginPath();x.arc(64,64,4,0,TAU);x.fill()});
-  const louvT=cv(64,160,(x,w,h)=>{x.beginPath();x.moveTo(0,h);x.lineTo(0,32);x.arc(32,32,32,Math.PI,0);x.lineTo(64,h);x.closePath();x.fillStyle='#f7f3e8';x.fill();
-    x.save();x.clip();x.fillStyle='#cfc8b6';for(let yy=40;yy<h-8;yy+=9)x.fillRect(8,yy,48,4);x.restore();x.strokeStyle='#ffffff';x.lineWidth=5;x.stroke()});
-  const clockM=new THREE.MeshLambertMaterial({map:clockT,alphaTest:.5}),louvM=new THREE.MeshLambertMaterial({map:louvT,alphaTest:.5});
+  // texturas dibujadas: esfera del reloj con números romanos (las manecillas van aparte y marcan la hora) y ventanas de persiana con arco
+  const cv=cvT;
+  const clockT=cv(256,256,(x,w)=>{const c=128;x.fillStyle='#1d1a17';x.beginPath();x.arc(c,c,127,0,TAU);x.fill();x.fillStyle='#fbfaf5';x.beginPath();x.arc(c,c,119,0,TAU);x.fill();
+    x.strokeStyle='#1d1a17';x.lineWidth=2;x.beginPath();x.arc(c,c,111,0,TAU);x.stroke();x.beginPath();x.arc(c,c,103,0,TAU);x.stroke();
+    for(let k=0;k<60;k++){const a=k/60*TAU;x.lineWidth=k%5?1.5:4;x.beginPath();x.moveTo(c+Math.sin(a)*103,c-Math.cos(a)*103);x.lineTo(c+Math.sin(a)*111,c-Math.cos(a)*111);x.stroke()}
+    x.fillStyle='#1d1a17';x.font='700 27px Georgia,"Times New Roman",serif';x.textAlign='center';x.textBaseline='middle';
+    ['XII','I','II','III','IIII','V','VI','VII','VIII','IX','X','XI'].forEach((n,k)=>{const a=k/12*TAU;x.save();x.translate(c+Math.sin(a)*84,c-Math.cos(a)*84);x.rotate(a);x.fillText(n,0,0);x.restore()})});
+  const louv=(w,h)=>cv(w,h,(x,w,h)=>{const r=w/2;x.beginPath();x.moveTo(0,h);x.lineTo(0,r);x.arc(r,r,r,Math.PI,0);x.lineTo(w,h);x.closePath();x.fillStyle='#f7f3e8';x.fill();
+    x.save();x.clip();x.fillStyle='#3b3630';x.fillRect(w*.14,r*.55,w*.72,h);x.fillStyle='#d6cfbd';for(let yy=r+4;yy<h-6;yy+=h/18)x.fillRect(w*.14,yy,w*.72,h/30);x.restore();x.strokeStyle='#ffffff';x.lineWidth=w*.08;x.stroke()});
+  const louvT=louv(64,160),bellT=louv(96,192);
+  const clockM=new THREE.MeshLambertMaterial({map:clockT,alphaTest:.5}),louvM=new THREE.MeshLambertMaterial({map:louvT,alphaTest:.5}),bellM=new THREE.MeshLambertMaterial({map:bellT,alphaTest:.5});
   const faces=(half,fn)=>{for(let k=0;k<4;k++){const a=k*Math.PI/2,s=Math.sin(a),c=Math.cos(a);fn((lx,y,o)=>{o.position.set(s*(half+.03)+c*lx,y,c*(half+.03)-s*lx);o.rotation.y=a;return o})}};
-  const plane=(w,h,m)=>{const o=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);g.add(o);return o};
-  const gable=(w,h,half,y)=>{faces(half,put=>{const s=new THREE.Shape();s.moveTo(-w/2,0);s.lineTo(w/2,0);s.lineTo(0,h);s.lineTo(-w/2,0);const o=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.3,bevelEnabled:false}),WH);o.castShadow=true;g.add(o);put(0,y,o);o.translateZ(-.33);
-    const s2=new THREE.Shape();s2.moveTo(-w/2+.45,.15);s2.lineTo(w/2-.45,.15);s2.lineTo(0,h-.32);s2.lineTo(-w/2+.45,.15);const i=new THREE.Mesh(new THREE.ShapeGeometry(s2),YEL);g.add(i);put(0,y,i);i.translateZ(.005)})};
+  const plane=(w,h,m)=>{const o=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);tgt.add(o);return o};
+  const gable=(w,h,half,y)=>{faces(half,put=>{const s=new THREE.Shape();s.moveTo(-w/2,0);s.lineTo(w/2,0);s.lineTo(0,h);s.lineTo(-w/2,0);const o=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.3,bevelEnabled:false}),WH);o.castShadow=true;tgt.add(o);put(0,y,o);o.translateZ(-.33);
+    const s2=new THREE.Shape();s2.moveTo(-w/2+.45,.15);s2.lineTo(w/2-.45,.15);s2.lineTo(0,h-.32);s2.lineTo(-w/2+.45,.15);const i=new THREE.Mesh(new THREE.ShapeGeometry(s2),YEL);tgt.add(i);put(0,y,i);i.translateZ(.005)})};
   const finials=(half,y,s)=>{for(const [cx,cz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){add(new THREE.CylinderGeometry(.1*s,.22*s,.55*s,8),WH,cx*half,y+.27*s,cz*half);add(new THREE.SphereGeometry(.2*s,8,6),WH,cx*half,y+.7*s,cz*half)}};
   const pil=(half,y0,y1,w)=>{for(const [cx,cz] of [[1,1],[1,-1],[-1,1],[-1,-1]])add(new THREE.BoxGeometry(w,y1-y0,w),WH,cx*(half-w/2+.04),(y0+y1)/2,cz*(half-w/2+.04))};
-  // base de la torre (asoma detrás del ático) con su cornisa blanca
-  bx(8.4,4.6,7,YEL,0,H+2.3,-.4);pil(3.5,H,H+4.6,.45);bx(9,.45,7.6,WH,0,H+4.82,-.4);
-  // cuerpo del reloj
-  const Y1=H+5.05;bx(5.4,4.55,5.4,YEL,0,Y1+2.27,0);pil(2.7,Y1,Y1+4.55,.45);
-  faces(2.7,put=>{put(0,Y1+2.45,plane(2.15,2.15,clockM));put(-1.78,Y1+2.2,plane(.66,1.65,louvM));put(1.78,Y1+2.2,plane(.66,1.65,louvM))});
+  // la torre va sobre la cara de afuera, pegada detrás del ático de la portada (como en las fotos); el adarve queda detrás, hacia la plaza
+  const tg=new THREE.Group();tg.position.z=HW-3.9;g.add(tg);tgt=tg;
+  // base de la torre (asoma detrás del ático) con pilastras, cornisa blanca y una ventanita a cada lado
+  bx(8.4,4.6,7,YEL,0,H+2.3,0);pil(3.5,H,H+4.6,.45);bx(9,.45,7.6,WH,0,H+4.82,0);bx(9.2,.18,7.8,WH,0,H+4.52,0);
+  for(const sx of [-1,1]){const o=plane(.9,1.5,louvM);o.position.set(sx*4.23,H+2.6,-.6);o.rotation.y=sx*Math.PI/2}
+  // cuerpo del reloj: esfera grande con aro blanco en cada cara entre dos ventanas de persiana; manecillas de hierro
+  const Y1=H+5.05;bx(5.4,4.55,5.4,YEL,0,Y1+2.27,0);pil(2.7,Y1,Y1+4.55,.45);bx(5.6,.25,5.6,WH,0,Y1+.12,0);
+  faces(2.7,put=>{put(0,Y1+2.4,plane(2.45,2.45,clockM));const ring=new THREE.Mesh(new THREE.TorusGeometry(1.29,.09,6,28),WH);tgt.add(ring);put(0,Y1+2.4,ring);
+    put(-1.85,Y1+2.2,plane(.6,1.55,louvM));put(1.85,Y1+2.2,plane(.6,1.55,louvM));
+    const hp=new THREE.Object3D(),mp=new THREE.Object3D();tgt.add(hp);tgt.add(mp);put(0,Y1+2.4,hp).translateZ(.05);put(0,Y1+2.4,mp).translateZ(.08);
+    const hg=new THREE.BoxGeometry(.11,.62,.03);hg.translate(0,.24,0);const mg=new THREE.BoxGeometry(.07,.96,.03);mg.translate(0,.4,0);
+    hp.add(new THREE.Mesh(hg,IRON));mp.add(new THREE.Mesh(mg,IRON));const cap=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.05,10),IRON);cap.rotation.x=Math.PI/2;mp.add(cap);
+    TORRE_FX.hands.push([hp,mp])});
   bx(6,.4,6,WH,0,Y1+4.75,0);gable(5.3,1.3,2.85,Y1+4.95);finials(2.85,Y1+4.95,1);
-  // campanario
-  const Y2=Y1+4.95;bx(3.8,3.5,3.8,YEL,0,Y2+1.75,0);pil(1.9,Y2,Y2+3.5,.35);
-  faces(1.9,put=>{put(-.68,Y2+1.75,plane(.5,1.45,louvM));put(.68,Y2+1.75,plane(.5,1.45,louvM))});
+  // campanario: una persiana grande en arco por cara, pilastras blancas, cornisa, frontoncitos y remates
+  const Y2=Y1+4.95;bx(3.8,3.5,3.8,YEL,0,Y2+1.75,0);pil(1.9,Y2,Y2+3.5,.35);bx(4,.2,4,WH,0,Y2+.1,0);
+  faces(1.9,put=>{put(0,Y2+1.72,plane(1.2,2.45,bellM))});
   bx(4.3,.35,4.3,WH,0,Y2+3.67,0);gable(3.9,1,2.1,Y2+3.85);finials(2.1,Y2+3.85,.75);
-  // chapitel de cuatro caras con aristas y franjas blancas, collarín, bola y veleta de hierro
+  // chapitel de cuatro caras con aristas y franjas blancas, collarín, bola y cruz de hierro
   const Y3=Y2+3.85,SH=5.6,hb=1.5;const sp=add(new THREE.ConeGeometry(hb*Math.SQRT2,SH,4),YEL,0,Y3+SH/2,0);sp.rotation.y=Math.PI/4;
   const rib=(ax,az)=>{const a=new THREE.Vector3(ax,Y3,az),b=new THREE.Vector3(0,Y3+SH,0),d=b.clone().sub(a),o=add(new THREE.CylinderGeometry(.06,.09,d.length(),6),WH,ax/2,Y3+SH/2,az/2);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize())};
   for(const [ax,az] of [[hb,hb],[hb,-hb],[-hb,hb],[-hb,-hb],[hb+.03,0],[-hb-.03,0],[0,hb+.03],[0,-hb-.03]])rib(ax,az);
-  bx(.75,.28,.75,WH,0,Y3+SH*.78,0);add(new THREE.SphereGeometry(.24,10,8),WH,0,Y3+SH+.15,0);
+  bx(3.1,.22,3.1,WH,0,Y3+.11,0);bx(.75,.28,.75,WH,0,Y3+SH*.78,0);add(new THREE.SphereGeometry(.24,10,8),WH,0,Y3+SH+.15,0);
   add(new THREE.BoxGeometry(.07,1.6,.07),IRON,0,Y3+SH+1,0);add(new THREE.BoxGeometry(.8,.07,.07),IRON,0,Y3+SH+1.35,0);add(new THREE.BoxGeometry(.07,.07,.6),IRON,0,Y3+SH+.9,0);
+  tgt=g;
   // colisión: los macizos entre arcos
   const W=(lx,lz)=>[px+T.u[0]*lx+T.n[0]*lz,pz+T.u[1]*lx+T.n[1]*lz];
   for(const [a,b] of [[X0,-12.2],[-8.8,-2.1],[2.1,8.8],[12.2,X1]])addSolidPoly([...W(a,-HW),...W(b,-HW),...W(b,HW+.9),...W(a,HW+.9)]);
+  // Plaza de la Paz, afuera: piso rosado en abanico desde la puerta (rayas claras, arcos y las gradas frente al arco); llega hasta las calles, el agua o los edificios
+  {const OZ=HW+.9,R=46,N=48,free=(x,z)=>!isWater(x,z)&&!solidAt(x,z)&&!nearestRoad(x,z,2.6,s=>!s.walk);
+    let rs=[];for(let i=0;i<=N;i++){const th=-Math.PI/2+.05+(Math.PI-.1)*i/N,dx=Math.sin(th),dz=Math.cos(th);let r=2;
+      while(r<R){const lx=dx*(r+1),lz=OZ+dz*(r+1);if(Math.abs(lx)>40)break;const q=W(lx,lz);if(!free(q[0],q[1]))break;r+=1}rs.push({dx,dz,r})}
+    rs=rs.map((o,i)=>({...o,r:Math.min(o.r,(rs[i-1]||o).r+3,(rs[i+1]||o).r+3)}));
+    const tex=cvT(1024,512,(x,w,h)=>{const sx=w/(2*R),O=[w/2,h];x.fillStyle='#b47b6c';x.fillRect(0,0,w,h);
+      let sd=3;const Rn=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let i=0;i<5000;i++){x.fillStyle=Rn()<.5?'rgba(255,240,230,.12)':'rgba(120,60,50,.10)';x.fillRect(Rn()*w,Rn()*h,3,3)}
+      x.strokeStyle='#d6b9a8';x.lineWidth=sx*.75;for(let k=0;k<=16;k++){const a=-Math.PI/2+Math.PI*k/16;x.beginPath();x.moveTo(O[0]+Math.sin(a)*sx*8,O[1]-Math.cos(a)*sx*8);x.lineTo(O[0]+Math.sin(a)*w,O[1]-Math.cos(a)*w);x.stroke()}
+      for(const r of [16,27,38]){x.lineWidth=sx*(r===16?1.2:.75);x.beginPath();x.arc(O[0],O[1],r*sx,Math.PI,0);x.stroke()}
+      for(let k=0;k<6;k++){x.fillStyle=k%2?'#c9a796':'#d8bcab';x.beginPath();x.arc(O[0],O[1],(8-k)*sx,Math.PI,0);x.fill();x.strokeStyle='rgba(90,60,50,.45)';x.lineWidth=2;x.stroke()}});
+    const P=[],U=[],I=[],K=6,vert=(lx,lz)=>{const q=W(lx,lz);P.push(q[0],ground(q[0],q[1])+.08,q[1]);U.push((lx+R)/(2*R),(lz-OZ)/R);return P.length/3-1};
+    const c0=vert(0,OZ),ring=[];for(const o of rs){const col=[];for(let k=1;k<=K;k++){const r=o.r*k/K;col.push(vert(o.dx*r,OZ+o.dz*r))}ring.push(col)}
+    for(let i=0;i<N;i++){const A=ring[i],B=ring[i+1];I.push(c0,B[0],A[0]);for(let k=0;k<K-1;k++)I.push(A[k],B[k],B[k+1],A[k],B[k+1],A[k+1])}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));geo.setIndex(I);geo.computeVertexNormals();
+    if(geo.attributes.normal.array[1]<0)for(let i=0;i<I.length;i+=3){const t=I[i+1];I[i+1]=I[i+2];I[i+2]=t}geo.setIndex(I);geo.computeVertexNormals();
+    const pm=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:tex,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4}));pm.receiveShadow=true;scene.add(pm);
+    TORRE_FX.plaza=[...W(-41,HW-.5),...rs.flatMap(o=>W(o.dx*(o.r+2),OZ+o.dz*(o.r+2))),...W(41,HW-.5)];
+    // jardines al pie de la muralla, a los dos lados de los arcos, con su bordillo y las palmas
+    for(const sg of [-1,1]){let a=13.6,b=13.6;while(b<36){const q=W(sg*(b+1),HW+2);if(!free(q[0],q[1]))break;b+=1}if(b-a<5)continue;
+      const s0=sg*a,s1=sg*b,lo=Math.min(s0,s1),hi=Math.max(s0,s1);flatPoly([...W(lo,HW+.15),...W(hi,HW+.15),...W(hi,HW+3.6),...W(lo,HW+3.6)].map(v=>Math.round(v*100)/100),'grass',.14,3.2);
+      bx(hi-lo,.4,.25,CORAL2,(lo+hi)/2,.2,HW+3.7);
+      for(let t=a+2.5;t<b-1;t+=6.5)TORRE_FX.palms.push(W(sg*t,HW+1.9))}}
   return Y3+SH+1.8}
 // Castillo de San Felipe de Barajas sobre el cerro de San Lázaro, con la forma real de OpenStreetMap: muros de piedra gris en talud
 // (inclinados, más oscuros abajo) que suben en terrazas: el recinto de afuera; el segundo recinto con la cola larga hacia el norte, el brazo
@@ -1036,31 +1206,122 @@ function castle(pts){const n0=pts.length/2;let cx=0,cz=0;for(let i=0;i<pts.lengt
     for(const p of P){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(let i=P.length-1;i>=0;i--){const p=P[i];while(hi.length>1&&cr(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p)}
     const hull=lo.slice(0,-1).concat(hi.slice(0,-1)),hp=[];hull.forEach(p=>hp.push(p[0],p[1]));const ex=inset(prep(hp),-14);flatPoly(ex,'grass',.04,5)}
   addSolidPoly(FULL);return[cx,cz]}
-// Convento de La Popa: claustro blanco de dos pisos alrededor de un patio, tejas de barro, capilla con espadaña
-function popaConvent(x,z){const y=ground(x,z)-.6;const grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
-  const W=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#fbf6ea'}),T=new THREE.MeshLambertMaterial({map:TX.roof_tiles||null,color:'#b4583c',side:THREE.DoubleSide}),Dk=mat('#2b2420'),Wd=mat('#6b4428');
-  const add=(geo,m,px,py,pz,ry)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.rotation.y=ry||0;o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
-  const roof=(len,wd,rise,px,py,pz,ry)=>{const s=new THREE.Shape();s.moveTo(-wd/2-.5,0);s.lineTo(wd/2+.5,0);s.lineTo(0,rise);s.lineTo(-wd/2-.5,0);
-    const gg=new THREE.ExtrudeGeometry(s,{depth:len+1,bevelEnabled:false});gg.translate(0,0,-(len+1)/2);const uv=gg.attributes.uv.array;for(let i=0;i<uv.length;i++)uv[i]*=.45;return add(gg,T,px,py,pz,ry)};
-  // cuatro alas de 7 m alrededor de un patio de 18 x 14 m
-  const OX=16,OZ=13,D=7,H=8;
-  for(const s of [-1,1]){add(new THREE.BoxGeometry(OX*2,H,D),W,0,H/2,s*(OZ-D/2));roof(OX*2,D,2.4,0,H,s*(OZ-D/2),Math.PI/2);
-    add(new THREE.BoxGeometry(D,H,OZ*2-D*2),W,s*(OX-D/2),H/2,0);roof(OZ*2-D*2,D,2.4,s*(OX-D/2),H,0,0)}
-  // ventanas con rejas de madera en la fachada exterior
-  for(let i=-3;i<=3;i++)for(const s of [-1,1])for(const fy of [2.4,6]){const w=add(new THREE.PlaneGeometry(1.1,1.5),Wd,i*4.2,fy,s*(OZ+.03),s<0?Math.PI:0)}
-  // arcadas del patio: columnas blancas y galería oscura
-  for(let i=-3;i<=3;i++)for(const s of [-1,1]){add(new THREE.CylinderGeometry(.28,.32,3.2,8),W,i*2.4,1.6,s*(OZ-D-.4));add(new THREE.PlaneGeometry(2.1,2.6),Dk,i*2.4+1.2,1.4,s*(OZ-D-.02),s<0?0:Math.PI)}
-  add(new THREE.BoxGeometry(OX*2-D*2,.15,OZ*2-D*2),mat('#6f9a4c'),0,.08,0);
-  add(new THREE.CylinderGeometry(.9,.9,.9,14),mat('#d9cdb4'),0,.45,0);
-  // capilla al occidente (hacia la ciudad) con espadaña de campanas
-  add(new THREE.BoxGeometry(12,11,9),W,-OX-6,5.5,-OZ+4.5);roof(12,9,3,-OX-6,11,-OZ+4.5,Math.PI/2);
-  add(new THREE.BoxGeometry(.6,6,9),W,-OX-12.3,14,-OZ+4.5);
-  for(const k of [-1,1]){add(new THREE.PlaneGeometry(1.4,2),Dk,-OX-12.62,14.3,-OZ+4.5+k*2.2,-Math.PI/2);add(new THREE.SphereGeometry(.5,8,6),mat('#9a7a3a'),-OX-12.5,14,-OZ+4.5+k*2.2)}
-  add(new THREE.BoxGeometry(.3,2,.3),Dk,-OX-12.3,18,-OZ+4.5);add(new THREE.BoxGeometry(.3,.3,1.4),Dk,-OX-12.3,18.4,-OZ+4.5);
-  add(new THREE.PlaneGeometry(2.4,3.8),Wd,-OX-12.32,1.9,-OZ+4.5,-Math.PI/2);
-  addSolidPoly([x-OX-12.5,z-OZ,x+OX,z-OZ,x+OX,z+OZ,x-OX-12.5,z+OZ])}
+/* Convento de La Popa (Nuestra Señora de la Candelaria), modelado a partir de fotos: el claustro blanco de dos pisos en la cima, con
+   ventanas y balcones de madera verde, techos de teja de barro a cuatro aguas en las alas norte, este y oeste y la azotea blanca del ala
+   sur; el patio con arcadas de dos pisos (galerías ocres), jardín y aljibe; el torreón con su techito de teja, la espadaña de la capilla
+   sobre la fachada norte; la terraza-mirador blanca sobre la peña caliza del barranco (al suroeste, hacia la ciudad); la casa de teja del
+   norte, la plazoleta con la cruz blanca donde llega la vía, y la antena de rayas rojas y blancas */
+let POPA_CLEAR=[];
+function popaConvent(cx,cz){
+  const G=(u,v)=>ground(cx+u,cz+v);
+  const span=(u0,u1,v0,v1,f)=>{let r=f===Math.max?-1e9:1e9;for(let u=u0;u<=u1+.01;u+=(u1-u0)/8)for(let v=v0;v<=v1+.01;v+=(v1-v0)/8)r=f(r,G(u,v));return r};
+  // el piso del claustro va a la altura de la cima; hacia el sur el cerro cae y la base queda a la vista sobre la peña
+  const F=span(-17,17,-22,18,Math.max)+.2,LO=span(-24,17,-22,29,Math.min)-2.5,H=9.6,D=8;
+  const grp=new THREE.Group();grp.position.set(cx,F,cz);scene.add(grp);
+  const poly=a=>{const o=[];for(const [u,v] of a)o.push(cx+u,cz+v);return o};
+  const cvt=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=ANISO;return t};
+  const WH='#f6f3eb',WHc=new THREE.MeshLambertMaterial({color:WH}),Rk=new THREE.MeshLambertMaterial({color:'#d8cfb6'});
+  const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
+  const bx=(u0,u1,y0,y1,v0,v1,m)=>add(new THREE.BoxGeometry(u1-u0,y1-y0,v1-v0),m||WHc,(u0+u1)/2,(y0+y1)/2,(v0+v1)/2);
+  // piezas chicas (balcones, barandas, antena...) van al lote de geometría de la ciudad, en coordenadas del mundo
+  const pb=(u0,u1,y0,y1,v0,v1,c,rx,rz)=>geoInto('plain',new THREE.BoxGeometry(u1-u0,y1-y0,v1-v0),colObj(c),place(cx+(u0+u1)/2,F+(y0+y1)/2,cz+(v0+v1)/2,rx||0,0,rz||0));
+  const _q=new THREE.Quaternion(),_up=new THREE.Vector3(0,1,0);
+  const rod=(a,b,r,c)=>{const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=B.clone().sub(A),L=d.length();_q.setFromUnitVectors(_up,d.normalize());
+    geoInto('plain',new THREE.CylinderGeometry(r,r,L,4,1),colObj(c),new THREE.Matrix4().compose(A.add(B).multiplyScalar(.5),_q,new THREE.Vector3(1,1,1)))};
+  // fachada exterior: dos pisos (9,6 m) por módulo de 3,6 m, ventana con reja abajo y balcón-ventana arriba, postigos verdes
+  const fach=cvt(128,342,(g,w,h)=>{const Y=m=>h-m*h/9.6,X=m=>m*w/3.6;g.fillStyle=WH;g.fillRect(0,0,w,h);
+    let sd=5;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let i=0;i<260;i++){g.fillStyle=`rgba(90,80,60,${.015+R()*.03})`;g.fillRect(R()*w,R()*h,2+R()*10,2+R()*8)}
+    const gr=g.createLinearGradient(0,Y(1),0,h);gr.addColorStop(0,'rgba(150,140,115,0)');gr.addColorStop(1,'rgba(150,140,115,.35)');g.fillStyle=gr;g.fillRect(0,Y(1),w,h-Y(1));
+    const win=(y0,y1,ww,bars)=>{const x0=X(1.8-ww/2),x1=X(1.8+ww/2);g.fillStyle='#e6e0d2';g.fillRect(x0-4,Y(y1)-5,x1-x0+8,Y(y0)-Y(y1)+9);g.fillStyle='#2a2925';g.fillRect(x0,Y(y1),x1-x0,Y(y0)-Y(y1));
+      g.fillStyle='#35553f';g.fillRect(x0-13,Y(y1),11,Y(y0)-Y(y1));g.fillRect(x1+2,Y(y1),11,Y(y0)-Y(y1));g.fillStyle='rgba(0,0,0,.25)';for(let k=1;k<5;k++){g.fillRect(x0-13,Y(y1)+k*(Y(y0)-Y(y1))/5,11,2);g.fillRect(x1+2,Y(y1)+k*(Y(y0)-Y(y1))/5,11,2)}
+      g.fillStyle='#3d5a44';g.fillRect(x0,Y(y1),x1-x0,3);g.fillRect(x0,Y(y0)-3,x1-x0,3);if(bars){g.fillStyle='#4b3a26';for(let k=1;k<6;k++)g.fillRect(x0+k*(x1-x0)/6-1.5,Y(y1),3,Y(y0)-Y(y1))}g.fillStyle='#ddd6c6';g.fillRect(x0-6,Y(y0),x1-x0+12,4)};
+    win(1.3,3.1,1.15,true);win(5.3,8,1.25,false);g.fillStyle='#e4ded0';g.fillRect(0,Y(4.85),w,4);g.fillStyle='#ebe6da';g.fillRect(0,0,w,Y(9.25));g.fillStyle='rgba(0,0,0,.08)';g.fillRect(0,Y(9.25),w,2)});
+  // patio: arcadas de medio punto abajo y galería de arcos con baranda arriba; dentro de las galerías la pared es ocre y en sombra
+  const arc=cvt(128,384,(g,w,h)=>{const Y=m=>h-m*h/9.6,X=m=>m*w/3.2;g.fillStyle='#f7f4ec';g.fillRect(0,0,w,h);
+    const hole=(x0,x1,ys,y0,top,bot)=>{const r=(x1-x0)/2;g.beginPath();g.moveTo(X(x0),Y(y0));g.lineTo(X(x0),Y(ys));g.arc(X(x0+r),Y(ys),X(r),Math.PI,0);g.lineTo(X(x1),Y(y0));g.closePath();
+      const gr=g.createLinearGradient(0,Y(ys+r),0,Y(y0));gr.addColorStop(0,top);gr.addColorStop(1,bot);g.fillStyle=gr;g.fill();g.strokeStyle='#e8e1d0';g.lineWidth=3;g.stroke()};
+    hole(.45,2.75,2.5,0,'#7d5f2c','#c79a46');g.fillStyle='rgba(40,28,15,.55)';g.fillRect(X(1.2),Y(2.2),X(.8),Y(0)-Y(2.2));
+    g.fillStyle='#ebe5d7';g.fillRect(0,Y(4.95),w,Y(4.6)-Y(4.95));
+    hole(.6,2.6,7,5.3,'#7a5a2a','#b8893c');g.fillStyle='#f3efe5';g.fillRect(X(.6),Y(6.2),X(2),Y(5.3)-Y(6.2));g.fillStyle='rgba(120,100,70,.55)';for(let k=0;k<9;k++)g.fillRect(X(.72+k*.21),Y(6.05),3,Y(5.4)-Y(6.05));
+    g.fillStyle='#ebe6da';g.fillRect(0,0,w,Y(9.3))});
+  const fM=new THREE.MeshLambertMaterial({map:fach}),aM=new THREE.MeshLambertMaterial({map:arc});
+  // pared con textura de a(u,v) a b(u,v): mira hacia (-dv,du)
+  const face=(a,b,y0,y1,m,tw,vs)=>{const du=b[0]-a[0],dv=b[1]-a[1],L=Math.hypot(du,dv),n=Math.max(1,Math.round(L/tw)),g=new THREE.PlaneGeometry(L,y1-y0);
+    const uv=g.attributes.uv.array;for(let i=0;i<uv.length;i+=2){uv[i]*=n;uv[i+1]*=vs||1}const o=add(g,m,(a[0]+b[0])/2-dv/L*.04,(y0+y1)/2,(a[1]+b[1])/2+du/L*.04);o.rotation.y=Math.atan2(-dv,du);o.castShadow=false;return o};
+  // techo de teja a cuatro aguas (h0/h1: largo de los faldones de las puntas; 0 = hastial)
+  const tileM=new THREE.MeshLambertMaterial({map:TX.roof_tiles||null,color:'#e0956a',side:THREE.DoubleSide});
+  const roof=(u0,u1,v0,v1,y,rise,alongU,h0,h1,par,mt)=>{const ov=.6,P=[],U=[];const s=(a,b)=>alongU?[a,b]:[b,a];
+    const a0=(alongU?u0:v0)-ov,a1=(alongU?u1:v1)+ov,b0=(alongU?v0:u0)-ov,b1=(alongU?v1:u1)+ov,bm=(b0+b1)/2,r0=a0+h0,r1=a1-h1,yr=y+rise;
+    const V=(a,b,yy)=>{const q=s(a,b);return[q[0],yy,q[1]]},T=(p,q,r,ta,tb,tc)=>{P.push(...p,...q,...r);U.push(...ta,...tb,...tc)},sl=Math.hypot(rise,(b1-b0)/2)/2.2,k=2.2;
+    T(V(a0,b0,y),V(a1,b0,y),V(r1,bm,yr),[a0/k,0],[a1/k,0],[r1/k,sl]);T(V(a0,b0,y),V(r1,bm,yr),V(r0,bm,yr),[a0/k,0],[r1/k,sl],[r0/k,sl]);
+    T(V(a1,b1,y),V(a0,b1,y),V(r0,bm,yr),[a1/k,0],[a0/k,0],[r0/k,sl]);T(V(a1,b1,y),V(r0,bm,yr),V(r1,bm,yr),[a1/k,0],[r0/k,sl],[r1/k,sl]);
+    if(h0>0)T(V(a0,b1,y),V(a0,b0,y),V(r0,bm,yr),[b1/k,0],[b0/k,0],[bm/k,sl]);if(h1>0)T(V(a1,b0,y),V(a1,b1,y),V(r1,bm,yr),[b0/k,0],[b1/k,0],[bm/k,sl]);
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.computeVertexNormals();return add(g,mt||tileM,0,0,0)};
+
+  // ---- el claustro: alas de 8 m alrededor del patio (18 x 24 m); el ala sur con azotea
+  bx(-17,17,LO-F,H,-22,-14);bx(-17,-9,LO-F,H,-14,10);bx(9,17,LO-F,H,-14,10);bx(-17,17,LO-F,H+.25,10,18);
+  roof(-17,17,-22,-14,H,2.6,true,4,4);roof(-17,-9,-18,10,H,2.6,false,4,4);roof(9,17,-18,10,H,2.6,false,4,4);
+  // azotea del ala sur: piso claro, pretil, caseta de la escalera y tanques
+  bx(-17,17,H+.25,H+.32,10,18,new THREE.MeshLambertMaterial({color:'#dedad0'}));
+  for(const [u0,u1,v0,v1] of [[-17,17,17.7,18],[-17,-16.7,10,18],[16.7,17,10,18]])pb(u0,u1,H+.3,H+1.3,v0,v1,'#f1eee6');
+  bx(-14,-9.5,H+.3,H+2.9,12,16);roof(-14,-9.5,12,16,H+2.9,.9,true,2,2);pb(4,5.6,H+.3,H+1.9,13,14.6,'#2d2d2d');pb(7,8.6,H+.3,H+1.9,13,14.6,'#2d2d2d');
+  // fachadas exteriores
+  face([17,-22],[-17,-22],0,H,fM,3.6);face([17,18],[17,-22],0,H,fM,3.6);face([-17,-22],[-17,18],0,H,fM,3.6);face([-17,18],[17,18],0,H,fM,3.6);
+  // la base blanca que queda a la vista hacia el sur (el cerro baja): zócalo un poco más oscuro
+  {const zm=new THREE.MeshLambertMaterial({color:'#e3ddcf'});bx(-17.25,17.25,LO-F,0,17.8,18.25,zm);bx(16.8,17.25,LO-F,0,-22.2,18.25,zm);bx(-17.25,-16.8,LO-F,0,-22.2,18.25,zm)}
+  // patio: arcadas en las cuatro caras, piso de piedra, jardín, aljibe y árboles
+  face([-9,-14],[9,-14],0,H,aM,3.2);face([9,10],[-9,10],0,H,aM,3.2);face([-9,10],[-9,-14],0,H,aM,3.2);face([9,-14],[9,10],0,H,aM,3.2);
+  bx(-9,9,LO-F,.04,-14,10,mat('#ddd5c4'));bx(-6.5,6.5,.04,.2,-11,7,mat('#6f8c47'));
+  add(new THREE.CylinderGeometry(1.2,1.3,.9,8),mat('#d3c8b0'),0,.6,-2);add(new THREE.CylinderGeometry(.95,.95,.06,8),mat('#2a2622'),0,1.06,-2);
+  for(const [u,v,s] of [[-4.2,-8,1],[4.4,-7.5,.9],[-4,4,1.1],[4.2,4.5,.95]]){add(new THREE.CylinderGeometry(.18,.26,3.4*s,6),mat('#6b5236'),u,1.7*s,v);
+    for(const [a,b,c,r] of [[0,3.6,0,1.9],[.8,4.3,.4,1.4],[-.7,4.1,-.5,1.5]])add(new THREE.IcosahedronGeometry(r*s,0),mat('#4f7a32'),u+a*s,b*s,v+c*s)}
+  // torreón sobre el ala oeste, con techito de teja a cuatro aguas
+  bx(-15.5,-10.5,H,H+4.6,-4.5,.5);roof(-15.5,-10.5,-4.5,.5,H+4.6,1.6,true,2.5,2.5);
+  for(const [a,b] of [[[-10.5,-4.5],[-15.5,-4.5]],[[-10.5,.5],[-10.5,-4.5]],[[-15.5,-4.5],[-15.5,.5]],[[-15.5,.5],[-10.5,.5]]])face(a,b,H,H+4.6,fM,3.6,.48);
+  // fachada norte: puerta de la capilla con marco de piedra y óculo, espadaña de dos campanas encima; portón del convento
+  {const st='#e7e0cf';pb(-13.6,-10.4,0,4.9,-22.35,-22,st);pb(-13,-11,0,4.1,-22.4,-22.3,'#5b3b22');pb(-12.6,-11.4,6.3,7.5,-22.4,-22.25,'#2a2622');pb(-13.2,-10.8,5.9,6.3,-22.4,-22.2,st);
+    pb(1.8,5.2,0,4.6,-22.35,-22,st);pb(2.3,4.7,0,3.8,-22.4,-22.3,'#5b3b22');
+    pb(-15,-9,H-.2,H+5.4,-22.2,-21.4,WH);pb(-15.3,-8.7,H+5.4,H+5.8,-22.3,-21.3,'#ebe6da');pb(-12.3,-11.7,H+5.8,H+6.4,-21.95,-21.65,WH);
+    pb(-12.15,-11.85,H+6.4,H+8,-21.85,-21.75,'#2a2622');pb(-12.7,-11.3,H+7.2,H+7.45,-21.85,-21.75,'#2a2622');
+    for(const u of [-13.4,-10.6]){pb(u-.75,u+.75,H+1.6,H+4,-22.25,-22.15,'#2a2622');geoInto('plain',new THREE.SphereGeometry(.55,8,6),colObj('#8f6f30'),place(cx+u,F+H+2.4,cz-21.8))}}
+  // balcones de madera con tejadillo en el piso de arriba (fachadas este y norte)
+  for(const v of [-17.5,-10.3,-3.1,4.1])
+    {pb(17,17.9,4.9,5.15,v-1.2,v+1.2,'#5a3a22');pb(17.75,17.9,5.15,6.2,v-1.2,v+1.2,'#4a2f1c');pb(17,17.9,5.15,6.2,v-1.25,v-1.15,'#4a2f1c');pb(17,17.9,5.15,6.2,v+1.15,v+1.25,'#4a2f1c');
+      pb(17,18.3,8.3,8.48,v-1.5,v+1.5,'#b4583c',0,-.35)}
+  for(const u of [-5.4,8.9,12.5])
+    {pb(u-1.2,u+1.2,4.9,5.15,-22.9,-22,'#5a3a22');pb(u-1.2,u+1.2,5.15,6.2,-22.9,-22.75,'#4a2f1c');pb(u-1.5,u+1.5,8.3,8.48,-23.3,-22,'#b4583c',-.35,0)}
+  // terraza-mirador sobre la peña, al sur y al oeste (pretil blanco), con la roca caliza debajo
+  {const T=[[-23,8,18,28],[-23,-17,0,18]];for(const [u0,u1,v0,v1] of T){bx(u0,u1,LO-F-6,0,v0,v1,Rk);bx(u0,u1,0,.12,v0,v1,mat('#e8e3d8'))}
+    for(const [u0,u1,v0,v1] of [[-23,8,27.6,28],[7.6,8,18,28],[-23,-22.6,0,28],[-23,-17,0,.4]])pb(u0,u1,.1,1.15,v0,v1,'#f4f1e9');
+    for(let u=-20;u<8;u+=5)pb(u-.15,u+.15,1.15,1.3,27.5,28.1,'#e2dccd');
+    // la peña: bloques de caliza clara que salen del barranco
+    let sd=29;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+    const rock=(u,v,s)=>{const gy=G(u,v),hh=F-gy-1.2;if(hh<1)return;const g=new THREE.IcosahedronGeometry(1,2),p=g.attributes.position,J=[R(),R(),R()];for(let i=0;i<p.count;i++){const k=.86+.14*Math.sin(p.getX(i)*3+J[0]*6)*Math.cos(p.getY(i)*2.5+J[1]*6)+.08*Math.sin(p.getZ(i)*4+J[2]*6);p.setXYZ(i,p.getX(i)*k,p.getY(i)*k,p.getZ(i)*k)}
+      geoInto('plain',g,colObj(R()<.5?'#d9d0b7':'#c9bea2'),place(cx+u,gy+hh*.35,cz+v,0,R()*TAU,0,s,hh*.5,s*.8))};
+    for(let u=-24;u<=9;u+=4.5)rock(u+R()*2,29+R()*2.5,3+R()*2);for(let v=-1;v<=27;v+=5)rock(-24.5-R()*2,v,3+R()*2);rock(9.5,24,3.5)}
+  // casa de dos pisos con techo de teja al norte del convento
+  {const u0=-15,u1=-1,v0=-37,v1=-27,fa=span(u0,u1,v0,v1,Math.max)+.15-F,la=span(u0,u1,v0,v1,Math.min)-2-F,hh=7.2;
+    bx(u0,u1,la,fa+hh,v0,v1);roof(u0,u1,v0,v1,fa+hh,2.2,true,4.5,4.5);
+    for(const [a,b] of [[[u1,v0],[u0,v0]],[[u1,v1],[u1,v0]],[[u0,v0],[u0,v1]],[[u0,v1],[u1,v1]]])face(a,b,fa,fa+hh,fM,3.6)}
+  // la antena de rayas rojas y blancas al oriente, con su caseta
+  {const au=25,av=-15,ag=G(au,av),y0=ag-F-.3,HT=44,N=11;
+    for(let i=0;i<N;i++){const t0=i/N,t1=(i+1)/N,s0=1.9-1.45*t0,s1=1.9-1.45*t1,ya=y0+HT*t0,yb=y0+HT*t1,c=i%2?'#f2f2ee':'#c8302a';
+      const C=(s,y)=>[[cx+au-s,F+y,cz+av-s],[cx+au+s,F+y,cz+av-s],[cx+au+s,F+y,cz+av+s],[cx+au-s,F+y,cz+av+s]],A=C(s0,ya),B=C(s1,yb);
+      for(let k=0;k<4;k++){rod(A[k],B[k],.09,c);rod(B[k],B[(k+1)%4],.05,c);rod(A[k],B[(k+1)%4],.035,c)}}
+    for(const [a,b] of [[0,0],[1,1.7]]){const y=y0+HT-1.5-a*4;geoInto('plain',new THREE.CylinderGeometry(.55,.55,.25,12),colObj('#e8e8e4'),place(cx+au+.6,F+y,cz+av+.2,Math.PI/2,b,0))}
+    rod([cx+au,F+y0+HT,cz+av],[cx+au,F+y0+HT+5,cz+av],.06,'#c8302a');
+    bx(au+2.6,au+6.6,y0-1,y0+2.9,av-2,av+2,mat('#e9e6df'));pb(au+2.4,au+6.8,y0+2.9,y0+3.1,av-2.2,av+2.2,'#bdbab2')}
+  // plazoleta donde termina la vía (parqueadero), con la cruz blanca sobre su pedestal
+  {const pl=poly([[-30,-23],[22,-23],[22,-31],[10,-44],[-2,-63],[-20,-72],[-34,-52]]);flatPoly(pl,'walk',.06,4);POPA_CLEAR.push(pl);
+    const ku=-23,kv=-52,kg=G(ku,kv)-F;pb(ku-2.4,ku+2.4,kg-.5,kg+.8,kv-2.4,kv+2.4,'#ece9e1');pb(ku-1.6,ku+1.6,kg+.8,kg+1.8,kv-1.6,kv+1.6,'#f2efe8');pb(ku-.8,ku+.8,kg+1.8,kg+4.8,kv-.8,kv+.8,'#f4f2ec');
+    pb(ku-.28,ku+.28,kg+4.8,kg+10.6,kv-.28,kv+.28,'#f8f7f2');pb(ku-1.5,ku+1.5,kg+8.5,kg+9.05,kv-.28,kv+.28,'#f8f7f2');addSolidPoly(poly([[ku-2.4,kv-2.4],[ku+2.4,kv-2.4],[ku+2.4,kv+2.4],[ku-2.4,kv+2.4]]))}
+  // choques: el claustro con la terraza, la casa y la caseta de la antena; sin monte encima
+  const conv=poly([[-17.2,-23.4],[18.4,-23.4],[18.4,18.3],[8.2,18.3],[8.2,28.2],[-23.2,28.2],[-23.2,0],[-17.2,0]]);addSolidPoly(conv);
+  addSolidPoly(poly([[-15,-37],[-1,-37],[-1,-27],[-15,-27]]));addSolidPoly(poly([[22.8,-17.2],[31.8,-17.2],[31.8,-12.8],[22.8,-12.8]]));
+  POPA_CLEAR.push(poly([[-27,-26],[21,-26],[21,22],[12,32],[-28,32]]),poly([[-17,-40],[1,-40],[1,-24],[-17,-24]]),poly([[21,-19],[33,-19],[33,-11],[21,-11]]));
+  return{F,H}}
 let castleC=null;if(MAP.castle)castleC=castle(MAP.castle);
-(function(){const [bx,bz]=GM.popa;popaConvent(bx,bz);LM.push({name:'Convento de La Popa',x:bx,z:bz,mx:bx,mz:bz,sprite:label('Convento de La Popa',bx,ground(bx,bz)+30,bz),mission:false})})();
+(function(){const [bx,bz]=GM.popa;const pc=popaConvent(bx,bz);window.__popa=pc;LM.push({name:'Convento de La Popa',x:bx,z:bz,mx:bx,mz:bz,sprite:label('Convento de La Popa',bx,pc.F+24,bz),mission:false})})();
 function snap(x,z){if(!solidAt(x,z)&&onLand(x,z))return[x,z];const r=nearestRoad(x,z,120);return r?[r.x,r.z]:[x,z]}
 MAP.landmarks.forEach(l=>{const [name,x,z,mis]=l;if(name==='Cerro de La Popa'){const x=GM.popa[0]-48,z=GM.popa[1]+6;const s=snap(x,z);LM.push({name:'Mirador de La Popa',x,z,mx:s[0],mz:s[1],sprite:label('Mirador de La Popa',x,ground(x,z)+14,z),mission:!!mis});return}
   if(name==='Puerta del Reloj')return;
@@ -1109,10 +1370,10 @@ function freeSpot(x,z,clear){if(solidAt(x,z)||!onLand(x,z)){let best=null;for(le
     for(let k=0;k<4;k++)put(new THREE.BoxGeometry(1.1,.07,.1),mat('#b9a27a'),0,1.15+k*.38,.18-k*.28).rotation.x=-.5}
   addSolidPoly([x-4.5,z-3.5,x+4.5,z-3.5,x+4.5,z+3.5,x-4.5,z+3.5]);l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+14,z)})();
 /* Café del Mar, sobre el Baluarte de Santo Domingo: mesas con parasoles blancos encima de la muralla */
-(function(){const l=LM.byName('Café del Mar');if(!l)return;let best=null;
-  MAP.walls.forEach(p=>{for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],dx=p[i+2]-ax,dz=p[i+3]-az,l2=dx*dx+dz*dz||1;const t=clamp(((l.x-ax)*dx+(l.z-az)*dz)/l2,0,1);const qx=ax+dx*t,qz=az+dz*t,d=Math.hypot(qx-l.x,qz-l.z);if(d<40&&(!best||d<best.d))best={d,x:qx,z:qz,ux:dx/Math.sqrt(l2),uz:dz/Math.sqrt(l2)}}});
+(function(){const l=LM.byName('Café del Mar');if(!l)return;
+  const best=wallTopNear(l.x,l.z,60);
   if(!best)return;const cloth=new THREE.MeshLambertMaterial({color:'#f7f4ec',side:THREE.DoubleSide}),pole=mat('#5b4634'),tab=mat('#e9e2d2');
-  for(let k=-3;k<=3;k++){const px=best.x+best.ux*k*4.2,pz=best.z+best.uz*k*4.2,py=9;
+  for(let k=-3;k<=3;k++){const px=best.x+best.ux*k*4.2,pz=best.z+best.uz*k*4.2,py=best.y;
     const u=new THREE.Mesh(new THREE.ConeGeometry(1.7,.7,10,1,true),cloth);u.position.set(px,py+2.6,pz);scene.add(u);
     const pl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.6,6),pole);pl.position.set(px,py+1.3,pz);scene.add(pl);
     const tb=new THREE.Mesh(new THREE.CylinderGeometry(.6,.6,.06,12),tab);tb.position.set(px,py+.75,pz);tb.castShadow=true;scene.add(tb)}
@@ -1529,6 +1790,118 @@ function construirSitios(){
       LATER.push(()=>{const p=stayAt(rand()<.55?'tourist':'local',cx,cz,ang,'sit');if(p){p.seat=.5;p.noFace=true}})}
     window.__sd={gy,mesas:ti,comensales:nd}}
 
+  /* Iglesia de la Santísima Trinidad (Getsemaní), modelada a partir de fotos sobre su planta de OpenStreetMap: la fachada amarilla con el
+     frontón triangular, su óculo y los remates blancos de las pilastras; la portada de piedra coralina con la puerta verde oscura y la
+     ventanita con su frontón encima; la torre a la izquierda con el campanario de arcos y pináculos; el cuerpo de la derecha con sus dos
+     ventanas de reja; techos de teja; y el atrio de piedra con sus escalones hacia la plaza. La Plaza de la Trinidad: el ladrillo rojo con
+     franjas grises, la palma, el monumento a Pedro Romero, las bancas amarillas y el puesto de sombreros vueltiaos */
+  function trinidad(s,P){
+    const YEL='#f0bf2e',YD='#e3ae25',WH='#f7f2e4',ST='#c3bcaa',STD='#8f897d',RED='#b4583c';
+    const eF=fNear(fEdges(P),394,220.7);           // la fachada hacia la plaza: s de izquierda (la torre, al este) a derecha; o hacia afuera
+    const TW0=-2.2,TW1=3.8,N0=TW1,N1=14.5,R1=19,D=-26,H=10,APEX=15,PL=.8,c=(N0+N1)/2,TD=-6;
+    const gy=minG([...fP(eF,TW0,D),...fP(eF,R1,D),...fP(eF,R1,4.5),...fP(eF,TW0,4.5)]);
+    const pbox=(s0,s1,y0,y1,o0,o1,col)=>fbox(eF,gy,s0,s1,y0,y1,o0,o1,col);
+    const rect=(s0,s1,o0,o1)=>[...fP(eF,s0,o1),...fP(eF,s1,o1),...fP(eF,s1,o0),...fP(eF,s0,o0)];
+    const at=(s,y,o)=>{const p=fP(eF,s,o);return[p[0],gy+y,p[1]]};
+    const face=(s,y,o,w,h,mat,dy)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);const p=fP(eF,s,o);m.position.set(p[0],gy+y,p[1]);m.rotation.y=eF.yaw+(dy||0);m.receiveShadow=true;scene.add(m);return m};
+    const pin=(s,o,y,z)=>{const p=fP(eF,s,o);geoInto('plain',new THREE.BoxGeometry(z,z*1.1,z),colObj(WH),place(p[0],gy+y+z*.55,p[1],0,eF.yaw,0));
+      geoInto('plain',new THREE.ConeGeometry(z*.42,z*1.5,4),colObj(WH),place(p[0],gy+y+z*1.85,p[1],0,eF.yaw+Math.PI/4,0));geoInto('plain',new THREE.SphereGeometry(z*.2,6,4),colObj(WH),place(p[0],gy+y+z*2.75,p[1]))};
+    // ventana de reja: marco claro, fondo verde oscuro y barrotes
+    const winM=smat(ctex(128,160,(g,w,h)=>{g.fillStyle='#efe6cf';g.fillRect(0,0,w,h);g.fillStyle='#1d2c25';g.fillRect(12,12,w-24,h-24);g.fillStyle='#2b4035';g.fillRect(12,h/2-2,w-24,4);
+      g.fillStyle='#5d7a69';for(let x=22;x<w-14;x+=14)g.fillRect(x,12,4,h-24);g.fillRect(12,40,w-24,4);g.fillRect(12,h-46,w-24,4)}));
+    // el cuerpo: nave (con la fachada del frontón), el cuerpo bajo de la derecha y el anexo detrás de la torre; techos de teja
+    const C=colObj(YEL),nave=rect(N0,N1,D,0),ala=rect(N1,R1,D,0),anexo=rect(TW0,TW1,D,TD);
+    band(nave,gy-2,gy+H,'plain',C,0,1,1,false);gableRoof(nave,gy+H,'plain',C);
+    band(ala,gy-2,gy+H-1.5,'plain',C,0,1,1,false);gableRoof(ala,gy+H-1.5,'plain',C);pbox(N1,R1,H-1.6,H,-.6,0,YEL);
+    band(anexo,gy-2,gy+H-2.5,'plain',C,0,1,1,false);gableRoof(anexo,gy+H-2.5,'plain',C);
+    fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(N0,H-.3);sh.lineTo(N1,H-.3);sh.lineTo(c,APEX);sh.lineTo(N0,H-.3);return sh})(),-.6,0,YEL);
+    // la fachada pintada: frontón, portada, ventanas y manchas de humedad (transparente fuera de la silueta)
+    const FW=R1-N0;
+    const facT=ctex(1024,1024,(g,w,h)=>{g.setTransform(w/FW,0,0,-h/APEX,0,h);const nw=N1-N0,cc=c-N0;
+      g.fillStyle=YEL;g.beginPath();g.moveTo(0,0);g.lineTo(FW,0);g.lineTo(FW,H);g.lineTo(nw,H);g.lineTo(cc,APEX);g.lineTo(0,H);g.closePath();g.fill();
+      let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let i=0;i<22;i++){const x=R()*FW,y=H*(.6+R()*.4),l=.8+R()*2.2;g.fillStyle=`rgba(120,90,30,${.03+R()*.05})`;g.fillRect(x,y-l,.12+R()*.25,l)}
+      const gr=g.createLinearGradient(0,0,0,2.2);gr.addColorStop(0,'rgba(90,70,30,.35)');gr.addColorStop(1,'rgba(90,70,30,0)');g.fillStyle=gr;g.fillRect(0,0,FW,2.2);
+      // ventanas del cuerpo de la derecha
+      const win=(x,y0,ww,hh)=>{g.fillStyle='#efe6cf';g.fillRect(x-ww/2-.15,y0-.15,ww+.3,hh+.3);g.fillStyle='#1d2c25';g.fillRect(x-ww/2,y0,ww,hh);g.fillStyle='#5d7a69';
+        for(let q=x-ww/2+.18;q<x+ww/2-.05;q+=.2)g.fillRect(q,y0,.05,hh);g.fillRect(x-ww/2,y0+hh*.25,ww,.05);g.fillRect(x-ww/2,y0+hh*.75,ww,.05);g.fillStyle='#e2d8bd';g.fillRect(x-ww/2-.3,y0-.3,ww+.6,.18)};
+      const rx=(N1+R1)/2-N0;win(rx,2.1,1.5,2.1);win(rx,6.3,1.3,1.6);
+      // portada de piedra: jambas, puerta verde oscura de dos hojas con tableros, entablamento, ventanita con frontón y remates
+      g.fillStyle=ST;g.fillRect(cc-2.3,PL,4.6,4.4);g.fillRect(cc-2.55,PL+4.4,5.1,.75);g.fillRect(cc-1.1,PL+5.15,2.2,2.35);
+      g.fillStyle='rgba(0,0,0,.12)';for(let y=PL+.45;y<PL+4.4;y+=.45){g.fillRect(cc-2.3,y,.9,.03);g.fillRect(cc+1.4,y,.9,.03)}
+      g.fillStyle='#182520';g.fillRect(cc-1.35,PL,2.7,4.3);g.fillStyle='#24362d';for(const sx of [-1,1])for(let k=0;k<3;k++)g.fillRect(cc+sx*.68-.48,PL+.35+k*1.35,.96,1.05);
+      g.fillStyle='#0f1814';g.fillRect(cc-.03,PL,.06,4.3);g.fillStyle='#c9b27a';g.fillRect(cc-.22,PL+2.1,.12,.12);g.fillRect(cc+.1,PL+2.1,.12,.12);
+      g.fillStyle='#2d3a40';g.fillRect(cc-.6,PL+5.55,1.2,1.6);g.fillStyle='#55656c';g.fillRect(cc-.03,PL+5.55,.06,1.6);g.fillRect(cc-.6,PL+6.3,1.2,.05);
+      g.fillStyle=ST;g.beginPath();g.moveTo(cc-1.45,PL+7.5);g.lineTo(cc+1.45,PL+7.5);g.lineTo(cc,PL+8.25);g.closePath();g.fill();
+      // óculo y bordes blancos del frontón
+      g.fillStyle=WH;g.beginPath();g.arc(cc,H+1.9,.78,0,TAU);g.fill();g.fillStyle='#4b5357';g.beginPath();g.arc(cc,H+1.9,.5,0,TAU);g.fill();
+      g.strokeStyle=WH;g.lineWidth=.3;g.beginPath();g.moveTo(0,H);g.lineTo(cc,APEX-.2);g.lineTo(nw,H);g.stroke()},false);
+    face(N0+FW/2,APEX/2,.03,FW,APEX,smat(facT,{transparent:true,alphaTest:.5}));
+    // relieve: pilastras con capiteles y remates blancos, cornisa, cornisas del frontón, óculo y la portada de piedra
+    for(const [a,b] of [[N0,N0+.75],[N1-.75,N1],[R1-.65,R1]]){pbox(a,b,PL,H-.5,0,.28,YD);pbox(a-.08,b+.08,H-.75,H-.25,0,.4,WH);pin((a+b)/2,.15,H+.25,.62)}
+    pbox(N0-.1,R1+.12,H-.25,H+.25,0,.45,WH);
+    for(const sg of [-1,1]){const x0=sg<0?N0-.3:N1+.3;fextr(eF,gy,(()=>{const sh=new THREE.Shape();sh.moveTo(x0,H+.1);sh.lineTo(c,APEX+.05);sh.lineTo(c,APEX+.45);sh.lineTo(x0,H+.5);sh.lineTo(x0,H+.1);return sh})(),0,.38,WH)}
+    pin(c,0,APEX+.3,.5);
+    geoInto('plain',new THREE.TorusGeometry(.66,.14,6,18),colObj(WH),place(...at(c,H+1.9,.1),0,eF.yaw,0));
+    for(const sx of [-1,1]){pbox(c+sx*1.83-.47,c+sx*1.83+.47,PL,PL+4.4,0,.32,ST);
+      const p=fP(eF,c+sx*2.25,.3);geoInto('plain',new THREE.SphereGeometry(.3,8,6),colObj(ST),place(p[0],gy+PL+5.55,p[1],0,0,0,1,1.35,1));geoInto('plain',new THREE.CylinderGeometry(.2,.25,.3,8),colObj(ST),place(p[0],gy+PL+5.3,p[1]))}
+    pbox(c-2.6,c+2.6,PL+4.4,PL+5.15,0,.5,ST);pbox(c-2.75,c+2.75,PL+5.05,PL+5.25,0,.6,'#d2cbb9');
+    pbox(c-1.15,c-.75,PL+5.15,PL+7.5,0,.25,ST);pbox(c+.75,c+1.15,PL+5.15,PL+7.5,0,.25,ST);pbox(c-1.4,c+1.4,PL+7.4,PL+7.65,0,.35,ST);
+    // la torre: cuerpo amarillo hasta la cornisa, un cuerpo intermedio y el campanario de dos arcos por cara, cornisa, pináculos y cruz
+    pbox(TW0,TW1,-1,H+.6,TD,0,YEL);for(const a of [TW0,TW1-.55])pbox(a,a+.55,PL,H-.25,0,.18,YD);
+    pbox(TW0-.15,TW1+.15,H-.25,H+.25,TD-.15,.45,WH);pbox(TW0-.08,TW1+.08,H+.6,H+.9,TD-.08,.08,WH);
+    face((TW0+TW1)/2,6.4,.04,1.1,1.5,winM);face((TW0+TW1)/2,2.6,.04,1.1,1.6,winM);face(TW0-.04,6.4,TD/2,1.1,1.5,winM,-Math.PI/2);
+    const t0=TW0+.2,t1=TW1-.2,u0=TD+.2,u1=-.2,tc=(TW0+TW1)/2,oc=TD/2;
+    pbox(t0,t1,H+.9,H+3.4,u0,u1,YEL);pbox(t0-.1,t1+.1,H+3.4,H+3.75,u0-.1,u1+.1,WH);
+    const b0=TW0+.35,b1=TW1-.35,v0=TD+.35,v1=-.35,BH0=H+3.75,BH1=H+7.6,bw=b1-b0,bh=BH1-BH0;
+    pbox(b0,b1,BH0,BH1,v0,v1,YEL);
+    const belT=ctex(512,384,(g,w,h)=>{g.setTransform(w/bw,0,0,-h/bh,0,h);g.fillStyle=YEL;g.fillRect(0,0,bw,bh);g.fillStyle=WH;g.fillRect(0,0,.42,bh);g.fillRect(bw-.42,0,.42,bh);g.fillRect(0,bh-.35,bw,.35);
+      for(const x of [bw*.3,bw*.7]){const aw=1.25,top=bh-.75,sp=top-aw/2;g.fillStyle=WH;g.beginPath();g.moveTo(x-aw/2-.14,.25);g.lineTo(x-aw/2-.14,sp);g.arc(x,sp,aw/2+.14,Math.PI,0,true);g.lineTo(x+aw/2+.14,.25);g.closePath();g.fill();
+        g.fillStyle='#1c1a17';g.beginPath();g.moveTo(x-aw/2,.4);g.lineTo(x-aw/2,sp);g.arc(x,sp,aw/2,Math.PI,0,true);g.lineTo(x+aw/2,.4);g.closePath();g.fill();
+        g.fillStyle='#6f5a2e';g.beginPath();g.arc(x,sp-.55,.32,0,TAU);g.fill();g.fillStyle=WH;g.fillRect(x-aw/2-.2,.25,aw+.4,.18)}},false);
+    const belM=smat(belT);face((b0+b1)/2,(BH0+BH1)/2,v1+.03,bw,bh,belM);face((b0+b1)/2,(BH0+BH1)/2,v0-.03,bw,bh,belM,Math.PI);face(b1+.03,(BH0+BH1)/2,oc,bw,bh,belM,Math.PI/2);face(b0-.03,(BH0+BH1)/2,oc,bw,bh,belM,-Math.PI/2);
+    pbox(b0-.25,b1+.25,BH1,BH1+.55,v0-.25,v1+.25,WH);pbox(b0-.05,b1+.05,BH1+.55,BH1+.95,v0-.05,v1+.05,YEL);
+    for(const [a,o] of [[b0,v0],[b1,v0],[b0,v1],[b1,v1]])pin(a,o,BH1+.95,.55);
+    {const p=fP(eF,tc,oc);geoInto('roof_tile',new THREE.ConeGeometry(bw*.62,1.7,4,1,true),colObj('#e0e0e0'),place(p[0],gy+BH1+.95+.85,p[1],0,eF.yaw+Math.PI/4,0));
+      geoInto('plain',new THREE.BoxGeometry(.1,1.4,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.2,p[1],0,eF.yaw,0));geoInto('plain',new THREE.BoxGeometry(.7,.1,.1),colObj('#2a2622'),place(p[0],gy+BH1+3.45,p[1],0,eF.yaw,0))}
+    // ventanas de los costados (la nave por el oeste, el anexo por el este)
+    for(const o of [-6,-12.5,-19])face(R1+.04,3.4,o,1.2,1.7,winM,Math.PI/2);for(const o of [-9,-14,-19])face(R1+.04,6.6,o-1.5,.9,1.1,winM,Math.PI/2);
+    for(const o of [-10,-16,-22])face(TW0-.04,3,o,1.1,1.6,winM,-Math.PI/2);
+    // el atrio: plataforma de piedra coralina a lo ancho de la fachada y los tres escalones frente a la puerta
+    pbox(TW0-.4,R1+.4,-1,PL-.06,0,3.2,STD);pbox(TW0-.5,R1+.5,PL-.08,PL+.04,0,3.3,'#a7a194');
+    pbox(c-2.9,c+2.9,-1,PL*2/3,3.2,3.8,'#9a9488');pbox(c-2.9,c+2.9,-1,PL/3,3.8,4.4,'#a49e91');
+    addSolidPoly(rect(TW0,R1,D,0));addSolidPoly(rect(TW0-.5,R1+.5,0,4.4));addSpecial(rect(TW0-1,R1+1,D-1,4.6));
+    CHURCH_NAMES[s.n]=[...fP(eF,tc,oc),gy+BH1+4];icon('church',...fP(eF,c,D/2),s.n);
+    /* la Plaza de la Trinidad: franjas grises sobre el ladrillo, la palma y el monumento a Pedro Romero (al lado de la torre), bancas
+       amarillas de concreto y el puesto de sombreros vueltiaos */
+    const SQ=MAP.squares.find(q=>inPoly(q,...fP(eF,10,10)));for(const q of MAP.squares)if(inPoly(q,...fP(eF,10,10)))q.propia=1;   // sin los árboles al azar de las plazas
+    if(SQ){const clip=(poly)=>{let out=poly;const n=SQ.length/2;const ccwq=signedArea(SQ)>0;
+        for(let i=0;i<n&&out.length;i++){const ax=SQ[i*2],az=SQ[i*2+1],bx=SQ[(i+1)%n*2],bz=SQ[(i+1)%n*2+1];const side=(x,z)=>((bx-ax)*(z-az)-(bz-az)*(x-ax))*(ccwq?1:-1)>=0;
+          const inp=out;out=[];for(let j=0;j<inp.length;j+=2){const px=inp[j],pz=inp[j+1],qx=inp[(j+2)%inp.length],qz=inp[(j+3)%inp.length],pi=side(px,pz),qi=side(qx,qz);
+            if(pi)out.push(px,pz);if(pi!==qi){const d1=(bx-ax)*(pz-az)-(bz-az)*(px-ax),d2=(bx-ax)*(qz-az)-(bz-az)*(qx-ax),t=d1/(d1-d2);out.push(px+(qx-px)*t,pz+(qz-pz)*t)}}}return out};
+      const stripe=(s0,s1,o0,o1)=>{const q=clip(rect(s0,s1,o0,o1));if(q.length>=6)flatPoly(q.map(v=>Math.round(v*100)/100),'paint',.075,4,colObj('#9d968a'))};
+      for(const o of [5.6,11,16.4,21.8])stripe(-6,32,o,o+.5);stripe(c-.25,c+.25,4.4,30);stripe(-6,32,4.4,4.75);
+      XPALMS.push(fP(eF,2.6,12.5));XPALMS.push(fP(eF,23.2,15.5));XTREES.push(fP(eF,21.5,19));
+      // monumento a Pedro Romero: pedestal de piedra con su placa y el busto de bronce mirando a la plaza
+      {const p=fP(eF,3.3,7.3),y=ground(p[0],p[1]),yw=eF.yaw+Math.PI/2.4,B=colObj('#3f3a33');box(1.6,.35,1.6,'#b9b3a5',p[0],y+.17,p[1],yw);box(1.05,1.8,1.05,'#d8d2c2',p[0],y+1.25,p[1],yw);box(1.2,.2,1.2,'#c9c2b1',p[0],y+2.2,p[1],yw);
+        const fw=[Math.sin(yw),Math.cos(yw)];box(.7,.4,.03,'#7b6a3c',p[0]+fw[0]*.54,y+1.3,p[1]+fw[1]*.54,yw);
+        geoInto('plain',new THREE.CylinderGeometry(.38,.52,.85,10),B,place(p[0],y+2.72,p[1],0,yw,0,1,1,.7));geoInto('plain',new THREE.SphereGeometry(.24,10,8),B,place(p[0],y+3.38,p[1],0,yw,0,.92,1.08,1));
+        geoInto('plain',new THREE.CylinderGeometry(.1,.12,.2,8),B,place(p[0],y+3.15,p[1]));addSolidPoly(rectPts(p[0],p[1],1.7,1.7,yw))}
+      // bancas amarillas de concreto (sin espaldar), a lo largo de la fachada y hacia el oeste
+      const banca=(s0,o0,along)=>{const p=fP(eF,s0,o0),y=ground(p[0],p[1]),yw=eF.yaw+(along?0:Math.PI/2),dx=Math.cos(yw),dz=-Math.sin(yw);
+        box(2.8,.14,.55,'#e9c434',p[0],y+.47,p[1],yw);for(const k of [-1,1])box(.3,.42,.5,'#d4ae25',p[0]+dx*k*1.05,y+.21,p[1]+dz*k*1.05,yw);addSolidPoly(rectPts(p[0],p[1],2.9,.6,yw))};
+      banca(6.2,9,1);banca(13.4,9,1);banca(22.2,6.5,0);banca(21.6,12,0);banca(15,17.5,1);
+      // el puesto de sombreros vueltiaos: un armazón de madera con los sombreros colgados y una mesita
+      {const sv=1.9,ov=5.4,p=fP(eF,sv,ov),y=ground(p[0],p[1]),yw=eF.yaw-Math.PI/5,dx=Math.cos(yw),dz=-Math.sin(yw),fx=Math.sin(yw),fz=Math.cos(yw),W='#6d4c2f';
+        for(const k of [-1,1])box(.08,2,.08,W,p[0]+dx*k*.75,y+1,p[1]+dz*k*.75,yw);for(const yy of [.75,1.3,1.85])box(1.6,.05,.05,W,p[0],y+yy,p[1],yw);
+        for(let r=0;r<3;r++)for(let k=0;k<3;k++){const lx=(k-1)*.5,hx=p[0]+dx*lx+fx*.07,hz=p[1]+dz*lx+fz*.07,hy=y+.55+r*.55;
+          const disc=(r0,r1,h)=>{const g=new THREE.CylinderGeometry(r0,r1,h,14);g.rotateX(Math.PI/2);return g};
+          geoInto('plain',disc(.24,.24,.03),colObj('#f2ecd9'),place(hx,hy,hz,0,yw,0));geoInto('plain',disc(.17,.17,.035),colObj('#2a2420'),place(hx+fx*.01,hy,hz+fz*.01,0,yw,0));
+          geoInto('plain',disc(.11,.13,.12),colObj('#efe8d3'),place(hx+fx*.05,hy,hz+fz*.05,0,yw,0))}
+        const t=[p[0]+fx*1.1,p[1]+fz*1.1];box(1.2,.7,.6,W,t[0],y+.35,t[1],yw);for(let k=0;k<3;k++)geoInto('plain',new THREE.CylinderGeometry(.26,.28,.05,14),colObj(k%2?'#2a2420':'#f2ecd9'),place(t[0]+dx*(k-1)*.35,y+.73,t[1]+dz*(k-1)*.35));
+        addSolidPoly(rectPts(p[0]+fx*.5,p[1]+fz*.5,1.8,1.7,yw));const v=[p[0]+fx*1.4+dx*1.1,p[1]+fz*1.4+dz*1.1];LATER.push(()=>stayAt('vendor',v[0],v[1],yw,''))}}
+    window.__trin={gy,c,eF:[eF.lx,eF.lz,eF.yaw,eF.L]}}
+
   /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
      almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
      y el túnel a nivel del suelo hasta el callejón; por dentro tendidos grises con pasillos rojos, el anillo de en medio con los vomitorios
@@ -1694,6 +2067,7 @@ function construirSitios(){
     if(k==='castellana'){castellana(s,P);continue}
     if(k==='huc'){hospitalCaribe(s,P);continue}
     if(k==='santodomingo'){plazaSantoDomingo(s,P);continue}
+    if(k==='trinidad'){trinidad(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
@@ -1867,13 +2241,16 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
     let acc=hash(Math.round(p[0]),Math.round(p[1]))*14;for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],L=Math.hypot(bx-ax,bz-az);if(L<1)continue;const dx=(bx-ax)/L,dz=(bz-az)/L;
       for(let s=acc;s<L;s+=16){const off=RW[ty]/2+2.2;for(const sg of [1,-1]){const x=ax+dx*s-dz*off*sg,z=az+dz*s+dx*off*sg;if(ok(x,z))PALMS.push([x,z])}}acc=(acc-L)%16;if(acc<0)acc+=16}});
   // parks and squares
-  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
+  MAP.parks.concat(MAP.squares).forEach((p,pi)=>{if(p.propia)return;let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1])}
     const ar=(x1-x0)*(z1-z0),k=Math.min(30,Math.floor(ar/260));for(let t=0;t<k;t++){const x=rr(x0,x1),z=rr(z0,z1);if(!inPoly(p,x,z)||!ok(x,z))continue;(rand()<.45||isBoca(x,z)?PALMS:TREES).push([x,z])}});
   // a sprinkle of almond / mango trees in residential streets
   MAP.roads.forEach(r=>{const [ty,,,,,p]=r;if(ty!==4||rand()>.35)return;const i=2*Math.floor(rand()*(p.length/2-1));const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3];const L=Math.hypot(bx-ax,bz-az)||1;const s=rand(),o=(RW[4]/2+2.6)*(rand()<.5?1:-1);
     const x=lerp(ax,bx,s)-(bz-az)/L*o,z=lerp(az,bz,s)+(bx-ax)/L*o;if(ok(x,z)&&!inCentro(x,z))TREES.push([x,z])});
-  // the Cerro de La Popa is covered in dry tropical forest
-  for(let k=0;k<1400&&TREES.length<2600;k++){const a=rr(-1,1),b=rr(-1,1);if(a*a+b*b>1)continue;const x=HX+(a*700*HCA-b*400*HSA),z=HZ+(a*700*HSA+b*400*HCA);if(groundRaw(x,z)>2&&ok(x,z)&&!nearestRoad(x,z,6))TREES.push([x,z])}
+  // the Cerro de La Popa is covered in dense dry tropical forest, with the yellow crowns of the flowering trees here and there
+  // (more closely packed on the upper slopes around the convent, where the canopy is seen from up close)
+  for(const [RA,RB,TRY,MAX] of [[700,400,5200,2300],[330,220,2600,1500]]){let n=0;for(let k=0;k<TRY&&n<MAX;k++){const a=rr(-1,1),b=rr(-1,1);if(a*a+b*b>1)continue;const x=HX+(a*RA*HCA-b*RB*HSA),z=HZ+(a*RA*HSA+b*RB*HCA);if(groundRaw(x,z)>2&&ok(x,z)&&!nearestRoad(x,z,6)&&!POPA_CLEAR.some(p=>inPoly(p,x,z))){TREES.push([x,z,1]);n++}}}
+  // la Plaza de la Paz (frente a la Torre del Reloj) queda despejada, salvo las palmas de sus jardines
+  if(TORRE_FX.plaza){for(const A of [PALMS,TREES])for(let i=A.length-1;i>=0;i--)if(inPoly(TORRE_FX.plaza,A[i][0],A[i][1]))A.splice(i,1);PALMS.push(...TORRE_FX.palms)}
   const o=new THREE.Object3D();
   // palm: gently curved trunk + crown of drooping fronds
   const trunk=new THREE.CylinderGeometry(.2,.32,9,5,4,true);trunk.translate(0,4.5,0);{const pa=trunk.attributes.position;for(let i=0;i<pa.count;i++){const y=pa.getY(i);pa.setX(i,pa.getX(i)+Math.pow(y/9,2)*.9)}trunk.computeVertexNormals()}
@@ -1898,7 +2275,7 @@ const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
       const q=[ctr.clone().sub(t1).sub(t2),ctr.clone().add(t1).sub(t2),ctr.clone().add(t1).add(t2),ctr.clone().sub(t1).add(t2)];const uv=[[0,0],[1,0],[1,1],[0,1]];
       for(const i of [0,1,2,0,2,3]){const v=q[i];P.push(v.x,v.y,v.z);const nn=v.clone().sub(C);nn.y+=1.2;nn.normalize();N.push(nn.x,nn.y,nn.z);U.push(uv[i][0],uv[i][1])}}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));return g})();
-  const TI=TREES.map(([x,z],i)=>{const s=.85+hash(i,3)*.5;return{x,z,m:place(x,ground(x,z),z,0,hash(i,4)*TAU,0,s,s*(.9+hash(i,7)*.25),s),c:new THREE.Color().setHSL(.22+hash(i,6)*.07,.35,.78+hash(i,8)*.14)}});
+  const TI=TREES.map(([x,z,hill],i)=>{const s=hill?1.1+hash(i,3)*.65:.85+hash(i,3)*.5,yel=hill&&hash(i,11)<.16;return{x,z,m:place(x,ground(x,z),z,0,hash(i,4)*TAU,0,s,s*(.9+hash(i,7)*.25),s),c:yel?new THREE.Color().setHSL(.13+hash(i,6)*.03,.95,.62+hash(i,8)*.12):new THREE.Color().setHSL(.22+hash(i,6)*.07,.35,(hill?.7:.78)+hash(i,8)*.14)}});
   const leafM=new THREE.MeshLambertMaterial({map:leafTex,alphaTest:.5,side:THREE.DoubleSide});
   const leafD=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:leafTex,alphaTest:.5});
   const trunkM=new THREE.MeshLambertMaterial({map:TX.palm_bark,color:'#7a6048'});TREEG={tt,crown,leafM,leafD,trunkM};instChunks(tt,trunkM,TI.map(t=>({x:t.x,z:t.z,m:t.m})),'tree','tree');instChunks(crown,leafM,TI,'tree','tree').forEach(t=>t.m.customDepthMaterial=leafD);
@@ -3358,7 +3735,8 @@ function updateDay(dt){gameH=(gameH+dt*DAYRATE)%24;const a=(gameH-6)/12*Math.PI,
   if(el>-.05)SUNDIR.set(Math.cos(a),Math.max(.14,el),.38).normalize();else SUNDIR.set(-.3,.85,-.42).normalize();
   sun.intensity=el>-.05?.12+.86*dayK+.15*dusk:.34;sun.color.copy(el>-.05?C_SUND:C_MOON);if(el>-.05)sun.color.lerp(C_SUNS,dusk);
   hemi.intensity=.5+.1*dayK+.55*clamp(NIGHT.value,0,1);hemi.groundColor.copy(C_HGN).lerp(C_HGD,dayK);U_NIGHT.value=clamp(NIGHT.value*1.3-.15,0,1);
-  {const fl=clamp(NIGHT.value*1.3-.2,0,1)*.32;MATS.coral.emissive.setRGB(fl,fl*.72,fl*.45);MATS.coralS.emissive.setRGB(fl,fl*.72,fl*.45)}hemi.color.copy(C_HN).lerp(C_HD,dayK);
+  {const fl=clamp(NIGHT.value*1.3-.2,0,1)*.32;MATS.coral.emissive.setRGB(fl,fl*.72,fl*.45);MATS.coralS.emissive.setRGB(fl,fl*.72,fl*.45)}
+  {const k=clamp(NIGHT.value*1.3-.2,0,1);for(const [m,r,gg,b] of TORRE_FX.mats)m.emissive.setRGB(r*k,gg*k,b*k);const hh=gameH%12,mm=(gameH*60)%60;for(const [h,m] of TORRE_FX.hands){h.rotation.z=-hh/12*TAU;m.rotation.z=-mm/60*TAU}}hemi.color.copy(C_HN).lerp(C_HD,dayK);
   skyDome.material.color.copy(C_NIGHT).lerp(C_DAYSKY,dayK).lerp(C_DUSK,dusk*.65);
   scene.fog.color.copy(C_FOGN).lerp(C_FOGD,dayK).lerp(C_FOGS,dusk*.5);renderer.setClearColor(scene.fog.color);
   stars.material.opacity=clamp(NIGHT.value*1.2-.2,0,1);placeGlow.material.opacity=lampGlow.material.opacity=headGlow.material.opacity=tailGlow.material.opacity=lanternGlow.material.opacity=clamp(NIGHT.value*1.4-.2,0,1);lightPools.opacity=clamp(NIGHT.value*1.4-.2,0,1)*.9;
@@ -3562,7 +3940,7 @@ $('go').disabled=false;$('go').textContent='Jugar';
 $('go').addEventListener('click',()=>{initAudio();initAmbient();if(AC&&AC.state==='suspended')AC.resume();started=true;camFrom=camera.position.clone();camBlend=1;$('start').style.display='none';$('hud').hidden=false;initOffers();toast('Bienvenido a Cartagena',2200);lockMouse()});
 {const sv=savedInfo();if(sv){const b=document.createElement('button');b.id='goLoad';b.textContent='Continuar partida guardada';b.style.cssText='margin:8px 0 0 10px;font:400 20px var(--display);background:#1f9aa6;color:#fff;border:0;border-radius:6px;padding:12px 22px;cursor:pointer';$('go').after(b);
   b.addEventListener('click',()=>{$('go').click();setTimeout(()=>loadGame(),50)})}}
-window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild,LM,MALL_SHOPS,CHURCH_NAMES,solidAt,onLand,isWater,roadClear,inSpecial};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__gyRaw=groundRaw;window.__hilly=hilly;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
+window.__TORRE=TORRE;window.__city={CHK,GSEGS,lotsOf,segStyle,roadSegs,MAPICONS,SPECIAL,chunkBuild,LM,MALL_SHOPS,CHURCH_NAMES,solidAt,onLand,isWater,roadClear,inSpecial};window.__tc=TCW;window.__tcb=TC;window.__hl=HAILERS;window.__offers=OFFERS;window.__EX=EX;window.__CEL=CEL;window.__ANI=ANI;window.__M=M;window.__tcDoor=tcDoor;window.__dbg={jam:()=>{const n=nodeNear(30,80);const N=GRAPH.nodes[n];TRA.J={x:N.x,z:N.z};TRA.cd=0;const ok=traSpawn(TRA.J);if(ok){TRA.state='coming';TRA.t=0;TRA.arrived=false}return[ok,N.x,N.z]},tp:(x,z,cy)=>{const r=nearestRoad(x,z,400,s=>!s.walk);player.x=r?r.x+2:x;player.z=r?r.z+2:z;if(cy!==undefined)player.cy=cy;camTy=null;camBlend=0;updateTiles(player.x,player.z);updateChunks(player.x,player.z,1e9);return[player.x,player.z,zoneName(player.x,player.z)]},setH:h=>{gameH=h},setW:n=>{W=n;renderStars()},cops:()=>cops.length,state:()=>({W,arrestT,money,hp:player.car?player.car.hp:null,gameH})};window.__gy=ground;window.__gyRaw=groundRaw;window.__hilly=hilly;window.__isW=isWater;window.__TL=TL;window.__r=renderer;window.__scene=scene;window.__cam=camera;window.__game={findRoute,TRA,CR,TLA,player,vehicles,LM,GRAPH,solids,tiles,STAY,peds,RES,DRV,EX,SV,hail,act,cops,get W(){return W}};
 requestAnimationFrame(frame);
 };
 </script>
