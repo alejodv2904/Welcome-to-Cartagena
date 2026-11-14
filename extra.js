@@ -153,7 +153,8 @@ function typeFor(zn){const r=rand();
   const near=(x,z,r)=>{const i0=Math.floor(x/25),j0=Math.floor(z/25);for(let i=i0-1;i<=i0+1;i++)for(let j=j0-1;j<=j0+1;j++)for(const d of DG.get(i+','+j)||[])if(Math.hypot(d[0]-x,d[1]-z)<r)return true;return false};
   const addDoor=(x,z)=>{const k=dkey(x,z);let l=DG.get(k);if(!l){l=[];DG.set(k,l)}l.push([x,z])};
   for(const [cat,name,px,pz] of ((window.LUGARES&&LUGARES.lugares)||[])){
-    if(cat==='cajero'||(cat!=='mall'&&!TYPES[cat]))continue;if(cat==='mall'&&!/comercial|mall|plaza/i.test(name))continue;
+    if(cat==='cajero'||(cat!=='mall'&&!TYPES[cat]))continue;
+    if(window.TIENDAS&&window.MARCAS&&MARCAS.es(name))continue;   // Ara, D1 y Olímpica tienen su modelo de marca (tiendas.js, en index.html)if(cat==='mall'&&!/comercial|mall|plaza/i.test(name))continue;
     const cand=[],seen=new Set(),gx=Math.floor(px/BGc),gz=Math.floor(pz/BGc);
     for(let i=gx-1;i<=gx+1;i++)for(let j=gz-1;j<=gz+1;j++)for(const bi of BGI.get(i+','+j)||[]){if(seen.has(bi))continue;seen.add(bi);const p=B[bi][3];const d=C.inPoly(p,px,pz)?0:polyDist(p,px,pz);if(d<30)cand.push([d,bi])}
     cand.sort((x,y)=>x[0]-y[0]);let door=null;
@@ -214,7 +215,7 @@ buildFacades(SHOPS).forEach(m=>C.scene.add(m));
 const PLATES=[],plateMats=[];
 (function(){const geo=new THREE.PlaneGeometry(1,1);for(let i=0;i<40;i++){const c=document.createElement('canvas');c.width=512;c.height=128;const t=new THREE.CanvasTexture(c);t.anisotropy=4;
   const m=new THREE.MeshLambertMaterial({map:t,emissiveMap:t,emissive:0x000000,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-4});const me=new THREE.Mesh(geo,m);me.visible=false;C.scene.add(me);PLATES.push({mesh:me,c,t,shop:null});plateMats.push(m)}})();
-function shopColors(s){const T=s.mall?{bg:'#17130f',fg:'#f0b429',label:'Centro comercial'}:TYPES[s.type];if(s.type==='banco'){const b=brandOf(s.name);return{bg:b.bg,fg:b.fg,label:T.label}}return{bg:T.bg,fg:T.fg,label:T.label}}
+function shopColors(s){const T=s.mall?{bg:'#17130f',fg:'#f0b429',label:'Centro comercial'}:TYPES[s.type];if(s.marca&&window.MARCAS){const M=MARCAS.C[s.marca];return{bg:M.bg,fg:M.fg,label:T.label}}if(s.type==='banco'){const b=brandOf(s.name);return{bg:b.bg,fg:b.fg,label:T.label}}return{bg:T.bg,fg:T.fg,label:T.label}}
 function drawPlate(pl,s){const g=pl.c.getContext('2d'),W=512,H=128;const K=shopColors(s);
   g.fillStyle=K.bg;g.fillRect(0,0,W,H);g.fillStyle='rgba(255,255,255,.16)';g.fillRect(0,0,W,H*.45);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=8;g.strokeRect(4,4,W-8,H-8);
   g.fillStyle=K.fg;g.textAlign='center';g.textBaseline='middle';let size=56;g.font=`800 ${size}px Georgia, serif`;while(g.measureText(s.name).width>W-40&&size>16){size-=2;g.font=`800 ${size}px Georgia, serif`}
@@ -223,7 +224,7 @@ function drawPlate(pl,s){const g=pl.c.getContext('2d'),W=512,H=128;const K=shopC
   pl.mesh.scale.set(SW,SH,1);pl.mesh.position.set(s.wx+s.nx*.1,s.gy+sy,s.wz+s.nz*.1);pl.mesh.rotation.set(0,Math.atan2(s.nx,s.nz),0);pl.mesh.visible=true}
 let plT=0;
 function updatePlates(dt){plT-=dt;if(plT>0)return;plT=.5;
-  const want=SHOPS.filter(s=>s.real&&Math.abs(s.x-player.x)<90&&Math.abs(s.z-player.z)<90).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,PLATES.length);
+  const want=SHOPS.filter(s=>s.real&&!s.marca&&Math.abs(s.x-player.x)<90&&Math.abs(s.z-player.z)<90).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,PLATES.length);
   const ws=new Set(want);for(const pl of PLATES)if(pl.shop&&!ws.has(pl.shop)){pl.shop.plate=null;pl.shop=null;pl.mesh.visible=false}
   for(const s of want){if(s.plate)continue;const pl=PLATES.find(q=>!q.shop);if(!pl)break;pl.shop=s;s.plate=pl;drawPlate(pl,s)}
   const nv=C.NIGHT.value;for(const m of plateMats)m.emissive.setRGB(nv*.75,nv*.75,nv*.75)}
@@ -440,6 +441,78 @@ function buildShop(type){const T=TYPES[type];const grp=new THREE.Group();const c
   if(caja&&blocked(def,caja.x,caja.z,.3)){caja.z+=.3}
   return def}
 
+/* supermercado de marca (Ara, D1, Olímpica): cuatro pasillos de góndolas altas y repletas con la cenefa amarilla de precios,
+   piso blanco brillante, tubos de luz sobre cada pasillo, neveras al fondo, frutas a la entrada, dos cajas y los colores de la marca */
+const SUPER_PRECIO={ara:.93,d1:.88,olimpica:1};
+function superCatalogo(m){const k=SUPER_PRECIO[m]||1,$=p=>Math.round(p*k/100)*100;
+  const g=(n,p,c,msg)=>G(n,$(p),c,msg),f=(n,p,e,c)=>F(n,$(p),e,c),dr=(n,p,e,c)=>IT(n,$(p),e,c,{drink:1});
+  return{
+    despensa:[g('Libra de arroz',3200,'#f4f1ea','Pa’l arroz con coco'),g('Aceite',9500,'#f2c01e','Para fritar los patacones'),g('Panela',3500,'#8d5a2b','Para la aguapanela'),g('Café molido',8000,'#3b1d0a','Tinto pa’ toda la semana'),
+      g('Lentejas',3800,'#9c6b30','Lentejas los lunes'),g('Espaguetis',2600,'#f0b429','Con salsa de tomate'),g('Azúcar',4200,'#fafafa','Pa’l jugo'),g('Lata de atún',5900,'#1f9aa6','Arroz con atún')],
+    aseo:[g('Papel higiénico',5200,'#ffffff','Nunca sobra'),g('Detergente',8900,'#1565c0','La ropa bien limpia'),g('Jabón de baño',2900,'#f48fb1','Huele a limpio'),g('Crema dental',5200,'#e53935','Sonrisa caribeña'),
+      g('Champú',11900,'#7b1fa2','El pelo bien bonito'),g('Lavaloza',4500,'#43a047','Los platos brillan'),g('Cloro',3800,'#e3f2fd','Pa’ trapear'),g('Pañitos húmedos',6900,'#90caf9','Para el calor')],
+    mecato:[f('Paquete de papitas',2500,18,'#f0b429'),f('Galletas',2000,18,'#1565c0'),f('Chocolatina',1500,14,'#6b3a1e'),f('Bolsita de maní',1500,14,'#c8843c'),
+      f('Pan tajado',4500,30,'#e3b26a'),f('Rosquitas',2200,16,'#f2c14e'),f('Bocadillo',1200,12,'#a31515'),f('Gomitas',1800,10,'#e91e63')],
+    pared:[g('Harina de maíz',3900,'#f6e7a8','Pa’ las arepas'),g('Chocolate de mesa',6500,'#5d2e12','Chocolate con queso'),g('Sal',1500,'#e3f2fd','Pa’l sancocho'),g('Leche en polvo',12900,'#bbdefb','Pa’l tetero')],
+    granja:[g('Cubeta de huevos',14000,'#f3e0c0','Para los desayunos'),dr('Leche',4200,22,'#f4f4f4'),f('Queso costeño',7500,40,'#fff8e1'),f('Arepas',3900,30,'#f6d27a')],
+    frutas:[f('Mango',1500,16,'#f0a020'),f('Banano',600,12,'#fdd835'),f('Tajada de patilla',2000,20,'#e53935'),g('Libra de tomate',2500,'#d32f2f','Pa’l guiso')],
+    neveras:[[D.cola,D.naranja],[D.agua,D.mango],[D.kumis,D.malta],[D.energ,D.uva],[D.corozo,D.limonada]]}}
+function buildSuper(m){const K=(window.MARCAS&&MARCAS.C[m])||{bg:'#c62828',fg:'#fff',n:'Supermercado'};const CATS=superCatalogo(m);
+  const grp=new THREE.Group(),col=[],prod=[],bot=[],picks=[],spots=[],clerks=[];const w=19,d=27,h=4.6;
+  const piso=canvasTex(256,256,(g,W,H)=>{g.fillStyle='#eeeeec';g.fillRect(0,0,W,H);for(let k=0;k<2600;k++){const v=120+Math.random()*90|0;g.fillStyle=`rgba(${v},${v},${v-6},${.25+Math.random()*.4})`;g.fillRect(Math.random()*W,Math.random()*H,1+Math.random()*2.2,1+Math.random()*2.2)}
+    g.strokeStyle='rgba(0,0,0,.12)';g.lineWidth=2;for(let i=0;i<=2;i++){g.beginPath();g.moveTo(i*128,0);g.lineTo(i*128,H);g.stroke();g.beginPath();g.moveTo(0,i*128);g.lineTo(W,i*128);g.stroke()}});
+  const R=room(grp,w,d,h,'#f4f4f2',piso,{shiny:110,doorW:3});
+  // franja de la marca arriba de las paredes y el logo al fondo
+  const banda=lm(K.bg);for(const [bw,bd,bx,bz] of [[w,.05,0,-d/2+.05],[w,.05,0,d/2-.05],[.05,d,-w/2+.05,0],[.05,d,w/2-.05,0]])boxAt(grp,bw,.55,bd,banda,bx,h-.95,bz);
+  if(window.MARCAS){const lc=MARCAS.canvas(1024,256,(g,W,H)=>{g.fillStyle=K.bg;g.fillRect(0,0,W,H);const c=MARCAS.logo(m,m==='d1'?H-30:W-80,m==='d1'?H-30:H-30,{lema:false});g.drawImage(c,m==='d1'?(W-H+30)/2:40,15)});
+    const t=new THREE.CanvasTexture(lc);for(const z of [-d/2+.07]){const lg=new THREE.Mesh(new THREE.PlaneGeometry(6,1.5),new THREE.MeshBasicMaterial({map:t}));lg.position.set(0,h-.95,z);grp.add(lg)}}
+  // tubos de luz sobre los pasillos (como en la foto) y una canaleta del aire
+  const tubo=glow('#ffffff'),canal=lm('#dfe2e4');
+  const XG=[-4.6,0,4.6];   // góndolas: cuatro pasillos entre las paredes y las tres góndolas
+  for(const x of [-6.9,-2.3,2.3,6.9])for(let z=-d/2+2;z<4;z+=3.1){const l=new THREE.Mesh(new THREE.BoxGeometry(.16,.06,2.5),tubo);l.position.set(x,h-.05,z);grp.add(l);boxAt(grp,.34,.05,2.6,canal,x,h-.14,z)}
+  boxAt(grp,1.3,.5,d-4,lm('#e6e8ea'),w/2-1.4,h-.55,-1);
+  // góndola alta de dos caras, cinco niveles bien llenos, cenefa amarilla con precios y tablero de la categoría encima
+  const precio=lm('#f6d200'),tag=lm('#ff8a00'),metal=lm('#d4d8db'),Z0=-d/2+3.2,Z1=3.4;
+  const repisa=lm('#c4c9cc');
+  function gondolaAlta(x,itsL,itsR,rot){const zc=(Z0+Z1)/2,Lg=Z1-Z0;boxAt(grp,.3,2.1,Lg,metal,x,0,zc);boxAt(grp,1.0,.14,Lg,lm('#9aa0a6'),x,0,zc);col.push({x0:x-.5,x1:x+.5,z0:Z0,z1:Z1});
+    for(let lv=0;lv<5;lv++)boxAt(grp,.98,.03,Lg,repisa,x,.13+lv*.4,zc);for(const z of [Z0,Z1])boxAt(grp,1.0,2.1,.05,metal,x,0,z);
+    for(const [side,its] of [[-1,itsL],[1,itsR]]){const n=its.length,L=(Z1-Z0)/n;
+      its.forEach((it,i)=>{const za=Z0+i*L,zb=za+L;const base=new THREE.Color(it.c);
+        for(let lv=0;lv<5;lv++){const y=.16+lv*.4;for(let zz=za+.08;zz<zb-.05;zz+=.13){if(Math.random()<.05)continue;const c=base.clone().offsetHSL(0,0,(Math.random()-.5)*.12);
+          prod.push([x+side*.3,y,zz,.26,.16+((lv+Math.round(zz*7))%3)*.06,.11,'#'+c.getHexString()])}
+          boxAt(grp,.03,.06,zb-za-.02,precio,x+side*.49,y-.06,(za+zb)/2);if((i+lv)%3===0)boxAt(grp,.02,.1,.18,tag,x+side*.5,y-.02,za+.4+lv*.3)}
+        picks.push({x:x+side*1.1,z:(za+zb)/2,item:it,where:'el pasillo'})})}
+    // tablero colgado con el nombre del pasillo
+    const lab=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.55),new THREE.MeshBasicMaterial({map:signTex(rot,'',K.bg,K.fg),side:THREE.DoubleSide}));lab.position.set(x,h-1.05,Z0+1.4);grp.add(lab);
+    const lab2=lab.clone();lab2.position.z=Z1-1.4;grp.add(lab2);
+    for(const z of [Z0+1.4,Z1-1.4])boxAt(grp,.02,.75,.02,lm('#888'),x,h-.78,z)}
+  gondolaAlta(XG[0],CATS.despensa.slice(0,4),CATS.despensa.slice(4,8),'Despensa');
+  gondolaAlta(XG[1],CATS.mecato.slice(0,4),CATS.mecato.slice(4,8),'Pasabocas y dulces');
+  gondolaAlta(XG[2],CATS.aseo.slice(0,4),CATS.aseo.slice(4,8),'Aseo y hogar');
+  // estantes de pared: granja a la izquierda; a la derecha más aseo con la cenefa
+  wallShelf(grp,col,-1,w,Z0+5.6,Z1,CATS.granja,prod,picks);wallShelf(grp,col,1,w,Z0,Z1,CATS.pared,prod,picks);
+  for(let lv=0;lv<5;lv++)boxAt(grp,.03,.06,Z1-Z0,precio,w/2-.56,.09+lv*.42,(Z0+Z1)/2);
+  for(let lv=0;lv<5;lv++)boxAt(grp,.03,.06,Z1-Z0-5.6,precio,-w/2+.56,.09+lv*.42,(Z0+5.6+Z1)/2);
+  // neveras al fondo (bebidas, leche, jugos) y en la pared izquierda
+  CATS.neveras.forEach((pair,i)=>drinkFridge(grp,col,-6.4+i*3.2,-d/2+.42,0,pair,bot,picks));
+  drinkFridge(grp,col,-w/2+.42,Z0+1.3,Math.PI/2,CATS.neveras[1],bot,picks);drinkFridge(grp,col,-w/2+.42,Z0+3.4,Math.PI/2,CATS.neveras[2],bot,picks);
+  // frutas y verduras en canastas a la derecha de la entrada
+  const fx=w/2-2.4,fz=8.6;boxAt(grp,2.6,.8,1.6,lm('#8d6e63'),fx,0,fz,col);CATS.frutas.forEach((it,i)=>{const cx=fx-.95+(i%2)*1.25,cz=fz-.42+Math.floor(i/2)*.84;boxAt(grp,1.1,.12,.72,lm('#6d4c41'),cx,.8,cz);
+    for(let k=0;k<16;k++)prod.push([cx-.42+(k%4)*.28,.92,cz-.25+Math.floor(k/4)*.17,.16,.12,.14,it.c]);picks.push({x:cx+(i%2?.9:-.9)*.2,z:fz+1.35,item:it,where:'las frutas'})});
+  // las cajas: dos puestos con banda, el letrero y la fila de carritos
+  const cz=7.4;counter(grp,col,-6.6,cz,2.8,K.bg);counter(grp,col,-2.6,cz,2.8,K.bg);
+  for(const x of [-6.6,-2.6]){boxAt(grp,1.6,.03,.5,lm('#2b2b2b'),x-.4,1.03,cz);boxAt(grp,.06,.6,.06,lm('#888'),x+1.2,1.05,cz-.2);const sc=new THREE.Mesh(new THREE.PlaneGeometry(.3,.22),glow('#4fc3f7'));sc.position.set(x+1.2,1.6,cz-.16);grp.add(sc)}
+  {const cs=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.6),new THREE.MeshBasicMaterial({map:signTex('Cajas','',K.bg,K.fg),side:THREE.DoubleSide}));cs.position.set(-4.6,h-1.1,cz);grp.add(cs)}
+  const clerk={x:-2.6,z:cz-.75,yaw:0},caja={x:-2.6,z:cz+1.05};clerks.push({x:-6.6,z:cz-.75,yaw:0});
+  for(let k=0;k<5;k++){const c=new THREE.Group();const cm=lm(m==='d1'?'#b9bec3':'#e53228');const b1=new THREE.Mesh(new THREE.BoxGeometry(.56,.42,.85),cm);b1.position.y=.78;const b2=new THREE.Mesh(new THREE.BoxGeometry(.6,.05,.05),cm);b2.position.set(0,1.08,-.5);
+    const b3=new THREE.Mesh(new THREE.BoxGeometry(.5,.04,.7),lm('#9aa0a6'));b3.position.y=.25;c.add(b1,b2,b3);c.position.set(w/2-.8,0,d/2-1.6-k*.32);grp.add(c)}
+  col.push({x0:w/2-1.15,x1:w/2-.45,z0:d/2-3.3,z1:d/2-1.1});
+  for(const x of [-6.9,-2.3,2.3,6.9])spots.push([x,-6],[x,0]);spots.push([3,6],[-4.5,5],[5.5,10]);
+  products(grp,prod);bottles(grp,bot);
+  const def={grp,col,R,clerk,buy:caja,spots,seats:[],menus:[],exit:{x:0,z:d/2-.6},picks,caja,poster:null,clerks,camH:3.4};
+  for(const p of picks){if(!blocked(def,p.x,p.z,.3))continue;let done=false;for(let rad=.15;rad<1.6&&!done;rad+=.15)for(let a=0;a<TAU;a+=TAU/12){const x=p.x+Math.sin(a)*rad,z=p.z+Math.cos(a)*rad;if(!blocked(def,x,z,.3)){p.x=x;p.z=z;done=true;break}}}
+  return def}
+
 function buildHome(){const grp=new THREE.Group();const col=[];const w=10,d=11;const R=room(grp,w,d,3.2,'#f3e9d6',tileTex('#d8c3a0','#cdb48c'));
   const wood=lm('#8a5a36'),dark=lm('#3b2a1d');
   // dormitorio: cama doble, mesa de noche con lámpara, ventilador
@@ -498,7 +571,7 @@ const IN=[];let inPool=null;
 function poolPeople(){if(inPool)return inPool;inPool=[];for(let i=0;i<18;i++){const ch=C.buildCharacter(C.archetype(i%5===0?'tourist':'local'));inPool.push(ch)}return inPool}
 const CUR={def:null,shop:null};const CACHE={};
 let inside=false,menuOpen=null;
-function enter(shop){const def=CACHE[shop.mall?shop.name:shop.type]||(CACHE[shop.mall?shop.name:shop.type]=shop.home?buildHome():shop.mall?buildMall(shop.name):buildShop(shop.type));
+function enter(shop){const ck=shop.mall?shop.name:shop.marca?'super_'+shop.marca:shop.type;const def=CACHE[ck]||(CACHE[ck]=shop.home?buildHome():shop.mall?buildMall(shop.name):shop.marca?buildSuper(shop.marca):buildShop(shop.type));
   // update the poster with this shop's name
   CUR.def=def;CUR.shop=shop;IS.add(def.grp);inside=true;P.cart=[];P.dance=false;
   if(!def.mall){const K=shopColors(shop);if(def.poster){const old=def.poster.material.map;def.poster.material.map=signTex(shop.name,K.label,K.bg,K.fg);def.poster.material.needsUpdate=true;if(old)old.dispose()}

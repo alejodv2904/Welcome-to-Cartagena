@@ -101,7 +101,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114c"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -658,6 +658,14 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
   const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
 // Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
 {const b=MAP.buildings.find(b=>b[2]==='Iglesia de la Trinidad');if(b){SIT.push({n:'Iglesia de la Trinidad',k:'trinidad',x:394,z:234,p:b[3]});SIT_SKIP.push(b[3])}}
+// supermercados Ara, D1 y Olímpica en su lugar real (tiendas.js, OpenStreetMap): en su edificio va el modelo de la marca (en construirSitios)
+// y el edificio genérico que estaba ahí no se construye; en las casas coloniales y los locales chicos queda la casa, con el aviso de la marca
+const TIENDAS_N={};
+if(window.MARCAS)for(const t of (window.TIENDAS||[])){const P=t.p,ar=Math.abs(signedArea(P)),zn=zoneName(t.x,t.z);
+  const letrero=ar<230||/^(Centro Histórico|San Diego|Getsemaní)$/.test(zn);
+  let n=t.n.indexOf('·')>0?t.n:t.n+' · '+zn;TIENDAS_N[n]=(TIENDAS_N[n]||0)+1;if(TIENDAS_N[n]>1)n+=' '+TIENDAS_N[n];
+  SIT.push({n,k:'tienda',m:t.m,x:t.x,z:t.z,p:P,letrero,quita:letrero?null:t.quita});
+  if(!letrero&&t.det){SIT_SKIP.push(P);for(const q of t.quita||[])SIT_SKIP.push(rectPts(q[0],q[1],1.5,1.5,0))}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -951,6 +959,9 @@ function label(name,x,y,z){const c=document.createElement('canvas');c.width=512;
    - afuera, la Plaza de la Paz: piso rosado en abanico con rayas claras que salen de la puerta, las gradas frente al arco
      y los jardines con palmas al pie de la muralla. */
 const TORRE_FX={hands:[],mats:[],plaza:null,palms:[]};
+// avisos de los supermercados (se prenden de noche) y sus placas (solo se dibujan las cercanas)
+const SUPER_FX=[],SUPER_MESH=[];let superT=0;
+function updateSuper(dt){superT-=dt;if(superT>0)return;superT=.5;const r2=(Q.view+150)**2;for(const m of SUPER_MESH){const dx=m.position.x-player.x,dz=m.position.z-player.z;m.visible=dx*dx+dz*dz<r2}}
 function torreDelReloj(){const T=TORRE,[px,pz]=T.P,y0=ground(px,pz);
   const g=new THREE.Group();g.position.set(px,y0,pz);g.rotation.y=T.yaw;scene.add(g);let tgt=g;
   const CORAL=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#e3d6bc'}),CORAL2=new THREE.MeshLambertMaterial({map:TX.coral_wall,color:'#efe4cc'}),
@@ -1880,7 +1891,86 @@ function construirSitios(){
     const f=snap(...(()=>{const p=pS(rE+6,0,0);return[p[0],p[2]]})());addLM(s.n,cx,cz,yG+HA+2,1,f[0],f[1]);icon('bull',cx,cz,s.n);
     window.__toros={cx,cz,R0,th,Y0,yG,Hb,rE}}
   const LOG={sitios:0};
+  /* ---------- supermercados Ara, D1 y Olímpica (tiendas.js) vestidos a partir de fotos de las tiendas ----------
+     Ara: fachada naranja, corona gris claro que sobresale, persianas grises arriba, el logo con la guacamaya, alero blanco en la entrada,
+          vitrinas con afiches verdes y carritos rojos. D1: caja blanca con el marco rojo grueso arriba y en las esquinas, el cuadro rojo del logo,
+          reflectores en el techo y el círculo verde de SALIDA. Olímpica: paneles grises, franja de vidrio, corona roja con el logo de la llama,
+          columnas rojas, el panel "Siempre precios bajos", piso de ladrillo y filas de carritos rojos. */
+  const TX={};const tmat=(key,draw,w,h,opt)=>{if(TX[key])return TX[key];const t=new THREE.CanvasTexture(MARCAS.canvas(w,h,draw));t.anisotropy=ANISO;
+    const m=new THREE.MeshLambertMaterial(Object.assign({map:t,emissiveMap:t,emissive:0x000000,polygonOffset:true,polygonOffsetFactor:-3},opt||{}));SUPER_FX.push(m);return TX[key]=m};
+  const logoM=m=>tmat('logo_'+m,(g,w,h)=>MARCAS.draw[m](g,w,h),1024,m==='d1'?1024:m==='olimpica'?256:480,m==='d1'?{}:{transparent:true,alphaTest:.25});
+  const tableroM=m=>tmat('tab_'+m,(g,w,h)=>{const K=MARCAS.C[m];g.fillStyle=K.bg;g.fillRect(0,0,w,h);g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=10;g.strokeRect(8,8,w-16,h-16);
+    if(m==='d1'){const c=MARCAS.logo('d1',h-40,h-40);g.drawImage(c,24,20);g.fillStyle='#fff';g.font='900 120px Arial Black, Arial, sans-serif';g.textBaseline='middle';g.fillText('TIENDAS D1',h+10,h/2)}
+    else{const c=MARCAS.logo(m,w-60,h-30,{lema:false});g.drawImage(c,30,15)}},1024,256);
+  const aficheM=m=>tmat('af_'+m,(g,w,h)=>MARCAS.afiche(g,w,h,m),256,512);
+  const salidaM=tmat('salida',MARCAS.salida,256,256,{transparent:true,alphaTest:.3});
+  const preciosM=tmat('precios',MARCAS.preciosBajos,512,512);
+  const frutasM=tmat('frutas',(g,w,h)=>{g.fillStyle='#4caf50';g.fillRect(0,0,w,h);g.fillStyle='#e2231a';g.fillRect(0,0,w,h*.2);g.fillStyle='#fff';g.font='900 40px Arial, sans-serif';g.textAlign='center';g.textBaseline='middle';
+    g.fillText('Miércoles de plaza',w/2,h*.1);let sd=3;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let i=0;i<70;i++){g.fillStyle=['#e53935','#fdd835','#fb8c00','#7cb342','#8e24aa','#c62828'][i%6];g.beginPath();g.arc(R()*w*.55,h*.25+R()*h*.7,10+R()*18,0,6.283);g.fill()}
+    g.fillStyle='#ffeb3b';g.font='900 110px Arial Black, Arial, sans-serif';g.fillText('40%',w*.78,h*.5);g.fillStyle='#fff';g.font='800 40px Arial, sans-serif';g.fillText('Frutas & verduras',w*.78,h*.8)},512,256);
+  const vidrioM=smat(ctex(64,64,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#8fa9b6');gr.addColorStop(.5,'#4f6670');gr.addColorStop(1,'#33434b');g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.fillStyle='rgba(255,255,255,.16)';g.beginPath();g.moveTo(0,h*.75);g.lineTo(w*.55,0);g.lineTo(w*.8,0);g.lineTo(0,h);g.fill();g.fillStyle='#fff6d0';g.fillRect(4,h*.08,w-8,3);g.fillStyle='#d9dcdd';g.fillRect(0,0,w,3);g.fillRect(0,0,3,h)},true),{emissive:'#26343a'});
+  // carrito de mercado (canasta, bandeja, patas y manubrio)
+  const carrito=(x,z,yaw,gy,col)=>{const p=(a,y,b)=>place(x+Math.cos(yaw)*a+Math.sin(yaw)*b,gy+y,z-Math.sin(yaw)*a+Math.cos(yaw)*b,0,yaw,0);
+    geoInto('plain',new THREE.BoxGeometry(.56,.42,.85),colObj(col),p(0,.78,0));geoInto('plain',new THREE.BoxGeometry(.5,.04,.7),colObj('#9aa0a6'),p(0,.25,.05));
+    geoInto('plain',new THREE.BoxGeometry(.5,.55,.04),colObj('#7d8287'),p(0,.3,-.38));geoInto('plain',new THREE.BoxGeometry(.6,.05,.05),colObj(col),p(0,1.08,-.5))};
+  const filaCarritos=(e,gy,s0,n,o,col)=>{for(let i=0;i<n;i++){const q=fP(e,s0+i*.32,o);carrito(q[0],q[1],e.yaw+Math.PI/2,ground(q[0],q[1]),col)}};
+  // vitrina de vidrio entre s0 y s1 con parales cada ~2.4 m y, si se pide, afiches pegados
+  const vitrina=(e,gy,s0,s1,y1,frame,af)=>{if(s1-s0<.8)return;fmesh(e,gy,(s0+s1)/2,(.25+y1)/2,.1,s1-s0,y1-.25,vidrioM,(s1-s0)/2.4,1);
+    const n=Math.max(1,Math.round((s1-s0)/2.4));for(let i=0;i<=n;i++){const q=s0+(s1-s0)*i/n;fbox(e,gy,q-.06,q+.06,0,y1,0,.18,frame)}fbox(e,gy,s0,s1,y1,y1+.14,0,.2,frame);fbox(e,gy,s0,s1,0,.25,0,.2,frame);
+    if(af)for(let i=0;i<n;i++)if((i+Math.round(s0))%2===0){const q=s0+(s1-s0)*(i+.5)/n;fmesh(e,gy,q,1.55,.14,Math.min(1.1,(s1-s0)/n*.6),Math.min(2.2,(s1-s0)/n*1.2),af)}};
+  const puerta=(e,gy,s,w,h,frame)=>{fmesh(e,gy,s,h/2+.05,.12,w,h-.1,vidrioM,2,1);fbox(e,gy,s-w/2-.1,s-w/2+.05,0,h,0,.22,frame);fbox(e,gy,s+w/2-.05,s+w/2+.1,0,h,0,.22,frame);fbox(e,gy,s-w/2-.1,s+w/2+.1,h,h+.2,0,.22,frame);fbox(e,gy,s-.03,s+.03,0,h,.08,.2,frame)};
+  const placa=(e,gy,s,y,o,w,h,mat)=>{const m=fmesh(e,gy,s,y,o,w,h,mat);SUPER_MESH.push(m);return m};
+  function tiendaMarca(s,P){const m=s.m,gy=minG(P),E=fEdges(P);
+    // el frente: el borde más cercano a una calle con carros (y largo)
+    let e=null,bd=1e9;for(const q of E){if(q.L<5)continue;const r=nearestRoad(q.mx+q.nx*3,q.mz+q.nz*3,90,z=>!z.walk);const d=(r?r.d:200)-Math.min(q.L,30)*.25;if(d<bd){bd=d;e=q}}
+    if(!e)e=E.reduce((a,b)=>b.L>a.L?b:a,E[0]);const L=e.L;
+    const side=E.filter(q=>q!==e&&q.L>6&&Math.abs(q.nx*e.nx+q.nz*e.nz)<.5).sort((a,b)=>b.L-a.L)[0];
+    let ds=L/2,dw=2.6;
+    if(s.letrero){// la casa se queda: tablero de la marca sobre la puerta y la puerta
+      const w=Math.min(L*.8,m==='d1'?4.4:5.2);placa(e,gy,L/2,3.35,.16,w,w/4,tableroM(m));fbox(e,gy,L/2-w/2-.08,L/2+w/2+.08,3.35-w/8-.08,3.35+w/8+.08,0,.13,'#3a3a3a');
+      fpane(e,gy,L/2,1.25,1.6,2.5,.08,'#2a2018');dw=1.6}
+    else if(m==='ara'){const H=7.6,OR=MARCAS.C.ara.wall;ds=Math.min(Math.max(3,L*.22),7);
+      band(P,gy-2,gy+H,'plain',colObj(OR),0,1,1,false);ring(P,gy-.4,gy+.3,.06,colObj('#c9541a'),'plain');
+      ring(P,gy+H-.2,gy+H+2,1.1,colObj('#e4e7e9'),'plain');ring(P,gy+H+.85,gy+H+.95,1.16,colObj('#c3c7ca'),'plain');flatRoof(P,gy+H+1.8,'roof_flat',WHITE,6);
+      const lw=Math.min(L*.4,8.5);placa(e,gy,L/2+lw*.08,5.1,.2,lw,lw*480/1024,logoM('ara'));
+      for(const [a,b] of [[1.2,L/2-lw/2-.4],[L/2+lw/2+.7,L-1.2]]){if(b-a<2.4)continue;fbox(e,gy,a,b,3.85,7.05,0,.14,'#a7abae');for(let y=4;y<6.95;y+=.21)fbox(e,gy,a+.15,b-.15,y,y+.09,.1,.26,'#d3d6d8')}
+      for(const q of [L*.2,L*.62,L*.86])if(q>1&&q<L-1){fbox(e,gy,q-.25,q+.25,4.1,4.4,0,.4,'#d9dcde');XGLOW.push([...fP(e,q,.6).slice(0,1),gy+4.1,fP(e,q,.6)[1],0xfff1d0,.5])}
+      puerta(e,gy,ds,3.4,2.9,'#e9ecee');fbox(e,gy,ds-3,ds+3,3.35,3.5,0,1.7,'#f2f2f2');for(let k=0;k<4;k++)fbox(e,gy,ds-2.7+k*1.8,ds-2.6+k*1.8,3.4,3.9,.1,1.6,'#e0e0e0');
+      vitrina(e,gy,.9,ds-2,3.1,'#dfe3e6',aficheM('ara'));vitrina(e,gy,ds+2,L-.9,3.1,'#dfe3e6',aficheM('ara'));
+      filaCarritos(e,gy,ds+2.6,Math.min(8,Math.floor((L-ds-4)/.32)),1.3,'#e53228');
+      if(side){const sw=Math.min(side.L*.45,6);placa(side,gy,side.L*.5,5.1,.2,sw,sw*480/1024,logoM('ara'))}}
+    else if(m==='d1'){const H=6.2,RED='#d71920';ds=Math.min(Math.max(3,L*.62),L-3);dw=2.4;
+      band(P,gy-2,gy+H,'plain',colObj(MARCAS.C.d1.wall),0,1,1,false);ring(P,gy-.4,gy+.35,.05,colObj('#c4c4c4'),'plain');
+      ring(P,gy+H-1.6,gy+H+.6,.35,colObj(RED),'plain');flatRoof(P,gy+H+.5,'roof_flat',WHITE,6);
+      for(const q of E)if(q.L>3){fbox(q,gy,-.35,1.1,0,H+.6,-.35,.3,RED)}
+      if(L>22)fbox(e,gy,L*.45-.7,L*.45+.7,0,H+.6,0,.3,RED);
+      const sq=2.6,s1=Math.max(sq/2+1.3,L*.26);fbox(e,gy,s1-sq/2-.1,s1+sq/2+.1,H-1.9,H+.9,.3,.45,RED);placa(e,gy,s1,H-.5,.47,sq,sq,logoM('d1'));
+      if(side){fbox(side,gy,side.L-1.3-sq-.1,side.L-1.3+.1,H-1.9,H+.9,.3,.45,RED);placa(side,gy,side.L-1.3-sq/2,H-.5,.47,sq,sq,logoM('d1'))}
+      for(let q=3;q<L-2;q+=6){fbox(e,gy,q-.04,q+.04,H+.5,H+1.2,.2,.3,'#8a8f94');fbox(e,gy,q-.35,q+.35,H+1.05,H+1.35,.25,1.1,'#5f6468')}
+      puerta(e,gy,ds,dw,2.7,'#cfd3d6');placa(e,gy,ds+.5,1.55,.16,.85,.85,salidaM);if(ds-4.2>1.4)puerta(e,gy,ds-3.2,dw,2.7,'#cfd3d6');
+      vitrina(e,gy,1.5,Math.max(1.5,ds-(ds-4.2>1.4?4.6:1.6)),2.9,'#cfd3d6',aficheM('d1'));vitrina(e,gy,ds+1.6,L-1.5,2.9,'#cfd3d6',aficheM('d1'));
+      filaCarritos(e,gy,Math.min(L-4,ds+2),Math.min(6,Math.floor((L-ds-3)/.32)),1.2,'#b9bec3')}
+    else{const H=9,RED='#e2231a';
+      band(P,gy-2,gy+H,'plain',colObj(MARCAS.C.olimpica.wall),0,1,1,false);ring(P,gy-.4,gy+.35,.05,colObj('#4d4f52'),'plain');
+      ring(P,gy+H-2.8,gy+H+.5,.75,colObj(RED),'plain');ring(P,gy+H+.5,gy+H+.75,.75,colObj('#c41c14'),'plain');flatRoof(P,gy+H+.6,'roof_flat',WHITE,6);
+      for(let q=1.5;q<L-1;q+=3.2)fbox(e,gy,q-.03,q+.03,H-2.8,H+.5,.75,.8,'#b51a12');
+      const nb=Math.max(1,Math.round(L/11)),cols=[];for(let i=0;i<=nb;i++)cols.push(Math.min(L-.65,Math.max(.65,L*i/nb)));
+      for(const q of cols)fbox(e,gy,q-.65,q+.65,0,H-2.8,0,.75,RED);
+      for(let i=0;i<nb;i++){const a=cols[i]+.75,b=cols[i+1]-.75;if(b-a<1)continue;fmesh(e,gy,(a+b)/2,5.2,.08,b-a,2.6,vidrioM,(b-a)/3,1);fbox(e,gy,a,b,6.5,6.65,0,.15,'#9ea2a5');fbox(e,gy,a,b,3.75,3.9,0,.15,'#9ea2a5')}
+      const lw=Math.min(L*.62,17);placa(e,gy,L/2,H-1.15,.8,lw,lw/4,logoM('olimpica'));
+      ds=L/2;dw=4.2;puerta(e,gy,ds,dw,3,'#c9ccce');fbox(e,gy,ds-dw/2-.1,ds+dw/2+.1,2.2,2.32,.2,.24,'#f28c28');fbox(e,gy,ds-3,ds+3,3.3,3.55,0,1.8,'#58595b');
+      vitrina(e,gy,cols[0]+.9,ds-dw/2-.4,3.1,'#7c7f82',null);vitrina(e,gy,ds+dw/2+.4,cols[nb]-.9,3.1,'#7c7f82',null);
+      if(L>18)placa(e,gy,L*.2,1.9,.25,Math.min(5,L*.18),Math.min(5,L*.18)/2,frutasM);
+      fflat(e,-1.5,L+1.5,0,6.5,'plaza',.1,3.2);
+      filaCarritos(e,gy,1.6,Math.min(14,Math.floor((ds-dw/2-2.2)/.32)),1.5,'#e53228');filaCarritos(e,gy,ds+dw/2+.8,Math.min(14,Math.floor((L-ds-dw/2-2.4)/.32)),1.5,'#e53228');
+      if(side){const ps=Math.min(side.L*.45,5.5);placa(side,gy,side.L*.55,H-3.4,.8,ps,ps,preciosM);const sl=Math.min(side.L*.7,12);placa(side,gy,side.L*.5,H-1.15,.8,sl,sl/4,logoM('olimpica'))}}
+    if(!s.letrero){addSolidPoly(P);addSpecial(P);for(const q of s.quita||[])addSpecial(rectPts(q[0],q[1],1.5,1.5,0))}
+    const door=fP(e,ds,1.8),wall=fP(e,ds,0);
+    MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:e.nx,nz:e.nz,len:dw,yaw:e.yaw,gy,type:'supermercado',name:s.n,marca:m,real:true,custom:true})}
+
   for(const s of SIT){const k=s.k,P=s.p?ccw(s.p):null;LOG.sitios++;
+    if(k==='tienda'){tiendaMarca(s,P);continue}
     if(k==='baluarte'){addLM(s.n,s.x,s.z,12,0);continue}
     if(k==='torre'){addLM(s.n,s.x,s.z,(s.h||s.pisos*FL)+8,0);continue}
     if(k==='ermita'){const c=CHURCH_NAMES['Iglesia de La Ermita'];addLM('Iglesia de La Ermita',c?c[0]:s.x,c?c[1]:s.z,c?c[2]-ground(c[0],c[1]):30,0);icon('church',s.x,s.z,'Iglesia de La Ermita');continue}
@@ -2893,7 +2983,7 @@ const normTxt=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 function destList(){const out=[];const seen=new Set();
   if((M.stage===0||M.stage===1)&&M.from){const tg=M.stage===0?M.from:M.to;out.push({name:tg.name,x:tg.mx,z:tg.mz,tag:'Encargo'});seen.add(tg.name)}
   const H=EX.HOME;if(H&&dist2(H.x,H.z,player.x,player.z)>60){out.push({name:'Mi casa',x:H.x,z:H.z,tag:'Entre Los Caracoles y El Carmelo'});seen.add('Mi casa')}
-  const all=LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz,tag:'Sitio'})).concat(EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'})))
+  const all=LM.filter(l=>l.mx!==undefined).map(l=>({name:l.name,x:l.mx,z:l.mz,tag:'Sitio'})).concat(EX.SHOPS.filter(s=>s.mall).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Centro comercial'}))).concat(EX.SHOPS.filter(s=>s.marca).map(s=>({name:s.name,x:s.x,z:s.z,tag:'Supermercado'})))
     .concat(ZONES.filter(q=>!isWater(q[1],q[2])||nearestRoad(q[1],q[2],260)).map(q=>({name:q[0],x:q[1],z:q[2],tag:'Barrio'})));
   all.filter(l=>!seen.has(l.name)&&dist2(l.x,l.z,player.x,player.z)>140).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).forEach(l=>{if(!seen.has(l.name)){seen.add(l.name);out.push(l)}});return out}
 // taxi and mototaxi charge by the distance of the trip (mototaxi is cheaper); busetas charge a flat fare
@@ -3595,7 +3685,7 @@ function updateDay(dt){gameH=(gameH+dt*DAYRATE)%24;const a=(gameH-6)/12*Math.PI,
   sun.intensity=el>-.05?.12+.86*dayK+.15*dusk:.34;sun.color.copy(el>-.05?C_SUND:C_MOON);if(el>-.05)sun.color.lerp(C_SUNS,dusk);
   hemi.intensity=.5+.1*dayK+.55*clamp(NIGHT.value,0,1);hemi.groundColor.copy(C_HGN).lerp(C_HGD,dayK);U_NIGHT.value=clamp(NIGHT.value*1.3-.15,0,1);
   {const fl=clamp(NIGHT.value*1.3-.2,0,1)*.32;MATS.coral.emissive.setRGB(fl,fl*.72,fl*.45);MATS.coralS.emissive.setRGB(fl,fl*.72,fl*.45)}
-  {const k=clamp(NIGHT.value*1.3-.2,0,1);for(const [m,r,gg,b] of TORRE_FX.mats)m.emissive.setRGB(r*k,gg*k,b*k);const hh=gameH%12,mm=(gameH*60)%60;for(const [h,m] of TORRE_FX.hands){h.rotation.z=-hh/12*TAU;m.rotation.z=-mm/60*TAU}}hemi.color.copy(C_HN).lerp(C_HD,dayK);
+  {const k=clamp(NIGHT.value*1.3-.2,0,1);for(const [m,r,gg,b] of TORRE_FX.mats)m.emissive.setRGB(r*k,gg*k,b*k);for(const m of SUPER_FX)m.emissive.setRGB(k*.85,k*.85,k*.85);const hh=gameH%12,mm=(gameH*60)%60;for(const [h,m] of TORRE_FX.hands){h.rotation.z=-hh/12*TAU;m.rotation.z=-mm/60*TAU}}hemi.color.copy(C_HN).lerp(C_HD,dayK);
   skyDome.material.color.copy(C_NIGHT).lerp(C_DAYSKY,dayK).lerp(C_DUSK,dusk*.65);
   scene.fog.color.copy(C_FOGN).lerp(C_FOGD,dayK).lerp(C_FOGS,dusk*.5);renderer.setClearColor(scene.fog.color);
   stars.material.opacity=clamp(NIGHT.value*1.2-.2,0,1);placeGlow.material.opacity=lampGlow.material.opacity=headGlow.material.opacity=tailGlow.material.opacity=lanternGlow.material.opacity=clamp(NIGHT.value*1.4-.2,0,1);lightPools.opacity=clamp(NIGHT.value*1.4-.2,0,1)*.9;
@@ -3770,7 +3860,7 @@ const RAIN=(function(){const mo=new Date().getMonth(),wet=mo>=3&&mo<=10,MAXN=500
   window.__lluvia_ya=(s)=>{S.left=s||120;S.amt=1};
   return{update,S,get w(){return S.w}}})();
 function step(dt,now){simT+=dt;
-  updateDay(started?dt:0);placeSun(player.x,player.z);PPL.setShadowCenter(player.x,player.z,Q.shPpl);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
+  updateDay(started?dt:0);updateSuper(dt);placeSun(player.x,player.z);PPL.setShadowCenter(player.x,player.z,Q.shPpl);if(Q.shadow&&frameNo%Q.every===0)renderer.shadowMap.needsUpdate=true;
   window.__water.offset.x+=dt*.004;window.__water.offset.y+=dt*.0025;BOATS.update(dt,player.x,player.z,simT);RAIN.update(dt);
   if(started&&EX.inside){EX.updateInside(dt,EX.menu?{ix:0,iz:0,run:false}:readInput());updateDay(0);EX.update(dt,now/1000)}
   else if(started){const lock=EX.menu||EX.busy||rideOpen()||tcOpen()||!!TC.board;const inp=lock?{ix:0,iz:0,run:false}:readInput();
