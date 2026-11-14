@@ -416,7 +416,7 @@ function nearestRoad(x,z,maxD,filter){let best=null,bd=maxD*maxD;const ci=Math.f
     const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const qx=s.ax+ex*t,qz=s.az+ez*t,d=(x-qx)**2+(z-qz)**2;if(d<bd){bd=d;best={s,x:qx,z:qz,d:Math.sqrt(d)}}}}
   return best}
 // height of what you actually stand on: road surfaces and raised sidewalks sit above the terrain (cached on a 0.5 m grid)
-const SLC=new Map(),TC_ST=[];
+const SLC=new Map(),TC_ST=[],LIFTF=[];   // LIFTF: superficies por donde se camina más alto (gradas, bases de monumentos)
 function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get(k);if(v!==undefined)return v;v=0;let walk=0;
   const ci=Math.floor(x/RS),cj=Math.floor(z/RS);
   for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=roadSegs.get(rkey(i,j));if(!a)continue;for(const s of a){
@@ -424,7 +424,7 @@ function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get
     if(d<=hw+.05){v=Math.max(v,RLIFT[s.ty]);continue}
     if(s.ty>=1&&s.ty<=4&&d<=hw+2.45){const L=Math.sqrt(l2),at=t*L,tr=s.w*.7;if((at<tr&&isJunction(s.ax,s.az))||(L-at<tr&&isJunction(s.bx,s.bz)))continue;walk=Math.max(walk,RLIFT[s.ty]+.17)}}}
   if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;const al=dx*st.tx+dz*st.tz,pp=Math.abs(-dx*st.tz+dz*st.tx);if(pp>=st.hw)continue;if(Math.abs(al)<st.hl)v=Math.max(v,st.top);else if(st.rl){const e=-al-st.hl;if(e>=0&&e<st.rl)v=Math.max(v,st.base+(st.top-st.base)*(1-e/st.rl))}}
-  if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
+  for(const f of LIFTF)v=Math.max(v,f(x,z));if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
 const standY=(x,z)=>ground(x,z)+surfLift(x,z);
 const colObj=c=>new THREE.Color(c);
 // expand a polyline into points, subdividing where the terrain bends so ribbons follow it (on a steady slope, or flat ground, nothing is added)
@@ -1062,44 +1062,185 @@ MAP.landmarks.forEach(l=>{const [name,x,z,mis]=l;if(name==='Cerro de La Popa'){c
   const top=name==='Torre del Reloj'?33:name.startsWith('Castillo')?50:ck?CHURCH_NAMES[ck][2]+4:14;
   const s=snap(lx,lz);LM.push({name,x:lx,z:lz,mx:s[0],mz:s[1],sprite:label(name,lx,ground(lx,lz)+Math.max(14,top),lz),mission:!!mis})});
 LM.byName=n=>LM.find(l=>l.name===n);
-/* Monumento a la India Catalina: stepped stone pedestal on a small plaza and a stylised bronze figure (crown of feathers, arms forward) */
+/* utilidades de los monumentos: materiales con textura a escala real (UV por cara, en metros) y bronce */
+const MONU=(function(){
+  const texM=(t,color,extra)=>{const m=t.clone();m.wrapS=m.wrapT=THREE.RepeatWrapping;m.anisotropy=4;m.needsUpdate=true;return new THREE.MeshLambertMaterial(Object.assign({map:m,color},extra||{}))};
+  // caras planas y UV en metros: arriba/abajo se proyectan en planta, los lados a lo largo de cada cara
+  const faceUV=(g,s)=>{g=g.toNonIndexed();g.computeVertexNormals();const P=g.attributes.position,N=g.attributes.normal,U=new Float32Array(P.count*2);
+    for(let i=0;i<P.count;i+=3){const nx=N.getX(i),ny=N.getY(i),nz=N.getZ(i);const l=Math.hypot(nx,nz)||1,tx=nz/l,tz=-nx/l;
+      for(let k=i;k<i+3;k++){const x=P.getX(k),y=P.getY(k),z=P.getZ(k);if(Math.abs(ny)>.7){U[k*2]=x/s;U[k*2+1]=z/s}else{U[k*2]=(x*tx+z*tz)/s;U[k*2+1]=y/s}}}
+    g.setAttribute('uv',new THREE.BufferAttribute(U,2));return g};
+  const canvasTex=(S,draw)=>{const c=document.createElement('canvas');c.width=c.height=S;draw(c.getContext('2d'),S);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t};
+  // adoquín rosado de la plaza de la India Catalina (una baldosa de textura = 2 m)
+  const pavers=()=>canvasTex(512,(g,S)=>{let sd=5;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;g.fillStyle='#b9786c';g.fillRect(0,0,S,S);
+    const bw=S/10,bh=S/20;for(let r=0;r<20;r++)for(let c=-1;c<10;c++){const x=c*bw+(r%2?bw/2:0),y=r*bh;const l=58+R()*10,h=8+R()*8;g.fillStyle=`hsl(${h},${36+R()*12}%,${l}%)`;g.fillRect(x+1.5,y+1.5,bw-3,bh-3)}
+    for(let i=0;i<900;i++){g.fillStyle=`rgba(${R()<.5?'60,30,25':'255,240,230'},${R()*.12})`;g.fillRect(R()*S,R()*S,2+R()*5,2+R()*5)}});
+  // granito lavado (gravilla) de la base de los Zapatos Viejos (una baldosa = 1,5 m)
+  const terrazzo=()=>canvasTex(256,(g,S)=>{let sd=9;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;g.fillStyle='#a8a6a0';g.fillRect(0,0,S,S);
+    for(let i=0;i<2600;i++){const v=R();g.fillStyle=v<.35?`rgb(${70+R()*40|0},${70+R()*40|0},${68+R()*40|0})`:v<.8?`rgb(${150+R()*40|0},${148+R()*40|0},${142+R()*40|0})`:`rgb(${215+R()*40|0},${212+R()*40|0},${205+R()*40|0})`;
+      g.beginPath();g.ellipse(R()*S,R()*S,.8+R()*2.2,.8+R()*1.8,R()*3,0,6.283);g.fill()}});
+  // losas de piedra caliza clara (una baldosa = 4,5 m): manchas grises y juntas
+  const slabs=()=>canvasTex(512,(g,S)=>{let sd=3;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;g.fillStyle='#e7e1d2';g.fillRect(0,0,S,S);
+    for(let i=0;i<260;i++){g.fillStyle=`rgba(${R()<.6?'120,110,90':'255,252,240'},${R()*.1})`;g.beginPath();g.ellipse(R()*S,R()*S,4+R()*30,3+R()*14,R()*3,0,6.283);g.fill()}
+    for(let i=0;i<1400;i++){g.fillStyle=`rgba(90,80,60,${R()*.18})`;g.fillRect(R()*S,R()*S,1+R()*2,1+R()*2)}
+    g.strokeStyle='rgba(110,98,78,.55)';g.lineWidth=2;for(let k=0;k<4;k++){const x=k*S/4+(k%2)*20;g.beginPath();g.moveTo(x,0);g.lineTo(x,S);g.stroke()}});
+  // bloques de piedra coralina color arena con poros (una baldosa = 2 m)
+  const coralina=()=>canvasTex(512,(g,S)=>{let sd=13;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;g.fillStyle='#d2bd8f';g.fillRect(0,0,S,S);
+    const rh=S/4;for(let r=0;r<4;r++)for(let c=0;c<3;c++){const x=c*S/3+(r%2?S/6:0);g.fillStyle=`hsl(${38+R()*8},${30+R()*12}%,${62+R()*9}%)`;g.fillRect(x+2,r*rh+2,S/3-4,rh-4);if(x+S/3>S){g.fillRect(x-S+2,r*rh+2,S/3-4,rh-4)}}
+    for(let i=0;i<2600;i++){const v=R();g.fillStyle=v<.7?`rgba(110,88,50,${.15+R()*.35})`:`rgba(255,246,220,${R()*.3})`;g.beginPath();g.ellipse(R()*S,R()*S,.6+R()*2.6,.5+R()*2,R()*3,0,6.283);g.fill()}
+    for(let i=0;i<40;i++){g.fillStyle=`rgba(80,70,50,${R()*.12})`;g.beginPath();g.ellipse(R()*S,R()*S,10+R()*40,6+R()*24,R()*3,0,6.283);g.fill()}
+    g.fillStyle='rgba(95,80,55,.6)';for(let r=0;r<=4;r++)g.fillRect(0,r*rh-1.5,S,3)});
+  const bronze=(c,sp,sh)=>new THREE.MeshPhongMaterial({color:c,specular:sp,shininess:sh});
+  return{texM,faceUV,pavers,terrazzo,slabs,coralina,bronze}})();
+/* Monumento a la India Catalina (Eladio Gil Zambrana), modelado a partir de fotos: la india de bronce de pie, erguida y mirando al frente con la
+   cabeza un poco levantada, los brazos abajo separados del cuerpo, las dos trenzas sobre el pecho, la cinta en la frente con una sola pluma y el
+   taparrabo de flecos; abajo la base redonda de bronce, el pedestal octogonal de piedra coralina con su cornisa y la placa «INDIA CATALINA»,
+   sobre la gran pirámide octogonal de diez gradas de piedra clara, en medio de la plaza de adoquín rosado con franjas blancas en círculos y rayos.
+   Las gradas se pueden subir. */
 const INDIA=(function(){const l=LM.byName('India Catalina');if(!l)return null;let x=l.x,z=l.z;if(solidAt(x,z)){x=l.mx;z=l.mz}
-  const r=nearestRoad(x,z,60,s=>!s.walk);if(r&&r.d<9){const dx=x-r.x,dz=z-r.z,d=Math.hypot(dx,dz)||1;x=r.x+dx/d*9;z=r.z+dz/d*9}
-  const y=ground(x,z),grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
-  const stone=mat('#d9cdb4'),dark=mat('#b9ab90');
-  const bronze=new THREE.MeshPhongMaterial({color:'#7a5a2e',specular:0x6b5a3a,shininess:40});
-  const add=(g,m,px,py,pz,rx,ry,rz)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
-  add(new THREE.CylinderGeometry(7,7.4,.4,32),dark,0,.2,0);add(new THREE.CylinderGeometry(4.2,4.6,.6,24),stone,0,.7,0);
-  add(new THREE.BoxGeometry(2.6,3.6,2.6),stone,0,2.8,0);add(new THREE.BoxGeometry(3,.35,3),dark,0,4.75,0);add(new THREE.BoxGeometry(3,.35,3),dark,0,1.15,0);
-  // figure (about 4 m tall): legs, skirt, torso, arms forward, head, feather crown
-  for(const s of [-1,1])add(new THREE.CylinderGeometry(.16,.12,1.5,10),bronze,s*.22,5.7,0,0,0,s*.05);
-  add(new THREE.CylinderGeometry(.42,.62,.9,14),bronze,0,6.75,0);
-  add(new THREE.CylinderGeometry(.36,.42,1.25,14),bronze,0,7.8,0);
-  add(new THREE.SphereGeometry(.3,12,8),bronze,0,8.75,0);
-  for(const s of [-1,1]){add(new THREE.CylinderGeometry(.09,.08,1.1,8),bronze,s*.45,8.05,.38,-1.05,0,s*.25);add(new THREE.SphereGeometry(.1,8,6),bronze,s*.55,7.85,.9)}
-  for(let k=0;k<9;k++){const a=(k-4)*.3;add(new THREE.BoxGeometry(.08,.62,.02),bronze,Math.sin(a)*.24,9.1+Math.cos(a)*.08,-Math.cos(a)*.08-.06,-.25,a,0)}
-  addSolidPoly([x-2.5,z-2.5,x+2.5,z-2.5,x+2.5,z+2.5,x-2.5,z+2.5]);l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+14,z);
-  // the player starts on the plaza looking at the monument
-  let px=x,pz=z+8;for(let a=0;a<TAU;a+=TAU/12){const qx=x+Math.sin(a)*8,qz=z+Math.cos(a)*8;if(onLand(qx,qz)&&!solidAt(qx,qz)){px=qx;pz=qz;break}}
-  return{x,z,px,pz,yaw:Math.atan2(x-px,z-pz)}})();
+  const r0=nearestRoad(x,z,60,s=>!s.walk);if(r0&&r0.d<16){const dx=x-r0.x,dz=z-r0.z,d=Math.hypot(dx,dz)||1;x=r0.x+dx/d*16;z=r0.z+dz/d*16}
+  // mira hacia la avenida más cercana
+  const rv=nearestRoad(x,z,120,s=>!s.walk),yaw=rv?Math.atan2(rv.x-x,rv.z-z):0;
+  const y=ground(x,z),grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
+  const add=(g,m,px,py,pz,rx,ry,rz,par)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.rotation.set(rx||0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;(par||grp).add(o);return o};
+  const O8=Math.PI/8,oct=(a,h,s)=>MONU.faceUV(new THREE.CylinderGeometry(a/Math.cos(O8),a/Math.cos(O8),h,8).rotateY(O8),s||2.2);   // octágono con una cara al frente (+z)
+  // plaza de adoquín rosado con franjas blancas: círculos y rayos
+  const RP=25,pv=MONU.pavers();pv.repeat.set(RP,RP);
+  add(new THREE.CircleGeometry(RP,72).rotateX(-Math.PI/2),new THREE.MeshLambertMaterial({map:pv,color:'#ffffff',polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2}),0,.1,0).castShadow=false;
+  const band=new THREE.MeshLambertMaterial({color:'#ece6da',polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+  for(const rr of [14,19,RP-.4])add(new THREE.RingGeometry(rr-.28,rr+.28,96).rotateX(-Math.PI/2),band,0,.11,0).castShadow=false;
+  for(let k=0;k<16;k++){const a=k/16*TAU+TAU/32,m=add(new THREE.PlaneGeometry(.45,RP-11.4).rotateX(-Math.PI/2),band,Math.sin(a)*(RP+11.4)/2,.11,Math.cos(a)*(RP+11.4)/2,0,a,0);m.castShadow=false}
+  // pirámide de diez gradas octogonales
+  const slT=MONU.slabs(),stepM=[MONU.texM(slT,'#d3cfc6'),MONU.texM(slT,'#c4bfb4')];
+  const NS=10,SH=.19,A0=10.6,ST=.8,TOP=NS*SH;
+  for(let i=0;i<NS;i++)add(oct(A0-i*ST,SH,4.5),stepM[i%2],0,i*SH+SH/2,0);
+  // pedestal de coralina con zócalo y cornisa
+  const coT=MONU.coralina(),coralM=MONU.texM(coT,'#ece4d2'),capM=MONU.texM(coT,'#d8cdb6');
+  const PA=1.4,PH=3.7;
+  add(oct(PA+.14,.32),capM,0,TOP+.16,0);add(oct(PA,PH),coralM,0,TOP+PH/2,0);
+  add(oct(PA+.1,.12),capM,0,TOP+PH+.06,0);add(oct(PA+.24,.3),capM,0,TOP+PH+.27,0);add(oct(PA+.12,.1),capM,0,TOP+PH+.47,0);
+  // placa de bronce
+  const plq=canvasSign(512,160,(g,w,h)=>{g.fillStyle='#8a7a5c';g.fillRect(0,0,w,h);g.strokeStyle='#5d4f37';g.lineWidth=10;g.strokeRect(8,8,w-16,h-16);g.fillStyle='#3b3022';g.textAlign='center';g.textBaseline='middle';
+    g.font='800 64px Georgia,serif';g.fillText('INDIA CATALINA',w/2,h*.42);g.font='600 26px Georgia,serif';g.fillText('CARTAGENA DE INDIAS',w/2,h*.78)});
+  add(new THREE.PlaneGeometry(1.45,.45),new THREE.MeshLambertMaterial({map:plq}),0,TOP+PH-.55,PA+.015).castShadow=false;
+  // base redonda de bronce y la india (modelada en metros de una persona de 1,70 y escalada a unos 3,3 m)
+  const BR=MONU.bronze('#4a3b29',0x5e5038,26),PT=TOP+PH+.52;
+  const dome=add(new THREE.SphereGeometry(1,28,10,0,TAU,0,Math.PI/2),MONU.bronze('#43352a',0x2a2418,12),0,PT,0);dome.scale.set(.95,.26,.82);
+  const fig=new THREE.Group();fig.position.set(0,PT+.2,0);fig.scale.setScalar(1.95);grp.add(fig);
+  const F=(g,px,py,pz,sx,sy,sz,rx,ry,rz)=>{const o=add(g,BR,px,py,pz,rx,ry,rz,fig);if(sx)o.scale.set(sx,sy,sz);return o};
+  const V=(a,b,c)=>new THREE.Vector3(a,b,c),Y=V(0,1,0);
+  const limb=(a,b,r1,r2)=>{const d=b.clone().sub(a),L=d.length(),o=F(new THREE.CylinderGeometry(r2,r1,L,12),(a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);o.quaternion.setFromUnitVectors(Y,d.normalize());return o};
+  const S=new THREE.SphereGeometry(1,16,12);
+  // piernas juntas y rectas
+  const legP=[[.03,.07],[.036,.12],[.045,.22],[.056,.32],[.051,.42],[.047,.47],[.057,.53],[.074,.64],[.088,.74],[.098,.83],[.096,.88],[0,.9]].map(([r,h])=>new THREE.Vector2(r,h));
+  for(const s of [-1,1]){const lg=F(new THREE.LatheGeometry(legP,14),s*.085,0,0,1,1,1,0,0,s*-.025);
+    F(S,s*.09,.035,.045,.042,.038,.115);}
+  // caderas, tronco y hombros
+  F(S,0,.9,-.008,.178,.13,.13);
+  const torP=[[.16,.86],[.168,.92],[.146,.99],[.12,1.05],[.124,1.11],[.138,1.19],[.146,1.27],[.15,1.33],[.133,1.39],[.09,1.435],[0,1.45]].map(([r,h])=>new THREE.Vector2(r,h));
+  F(new THREE.LatheGeometry(torP,18),0,0,0,1,1,.74);
+  for(const s of [-1,1]){F(S,s*.15,1.375,0,.06,.052,.058);F(S,s*.068,1.225,.08,.058,.056,.05);F(S,s*.09,1.36,.03,.06,.03,.04)}
+  F(S,0,.995,.07,.012,.012,.006);   // ombligo
+  // brazos abajo, un poco separados, las manos junto a los muslos
+  for(const s of [-1,1]){const sh=V(s*.168,1.365,-.005),el=V(s*.2,1.08,.0),wr=V(s*.212,.84,.04);
+    limb(sh,el,.044,.034);F(S,el.x,el.y,el.z,.034,.034,.034);limb(el,wr,.033,.023);
+    F(S,s*.216,.77,.05,.024,.075,.04,.1,0,s*.05);F(S,s*.212,.73,.065,.02,.035,.03)}
+  // cuello y cabeza levantada
+  limb(V(0,1.42,-.005),V(0,1.53,.005),.046,.042);
+  const head=new THREE.Group();head.position.set(0,1.6,.012);head.rotation.x=-.14;fig.add(head);
+  const H=(g,px,py,pz,sx,sy,sz,rx,ry,rz)=>{const o=add(g,BR,px,py,pz,rx,ry,rz,head);if(sx)o.scale.set(sx,sy,sz);return o};
+  H(S,0,0,0,.085,.108,.098);H(S,0,-.055,.035,.06,.05,.06);                         // cráneo y mandíbula
+  H(new THREE.ConeGeometry(.014,.04,8),0,.0,.1,1,1,1,-.25,0,0);                    // nariz
+  for(const s of [-1,1])H(S,s*.084,.0,-.005,.012,.025,.015);                       // orejas
+  H(new THREE.SphereGeometry(1,16,12,0,TAU,0,Math.PI*.62),0,.012,-.012,.092,.11,.105,-.35,0,0);   // pelo
+  H(new THREE.TorusGeometry(.094,.009,6,28),0,.045,0,1,1,1.08,Math.PI/2-.2,0,0);   // cinta de la frente
+  // la pluma, parada atrás en la coronilla
+  const fe=H(new THREE.SphereGeometry(1,10,16),0,.2,-.075,.026,.12,.006,-.12,0,0);H(new THREE.CylinderGeometry(.004,.005,.24,5),0,.15,-.07,1,1,1,-.12,0,0);
+  // las dos trenzas, de detrás de las orejas sobre los hombros hasta el pecho
+  for(const s of [-1,1]){const cv=new THREE.CatmullRomCurve3([V(s*.075,1.6,-.04),V(s*.105,1.5,-.01),V(s*.13,1.42,.05),V(s*.115,1.33,.1),V(s*.1,1.25,.12)]);
+    const n=15;for(let k=0;k<=n;k++){const p=cv.getPoint(k/n),r=.024-.009*k/n;F(S,p.x,p.y,p.z,r,r*1.15,r)}const e=cv.getPoint(1);F(new THREE.ConeGeometry(.02,.06,8),e.x,e.y-.04,e.z+.01,1,1,1,0,0,Math.PI)}
+  // taparrabo: cinturón y faldita de flecos
+  F(new THREE.TorusGeometry(.165,.012,6,30),0,.92,0,1.06,.8,1,Math.PI/2,0,0);
+  for(let k=0;k<26;k++){const a=k/26*TAU,c=Math.cos(a),s2=Math.sin(a),len=.1+(Math.abs(c)>.7?.045:0);const fr=F(new THREE.BoxGeometry(.036,len,.012),s2*.176,.915-len/2,c*.132);fr.rotation.set(-.14,a,0,'YXZ')}
+  // escaleras transitables, pedestal sólido
+  const fa=[0,1,2,3].map(k=>yaw+k*Math.PI/4),od=(dx,dz)=>{let m=0;for(const a of fa)m=Math.max(m,Math.abs(dx*Math.sin(a)+dz*Math.cos(a)));return m};
+  LIFTF.push((qx,qz)=>{const dx=qx-x,dz=qz-z;if(dx*dx+dz*dz>A0*A0*1.2)return 0;const d=od(dx,dz);if(d>A0)return 0;return Math.min(NS,Math.floor((A0-d)/ST)+1)*SH});SLC.clear();
+  const ring=(a)=>{const R=a/Math.cos(O8),p=[];for(let k=0;k<8;k++){const t=yaw+O8+k*Math.PI/4;p.push(x+Math.sin(t)*R,z+Math.cos(t)*R)}return p};
+  addSolidPoly(ring(PA+.3));l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+TOP+PH+8.5,z);
+  // el jugador empieza en la plaza, frente a la india
+  let px=x+Math.sin(yaw)*15,pz=z+Math.cos(yaw)*15;if(!onLand(px,pz)||solidAt(px,pz))for(let a=0;a<TAU;a+=TAU/16){const qx=x+Math.sin(yaw+a)*15,qz=z+Math.cos(yaw+a)*15;if(onLand(qx,qz)&&!solidAt(qx,qz)){px=qx;pz=qz;break}}
+  return{x,z,px,pz,yaw:Math.atan2(x-px,z-pz),plaza:ring(RP*.98)}})();
 // pone un monumento en un sitio libre cerca del punto real: fuera de edificios y a 8 m de la calzada
 function freeSpot(x,z,clear){if(solidAt(x,z)||!onLand(x,z)){let best=null;for(let r=3;r<40&&!best;r+=3)for(let a=0;a<TAU;a+=TAU/16){const qx=x+Math.sin(a)*r,qz=z+Math.cos(a)*r;if(onLand(qx,qz)&&!solidAt(qx,qz)){best=[qx,qz];break}}if(best){x=best[0];z=best[1]}}
   const r=nearestRoad(x,z,40,s=>!s.walk);if(r&&r.d<clear){const dx=x-r.x,dz=z-r.z,d=Math.hypot(dx,dz)||1;x=r.x+dx/d*clear;z=r.z+dz/d*clear}return[x,z]}
-/* Los Zapatos Viejos (detrás del Castillo): un par de botas gigantes de bronce oscuro, gastadas, sobre una base baja */
-(function(){const l=LM.byName('Los Zapatos Viejos');if(!l)return;const [x,z]=freeSpot(l.x,l.z,8);const y=ground(x,z);
-  const grp=new THREE.Group();grp.position.set(x,y,z);scene.add(grp);
-  const br=new THREE.MeshPhongMaterial({color:'#3d2b1f',specular:0x3a2a1a,shininess:18}),sole=mat('#231812'),base=mat('#cfc3a8'),inn=mat('#140d09');
-  const add=(g,m,px,py,pz,sx,sy,sz,ry)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.scale.set(sx||1,sy||1,sz||1);o.rotation.y=ry||0;o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
-  add(new THREE.BoxGeometry(9,.5,7),base,0,.25,0);
-  for(const s of [-1,1]){const sh=new THREE.Group();sh.position.set(s*1.9,.5,s*.4);sh.rotation.y=s*.12;grp.add(sh);
-    const put=(g,m,px,py,pz,sx,sy,sz)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.scale.set(sx||1,sy||1,sz||1);o.castShadow=true;sh.add(o);return o};
-    put(new THREE.BoxGeometry(2.1,.35,5),sole,0,.18,.2);
-    put(new THREE.SphereGeometry(1,20,12),br,0,.85,1.3,1.05,.75,1.5);         // puntera
-    put(new THREE.CylinderGeometry(1.05,1.15,2.6,20),br,0,1.65,-.9);          // caña de la bota
-    put(new THREE.CylinderGeometry(.85,.85,.06,20),inn,0,2.96,-.9);           // boca de la bota
-    put(new THREE.TorusGeometry(.95,.12,8,20),br,0,2.95,-.9).rotation.x=Math.PI/2;
-    for(let k=0;k<4;k++)put(new THREE.BoxGeometry(1.1,.07,.1),mat('#b9a27a'),0,1.15+k*.38,.18-k*.28).rotation.x=-.5}
-  addSolidPoly([x-4.5,z-3.5,x+4.5,z-3.5,x+4.5,z+3.5,x-4.5,z+3.5]);l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+14,z)})();
+/* Los Zapatos Viejos (Héctor Lombana, homenaje al poema de Luis Carlos López), detrás del Castillo de San Felipe, modelados a partir de fotos:
+   dos zapatones de bronce gastado. Uno de pie, con la punta hacia el que mira el Castillo, la boca abierta con el cuello acolchado, la lengüeta y
+   los cordones dorados con su moño; el otro tumbado de lado a su izquierda, mostrando la suela verdosa con el tacón. Están sobre una base baja
+   de granito lavado gris (se puede subir) en un jardín con matas. */
+const ZAPATOS=(function(){const l=LM.byName('Los Zapatos Viejos');if(!l)return null;const [x,z]=freeSpot(l.x,l.z,10);const y=ground(x,z);
+  const cc=castleC||(LM.find(q=>q.name.startsWith('Castillo'))||{x:x-1,z:z}),cx=cc[0]!==undefined?cc[0]:cc.x,cz=cc[1]!==undefined?cc[1]:cc.z;
+  const yaw=Math.atan2(x-cx,z-cz);   // +z local: del Castillo hacia los zapatos (el que los mira tiene el Castillo detrás)
+  const grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
+  const add=(g,m,px,py,pz,par)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;(par||grp).add(o);return o};
+  // jardín y base de granito lavado
+  const AX=5.4,AZ=4.3,BH=.42;
+  if(TX.grass){const gm=MONU.texM(TX.grass,'#b8d08a',{polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2});const gg=MONU.faceUV(new THREE.CircleGeometry(1,40).rotateX(-Math.PI/2).scale(AX+3.2,1,AZ+3.2),3);add(gg,gm,0,.04,0).castShadow=false}
+  const tz=MONU.terrazzo();const bm=new THREE.MeshLambertMaterial({map:tz,color:'#c4c2bb'});
+  const bs=new THREE.Shape();bs.absellipse(0,0,AX,AZ,0,TAU,false,0);const bg=new THREE.ExtrudeGeometry(bs,{depth:BH-.06,bevelEnabled:true,bevelThickness:.03,bevelSize:.06,bevelSegments:2,curveSegments:48});
+  bg.rotateX(-Math.PI/2);add(MONU.faceUV(bg,1.5),bm,0,.03,0);
+  // matas del jardín alrededor de la base
+  const hedge=new THREE.MeshLambertMaterial({color:'#2e6227'}),flower=new THREE.MeshLambertMaterial({color:'#b8362e'}),SB=new THREE.SphereGeometry(1,12,9);
+  for(let k=0;k<22;k++){const a=k/22*TAU+.1;if(Math.cos(a)>.75)continue;const rr=1+.22+(k%3)*.05,sx=Math.sin(a)*(AX*rr+.4),sz=Math.cos(a)*(AZ*rr+.4);const m=add(SB,k%7===3?flower:hedge,sx,.4,sz);m.scale.set(.75+(k%4)*.12,.5+(k%3)*.08,.65)}
+  // ---- un zapato (largo en +z con la punta adelante, suela en y=0) ----
+  const BRZ=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x2e261a,shininess:18}),GOLD=MONU.bronze('#a8894c',0x8a7650,40),DARK=new THREE.MeshLambertMaterial({color:'#17100a',side:THREE.BackSide});
+  const SOLEC=[new THREE.Color('#3f6a62'),new THREE.Color('#33554e'),new THREE.Color('#3b2e1d')],BASEC=new THREE.Color('#3a2c19'),SHINE=new THREE.Color('#7f6a3d'),PAT=new THREE.Color('#44604d');
+  const L=3.4,W=.74;   // largo y media anchura de la suela
+  const hw=u=>{const c=Math.pow(Math.max(0,1-Math.pow(Math.abs(2*u-1),2.6)),.5);return W*c*(.86-.13*Math.exp(-Math.pow((u-.36)/.12,2))+.12*Math.exp(-Math.pow((u-.72)/.15,2)))};
+  const zc=u=>-L/2+u*L;
+  const shoe=(soleC,patina)=>{const S=new THREE.Group();
+    const col=g=>{const P=g.attributes.position,C=new Float32Array(P.count*3);for(let i=0;i<P.count;i++){const c=BASEC.clone();const u=(P.getZ(i)+L/2)/L,yy=P.getY(i);
+        c.lerp(SHINE,Math.max(0,Math.min(1,(u-.78)*4))*Math.min(1,yy/.7)*.75);if(patina)c.lerp(PAT,Math.max(0,.5-yy)*.6);C[i*3]=c.r;C[i*3+1]=c.g;C[i*3+2]=c.b}g.setAttribute('color',new THREE.BufferAttribute(C,3));return g};
+    // suela con su tacón
+    const sh=new THREE.Shape(),NU=48;for(let i=0;i<=NU;i++){const u=i/NU;sh[i?'lineTo':'moveTo'](hw(u)+.04,zc(u))}for(let i=NU;i>=0;i--){const u=i/NU;sh.lineTo(-hw(u)-.04,zc(u))}
+    const sg=new THREE.ExtrudeGeometry(sh,{depth:.16,bevelEnabled:true,bevelThickness:.03,bevelSize:.03,bevelSegments:2,curveSegments:8});sg.rotateX(Math.PI/2);sg.translate(0,.16+.03+.12,0);
+    const sm=new THREE.MeshPhongMaterial({color:soleC,specular:0x2c3c36,shininess:16});add(sg,sm,0,0,0,S);
+    const hs=new THREE.Shape();for(let i=0;i<=12;i++){const u=i/12*.27;hs[i?'lineTo':'moveTo'](hw(u)+.02,zc(u))}for(let i=12;i>=0;i--){const u=i/12*.27;hs.lineTo(-hw(u)-.02,zc(u))}
+    const hg=new THREE.ExtrudeGeometry(hs,{depth:.12,bevelEnabled:false});hg.rotateX(Math.PI/2);hg.translate(0,.12,0);add(hg,new THREE.MeshPhongMaterial({color:patina?SOLEC[1]:SOLEC[2],specular:0x2c3c36,shininess:14}),0,0,0,S);
+    // empeine: secciones de media elipse casi cuadrada a lo largo del pie, altas atrás (tobillo) y bajas en la puntera
+    const yb=.33,NUv=44,NP=26,Hh=u=>{let h=u<.42?1.12:u<.66?1.12-(u-.42)/.24*.34:.78-(u-.66)*.3;const c=Math.max(0,1-Math.pow(Math.abs(2*u-1),3));return h*Math.pow(c,u<.5?.12:.42)},
+      ex=u=>u<.5?.42:.55;
+    const pos=[],idx=[];for(let i=0;i<=NUv;i++){const t=i/NUv,u=.5-.5*Math.cos(Math.PI*t),w=hw(u)*.97,h=Hh(u),e=ex(u);
+      for(let j=0;j<=NP;j++){const ph=j/NP*Math.PI,c=Math.cos(ph),s=Math.sin(ph);pos.push(w*Math.sign(c)*Math.pow(Math.abs(c),e),yb+h*Math.pow(s,e),zc(u))}}
+    for(let i=0;i<NUv;i++)for(let j=0;j<NP;j++){const a=i*(NP+1)+j,b=a+NP+1,c=a+1,d=b+1;idx.push(a,c,b,b,c,d)}
+    const ug=new THREE.BufferGeometry();ug.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));ug.setIndex(idx);ug.computeVertexNormals();add(col(ug),BRZ,0,0,0,S);
+    // caña del botín: tubo abierto con la boca oscura, el cuello acolchado y la lengüeta
+    const zt=zc(.2),RX=.56,RZ=.7,T0=.9,T1=2.02;
+    const tg=new THREE.CylinderGeometry(1,1.06,T1-T0,30,4,true);tg.scale(RX,1,RZ);tg.translate(0,(T0+T1)/2,zt);add(col(tg.clone()),BRZ,0,0,0,S);const inn=add(tg,DARK,0,0,0,S);inn.castShadow=false;
+    const fl=new THREE.CircleGeometry(1,30).rotateX(-Math.PI/2);fl.scale(RX*.98,1,RZ*.98);add(fl,new THREE.MeshLambertMaterial({color:'#120c07'}),0,1.48,zt,S).castShadow=false;
+    const rim=add(new THREE.TorusGeometry(1,.15,10,40),GOLD,0,T1,zt,S);rim.rotation.x=Math.PI/2;rim.scale.set(RX*1.02,RZ*1.02,.55);
+    const tng=add(new THREE.BoxGeometry(.46,.62,.07),BRZ,0,T1-.12,zt+RZ-.12,S);tng.rotation.x=.32;col(tng.geometry);
+    // cordones dorados: travesaños desde la puntera hasta el cuello, con ganchos y el moño arriba
+    const lace=(px,py,pz,rx,k,wd)=>{const b=add(new THREE.BoxGeometry(wd,.05,.055),GOLD,px,py,pz,S);b.rotation.set(rx,0,(k%2?1:-1)*.16);for(const s of [-1,1])add(new THREE.SphereGeometry(.045,8,6),GOLD,px+s*wd/2,py,pz,S)};
+    [.62,.565,.51,.46].forEach((u,k)=>{const u2=u+.02,y1=yb+Hh(u),y2=yb+Hh(u2),sl=Math.atan2(y1-y2,L*.02);lace(0,y1+.025,zc(u),sl,k,.46)});
+    [1.22,1.42,1.62,1.82].forEach((h,k)=>lace(0,h,zt+RZ*(1+.06*(T1-h)/(T1-T0))+.03,0,k+1,.5));
+    for(const s of [-1,1]){const lp=add(new THREE.TorusGeometry(.11,.025,6,16),GOLD,s*.12,1.93,zt+RZ+.1,S);lp.rotation.set(0,s*.5,s*.4);
+      const en=add(new THREE.BoxGeometry(.04,.36,.04),GOLD,s*.08,1.72,zt+RZ+.12,S);en.rotation.z=s*.18}
+    add(new THREE.SphereGeometry(.05,8,6),GOLD,0,1.9,zt+RZ+.1,S);
+    return S};
+  const up=shoe(SOLEC[2],false),lie=shoe(SOLEC[0],true);
+  // el de pie: un poco inclinado hacia la punta, que toca el piso
+  up.position.set(1.05,0,.15);up.rotation.set(Math.atan(.12/(L*.73)),.18,0,'YXZ');grp.add(up);
+  // el tumbado de lado: punta hacia afuera (izquierda del que mira el Castillo), la suela hacia el frente
+  const q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,-1),new THREE.Vector3(-1,0,0)));
+  const q2=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),-.3),q3=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-.22);
+  lie.quaternion.copy(q2.multiply(q3).multiply(q));lie.position.set(-2.7,0,1.1);grp.add(lie);
+  grp.updateMatrixWorld(true);for(const s of [up,lie]){const b=new THREE.Box3().setFromObject(s);s.position.y+=y+BH-b.min.y}grp.updateMatrixWorld(true);
+  for(const s of [up,lie]){const b=new THREE.Box3().setFromObject(s);addSolidPoly([b.min.x,b.min.z,b.max.x,b.min.z,b.max.x,b.max.z,b.min.x,b.max.z])}
+  const ca=Math.cos(yaw),sa=Math.sin(yaw);
+  LIFTF.push((qx,qz)=>{const dx=qx-x,dz=qz-z,lx=dx*ca-dz*sa,lz=dx*sa+dz*ca;return (lx/(AX+.06))**2+(lz/(AZ+.06))**2<=1?BH:0});SLC.clear();
+  l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+9,z);
+  const pts=[];for(let k=0;k<12;k++){const a=k/12*TAU,lx=Math.sin(a)*(AX+4),lz=Math.cos(a)*(AZ+4);pts.push(x+lx*ca+lz*sa,z-lx*sa+lz*ca)}
+  return{x,z,y,yaw,garden:pts}})();
 /* La Gorda Gertrudis (Botero) recostada en la Plaza de Santo Domingo: bronce oscuro, brillante donde la gente la toca */
 (function(){const [x,z]=freeSpot(GM.gertrudis[0],GM.gertrudis[1],5);const y=ground(x,z);const r=nearestRoad(x,z,40);const yaw=r?Math.atan2(r.s.bx-r.s.ax,r.s.bz-r.s.az):0;
   const grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
@@ -1127,6 +1268,8 @@ function freeSpot(x,z,clear){if(solidAt(x,z)||!onLand(x,z)){let best=null;for(le
 
 /* ---------- lugares de toda la ciudad: aeropuerto, terminal, hospitales, centros comerciales, estadio, universidad, CAI, gasolineras, iglesias, parques y paraderos ---------- */
 const LM0=LM.length;const SPECIAL=[],XPALMS=[],XTREES=[],LATER=[],MAPICONS=[],MALL_SHOPS=[],XGLOW=[],ALLSEGS=[];
+// sin árboles ni casas sobre la plaza de la India Catalina ni el jardín de los Zapatos Viejos
+if(INDIA)addSpecial(INDIA.plaza);if(ZAPATOS)addSpecial(ZAPATOS.garden);
 {const seen=new Set();for(const a of roadSegs.values())for(const s of a)if(!seen.has(s)){seen.add(s);ALLSEGS.push(s)}ALLSEGS.sort((a,b)=>a.rid-b.rid)}
 function addSpecial(pts){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<pts.length;i+=2){x0=Math.min(x0,pts[i]);x1=Math.max(x1,pts[i]);z0=Math.min(z0,pts[i+1]);z1=Math.max(z1,pts[i+1])}SPECIAL.push({pts,x0,z0,x1,z1})}
 function inSpecial(x,z){for(const s of SPECIAL)if(x>s.x0&&x<s.x1&&z>s.z0&&z<s.z1&&inPoly(s.pts,x,z))return true;return false}
@@ -1719,7 +1862,7 @@ function construirSitios(){
 /* ---------- palms and trees (instanced) ---------- */
 const PALMS=XPALMS,TREES=XTREES;let TREEG=null;
 (function(){
-  const ok=(x,z)=>onLand(x,z)&&!solidAt(x,z)&&!nearestRoad(x,z,3.2,s=>!s.walk);
+  const ok=(x,z)=>onLand(x,z)&&!solidAt(x,z)&&!inSpecial(x,z)&&!nearestRoad(x,z,3.2,s=>!s.walk);
   // avenues lined with palms: Bocagrande, the Malecón, Av. Santander, Av. Blas de Lezo, Camellón de los Mártires
   const PALMST=/San Mart|Malec|Santander|Blas de Lezo|Carrera 1$|Avenida 1|Venezuela|Pedro de Heredia|Mártires|Bocagrande|del Arsenal/i;
   MAP.roads.forEach(r=>{const [ty,,,,name,p]=r;if(ty>3&&!/Mártires/.test(name))return;const palmy=PALMST.test(name)||isBoca(p[0],p[1]);if(!palmy)return;
