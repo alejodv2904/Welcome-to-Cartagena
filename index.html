@@ -591,6 +591,10 @@ const ALT=window.ALTURAS&&ALTURAS.n===MAP.buildings.length?ALTURAS:null;
 // sitios conocidos con modelo propio (sitios.js, de OpenStreetMap): los edificios de mapa.js que ocupan su lugar no se construyen
 const SIT=window.SITIOS||[],SIT_NAMES=new Set(SIT.map(s=>s.n)),SIT_TORRES=SIT.filter(s=>s.k==='torre'&&s.pisos);
 const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|claustro)$/.test(s.k)||s.k==='mall'&&!s.torre)SIT_SKIP.push(s.p);if(s.edif)SIT_SKIP.push(...s.edif)}
+// C.C. Paseo de La Castellana: su edificio real de ciudad-osm.js (al sur de la Av. Pedro de Heredia, frente a la estación de Transcaribe) y el ala curva vecina; el modelo está en construirSitios
+{const O=window.CIUDAD_OSM;if(O&&O.bld){const at=(x,z,amin)=>{let best=null,bd=30;for(const b of O.bld){const p=b[2];if(p.length<8)continue;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1]}cx/=p.length/2;cz/=p.length/2;
+    const d=Math.hypot(cx-x,cz-z);if(d<bd&&Math.abs(signedArea(p))>amin){bd=d;best=p}}return best};
+  const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing})}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -1130,6 +1134,135 @@ function construirSitios(){
     b(4,.12,2.3,col,-.6,2.3,0);for(const [lx,lz] of [[1.3,1],[1.3,-1],[-2.5,1],[-2.5,-1]])b(.08,1.7,.08,'#cfcfcf',lx,1.45,lz);b(.6,.9,.5,'#222',-3.4,.6,0)};
   const garita=(x,z,y)=>{const C=colObj('#efe4cc');geoInto('coralS',new THREE.CylinderGeometry(1.1,1.1,2.6,10,1,true),C,place(x,y+1.3,z));geoInto('coralS',new THREE.ConeGeometry(1.1,1.4,10,1,true),C,place(x,y-.7,z,Math.PI,0,0));
     geoInto('coralS',new THREE.SphereGeometry(1.25,10,5,0,TAU,0,Math.PI/2),C,place(x,y+2.6,z));geoInto('coralS',new THREE.SphereGeometry(.22,6,4),C,place(x,y+3.9,z))};
+  /* ---------- centros comerciales reales vestidos a partir de fotos: Mallplaza El Castillo y C.C. Paseo de La Castellana ----------
+     marco de una fachada: s va de izquierda a derecha para quien mira la pared, o hacia afuera, y hacia arriba */
+  const fr=(ax,az,bx,bz,P)=>{const L=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/L,uz=(bz-az)/L;let nx=uz,nz=-ux;if(P&&inPoly(P,(ax+bx)/2+nx*.5,(az+bz)/2+nz*.5)){nx=-nx;nz=-nz}
+    const tx=nz,tz=-nx,fw=(bx-ax)*tx+(bz-az)*tz>0;return{lx:fw?ax:bx,lz:fw?az:bz,tx,tz,nx,nz,L,mx:(ax+bx)/2,mz:(az+bz)/2,yaw:Math.atan2(nx,nz)}};
+  const fEdges=P=>{const o=[],n=P.length/2;for(let i=0;i<n;i++){const j=(i+1)%n;if(Math.hypot(P[j*2]-P[i*2],P[j*2+1]-P[i*2+1])<.5)continue;o.push(fr(P[i*2],P[i*2+1],P[j*2],P[j*2+1],P))}return o};
+  const fNear=(E,x,z)=>E.reduce((b,e)=>Math.hypot(e.mx-x,e.mz-z)<Math.hypot(b.mx-x,b.mz-z)?e:b,E[0]);
+  const fP=(e,s,o)=>[e.lx+e.tx*s+e.nx*o,e.lz+e.tz*s+e.nz*o];
+  const fM=(e,gy)=>place(e.lx,gy,e.lz,0,e.yaw,0);                       // x local = s, z local = o
+  const fbox=(e,gy,s0,s1,y0,y1,o0,o1,col)=>{const g=new THREE.BoxGeometry(s1-s0,y1-y0,o1-o0);g.translate((s0+s1)/2,(y0+y1)/2,(o0+o1)/2);geoInto('plain',g,colObj(col),fM(e,gy))};
+  const fpane=(e,gy,s,y,w,h,o,col)=>{const g=new THREE.PlaneGeometry(w,h);g.translate(s,y,o);geoInto('plain',g,colObj(col),fM(e,gy))};
+  const fsolid=(e,s0,s1,o0,o1)=>addSolidPoly([...fP(e,s0,o0),...fP(e,s1,o0),...fP(e,s1,o1),...fP(e,s0,o1)]);
+  const fflat=(e,s0,s1,o0,o1,mk,lift,sc,col)=>flatPoly([...fP(e,s0,o0),...fP(e,s1,o0),...fP(e,s1,o1),...fP(e,s0,o1)].map(v=>Math.round(v*100)/100),mk,lift,sc,col?colObj(col):undefined);
+  const fextr=(e,gy,shape,o0,o1,col)=>{const g=new THREE.ExtrudeGeometry(shape,{depth:o1-o0,bevelEnabled:false,curveSegments:10});g.translate(0,0,o0);geoInto('plain',g,colObj(col),fM(e,gy))};
+  const fmesh=(e,gy,s,y,o,w,h,mat,ru,rv)=>{const g=new THREE.PlaneGeometry(w,h);if(ru){const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*ru,uv.getY(i)*rv)}
+    const m=new THREE.Mesh(g,mat);const p=fP(e,s,o);m.position.set(p[0],gy+y,p[1]);m.rotation.y=e.yaw;m.receiveShadow=true;scene.add(m);return m};
+  const ctex=(w,h,draw,rep)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=ANISO;if(rep)t.wrapS=t.wrapT=THREE.RepeatWrapping;return t};
+  const smat=(t,extra)=>new THREE.MeshLambertMaterial(Object.assign({map:t,polygonOffset:true,polygonOffsetFactor:-2},extra||{}));
+  // pared con arcos abiertos abajo: [{c,w,spring}]
+  const arcade=(x0,x1,H,ops)=>{const sh=new THREE.Shape();sh.moveTo(x0,0);for(const q of ops){const l=q.c-q.w/2,r=q.c+q.w/2;sh.lineTo(l,0);sh.lineTo(l,q.spring);sh.absarc(q.c,q.spring,q.w/2,Math.PI,0,true);sh.lineTo(r,0)}
+    sh.lineTo(x1,0);sh.lineTo(x1,H);sh.lineTo(x0,H);sh.lineTo(x0,0);return sh};
+  // techo de lámina (gris, acanalado) a cuatro aguas sobre s0..s1 / o0..o1 desde la altura y
+  const corr=ctex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#9da3a5');gr.addColorStop(.25,'#e4e7e6');gr.addColorStop(.5,'#c3c8c9');gr.addColorStop(.75,'#f1f2f0');gr.addColorStop(1,'#9da3a5');g.fillStyle=gr;g.fillRect(0,0,w,h)},true);
+  const roofM=new THREE.MeshLambertMaterial({map:corr,color:'#a9aeb0',side:THREE.DoubleSide});
+  const hipRoof=(e,gy,x0,x1,z0,z1,y,rise)=>{const d=(z1-z0)/2,zc=(z0+z1)/2,xa=Math.min(x0+d,(x0+x1)/2),xb=Math.max(x1-d,(x0+x1)/2),yr=y+rise,Pp=[],U=[],k=.8,sl=Math.hypot(d,rise),hs=Math.hypot(xa-x0,rise);
+    const T=(a,b,c,ua,ub,uc)=>{Pp.push(...a,...b,...c);U.push(...ua,...ub,...uc)};
+    T([x0,y,z1],[x1,y,z1],[xb,yr,zc],[x0/k,0],[x1/k,0],[xb/k,sl/4]);T([x0,y,z1],[xb,yr,zc],[xa,yr,zc],[x0/k,0],[xb/k,sl/4],[xa/k,sl/4]);
+    T([x1,y,z0],[x0,y,z0],[xa,yr,zc],[x1/k,0],[x0/k,0],[xa/k,sl/4]);T([x1,y,z0],[xa,yr,zc],[xb,yr,zc],[x1/k,0],[xa/k,sl/4],[xb/k,sl/4]);
+    T([x0,y,z0],[x0,y,z1],[xa,yr,zc],[z0/k,0],[z1/k,0],[zc/k,hs/4]);T([x1,y,z1],[x1,y,z0],[xb,yr,zc],[z1/k,0],[z0/k,0],[zc/k,hs/4]);
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.applyMatrix4(fM(e,gy));g.computeVertexNormals();
+    const m=new THREE.Mesh(g,roofM);m.castShadow=true;m.receiveShadow=true;scene.add(m)};
+
+  // Mallplaza El Castillo (Chambacú / El Espinal): muros granate, franja beige arriba, esquina de vidrio hacia la avenida, panel "mallplaza",
+  // jardín vertical, paneles solares en el techo, plaza de ladrillo rojo y parqueadero
+  function mallPlazaCastillo(s,P){
+    const gy=minG(P),H=15.5,n=P.length/2,BEIGE='#d9c39c',FR='#6f2826';
+    band(P,gy-2,gy+H,'plain',colObj('#7a2e2b'),0,1,1,false);ring(P,gy+H-1.9,gy+H+.5,1.3,colObj(BEIGE),'plain');ring(P,gy+H+.5,gy+H+1.2,0,colObj(BEIGE),'plain');
+    flatRoof(P,gy+H+.35,'plain',colObj('#696b4c'),6);addSolidPoly(P);addSpecial(P);
+    const E=fEdges(P),eW=fNear(E,859,-300),eC=fNear(E,904,-336),eF=fNear(E,943,-306),eE=fNear(E,963,-280),L=eF.L;
+    const glassM=smat(ctex(64,64,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#b9d0dc');gr.addColorStop(.55,'#86a7b8');gr.addColorStop(1,'#5f7d8c');g.fillStyle=gr;g.fillRect(0,0,w,h);
+      g.fillStyle='rgba(255,255,255,.18)';g.beginPath();g.moveTo(0,h*.7);g.lineTo(w*.6,0);g.lineTo(w*.85,0);g.lineTo(0,h);g.fill();g.fillStyle='#d5d8d6';g.fillRect(0,0,w,3);g.fillRect(0,0,3,h)},true),{emissive:'#1b2a33'});
+    const glass=(e,s0,s1,y0,y1)=>fmesh(e,gy,(s0+s1)/2,(y0+y1)/2,.12,s1-s0,y1-y0,glassM,(s1-s0)/2.5,(y1-y0)/3.2);
+    // vista desde la avenida, de izquierda a derecha como en las fotos: esquina de vidrio (este), panel, jardín vertical, letreros, alero
+    glass(eF,.6,21,.4,13);glass(eE,.6,eE.L-.6,.4,13);
+    fbox(eF,gy,21,22.2,0,14.2,0,.6,FR);fbox(eF,gy,0,1,0,14.2,0,.7,FR);fbox(eE,gy,0,1.2,0,14.2,0,.6,FR);
+    fbox(eF,gy,5.5,15.5,0,4.2,.1,.5,'#3a4248');fbox(eF,gy,4.5,16.5,4.2,4.7,0,2.4,BEIGE);for(let q=6;q<15.5;q+=1.5)fbox(eF,gy,q-.06,q+.06,0,4.1,.45,.6,'#c8ccce');
+    fbox(eF,gy,24.5,36,3.2,12.6,0,.5,'#3c3b3d');
+    fmesh(eF,gy,30.25,7.9,.52,10.3,8.2,smat(ctex(512,384,(g,w,h)=>{g.fillStyle='#3c3b3d';g.fillRect(0,0,w,h);g.strokeStyle='#e0262f';g.lineWidth=34;g.beginPath();g.arc(w/2,h*.38,74,Math.PI*.15,Math.PI*1.85);g.stroke();
+      g.lineWidth=26;g.beginPath();g.arc(w/2+8,h*.38,30,Math.PI*1.1,Math.PI*2.4);g.stroke();g.fillStyle='#fff';g.font='700 70px Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('mallplaza',w/2,h*.8)})));
+    fmesh(eF,gy,45.25,9.7,.18,13.5,7,smat(ctex(256,140,(g,w,h)=>{g.fillStyle='#3d5a2a';g.fillRect(0,0,w,h);let sd=5;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;
+      for(let i=0;i<1400;i++){g.fillStyle=`hsl(${85+R()*45},${35+R()*30}%,${18+R()*28}%)`;g.beginPath();g.arc(R()*w,R()*h,1.5+R()*3.5,0,6.283);g.fill()}})));
+    fmesh(eF,gy,41.4,9.8,.4,4.8,4.8,smat(ctex(256,256,(g,w,h)=>{g.fillStyle='#2f9e57';g.beginPath();g.arc(w/2,h/2,124,0,6.283);g.fill();g.strokeStyle='#fff';g.lineWidth=8;g.beginPath();g.arc(w/2,h/2,108,0,6.283);g.stroke();
+      g.fillStyle='#fff';g.font='700 46px Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('súper',w/2,h/2)}),{transparent:true,alphaTest:.3,polygonOffsetFactor:-3}));
+    if(L>58)fmesh(eF,gy,(55+L)/2,10.4,.2,L-55,4,smat(ctex(512,128,(g,w,h)=>{g.fillStyle='#fff';g.font='italic 700 92px Georgia,serif';g.textAlign='center';g.textBaseline='middle';g.fillText('almacén',w/2,h/2+4)}),{transparent:true,alphaTest:.3}));
+    fbox(eF,gy,37,L,5.1,5.8,0,2.6,BEIGE);glass(eF,37.5,L-.5,.4,5);
+    fbox(eC,gy,0,eC.L,5.1,5.8,0,2.6,BEIGE);glass(eC,.6,eC.L-.6,.4,5);
+    fbox(eW,gy,1,eW.L-3,4.6,5.2,0,2.4,BEIGE);for(let q=6;q<eW.L-6;q+=14)glass(eW,q,q+10,.4,4.4);
+    // techo: filas de paneles solares, dos claraboyas y equipos
+    const ua=-eF.tx,uz=-eF.tz,va=-uz,vz=ua;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(let i=0;i<n;i++){const a=P[i*2]*ua+P[i*2+1]*uz,b=P[i*2]*va+P[i*2+1]*vz;x0=Math.min(x0,a);x1=Math.max(x1,a);z0=Math.min(z0,b);z1=Math.max(z1,b)}
+    const W2=(a,b)=>[a*ua+b*va,a*uz+b*vz],yawR=Math.atan2(-uz,ua),inside=(a,b,m)=>[[-m,-m],[m,-m],[m,m],[-m,m]].every(([da,db])=>{const p=W2(a+da,b+db);return inPoly(P,p[0],p[1])}),midB=(z0+z1)/2;
+    for(let b=z0+6;b<z1-4;b+=4.4){if(Math.abs(b-midB)<5||Math.abs(b-midB-28)<4)continue;for(let a=x0+6;a<x1-6;a+=13.4){if(!inside(a,b,6.5))continue;const p=W2(a,b);
+      geoInto('plain',new THREE.BoxGeometry(12.6,.12,2.7),colObj('#2c4a86'),place(p[0],gy+H+1.05,p[1],0,yawR,.12));geoInto('plain',new THREE.BoxGeometry(12.8,.5,.15),colObj('#b9c2cc'),place(p[0],gy+H+.7,p[1],0,yawR,0))}}
+    for(const off of [0,28])for(let a=x0+10;a<x1-10;a+=6){if(!inside(a,midB+off,3))continue;const p=W2(a,midB+off);geoInto('plain',new THREE.CylinderGeometry(2.2,2.2,6.2,12),colObj('#a6d8cc'),place(p[0],gy+H+.4,p[1],0,yawR,Math.PI/2))}
+    for(let q=0;q<10;q++){const a=x0+12+((q*37)%Math.max(1,x1-x0-24)),b=z0+8+((q*53)%Math.max(1,z1-z0-16));if(!inside(a,b,4))continue;const p=W2(a,b);geoInto('plain',new THREE.BoxGeometry(4,2,3),colObj('#a3a6a3'),place(p[0],gy+H+1.4,p[1],0,yawR,0))}
+    // plaza de ladrillo rojo con círculos de piedra frente a la avenida; parqueadero rojo con carros
+    fflat(eF,0,L+eC.L+1,0,34,'plaza',.1,3.2);
+    for(const [q,o,r] of [[L*.55,16,5.5],[L*.2,20,4],[L*.88,22,3.2]]){const c=fP(eF,q,o);for(const r2 of [r,r*.55]){const g=new THREE.RingGeometry(r2-.28,r2,48);g.rotateX(-Math.PI/2);geoInto('paint',g,colObj('#d6d0c6'),place(c[0],ground(c[0],c[1])+.13,c[1]))}}
+    for(let q=4;q<L;q+=13)if(q<20||q>57)XTREES.push(fP(eF,q,8.5));for(let q=4;q<eC.L;q+=12)XTREES.push(fP(eC,q,9));
+    {const a=fP(eW,eW.L-20,1),b=fP(eW,0,1),c=fP(eC,eC.L,40),d=fP(eW,eW.L-20,52);flatPoly([...a,...b,...c,...d],'plaza',.095,3.2,colObj('#d9b2a0'))}
+    const carCols=['#f2efe6','#c0c4c8','#2b2b2b','#8a1c1c','#d9d9d9','#3a5a8a','#ffffff','#9a9a9a'];let ci=0;
+    for(const r of MAP.roads){if(r[0]!==5||r[4])continue;const p=r[5];for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],Ls=Math.hypot(bx-ax,bz-az);
+      if(Ls<10||Math.hypot((ax+bx)/2-860,(az+bz)/2+340)>40)continue;const u2=(bx-ax)/Ls,w2=(bz-az)/Ls,yw=Math.atan2(-w2,u2);
+      for(let q=2;q<Ls-2;q+=2.6)for(const sg of [1,-1]){const x=ax+u2*q-w2*sg*5,z=az+w2*q+u2*sg*5;if(solidAt(x,z))continue;const y=ground(x,z);
+        const l0=[ax+u2*(q-1.3)-w2*sg*5,az+w2*(q-1.3)+u2*sg*5];const g=new THREE.PlaneGeometry(.12,4.8);g.rotateX(-Math.PI/2);geoInto('paint',g,colObj('#f4f1ea'),place(l0[0],y+.12,l0[1],0,yw,0));
+        if(hash(Math.round(x*3),Math.round(z*3))<.62){geoInto('plain',new THREE.BoxGeometry(1.8,.75,4.3),colObj(carCols[ci++%carCols.length]),place(x,y+.55,z,0,yw,0));geoInto('plain',new THREE.BoxGeometry(1.6,.6,2.2),colObj('#26313a'),place(x,y+1.2,z,0,yw,0));addSolidPoly([x-1,z-1,x+1,z-1,x+1,z+1,x-1,z+1])}}}}
+    const door=fP(eF,10.5,3.5),wall=fP(eF,10.5,0);
+    MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eF.nx,nz:eF.nz,len:10,yaw:eF.yaw,gy,type:'mall',name:s.n,mall:true,custom:true});
+    const top=fP(eF,20,0);addLM(s.n,top[0],top[1],H+10,1,door[0],door[1]);icon('mall',s.x,s.z,s.n)}
+
+  // C.C. Paseo de La Castellana (Av. Pedro de Heredia, del lado sur, frente a la estación de Transcaribe): su edificio real de OpenStreetMap
+  // con la fachada de las fotos: almacén ancla amarillo (este), entrada con el gran arco y el letrero, galería de arcos amarillos con techo
+  // de lámina, el ala curva de vitrinas (oeste), parqueadero con palmeras y el seto con postes blancos y amarillos
+  function castellana(s,P){
+    const gy=minG(P),Hb=11,CREAM='#f2e3b6',YEL='#e9b632',WH='#faf5e8';
+    band(P,gy-2,gy+Hb,'plain',colObj(CREAM),0,1,1,false);ring(P,gy+Hb-.1,gy+Hb+.5,.4,colObj(WH),'plain');flatRoof(P,gy+Hb+.3,'plain',colObj('#a3a7a8'),6);addSolidPoly(P);addSpecial(P);
+    const E=fEdges(P),eG=fNear(E,6761,3147),eP=fNear(E,6799,3139.5),eA=fNear(E,6842,3153);
+    // galería: arcos amarillos abajo, corredor con baranda y columnas arriba, techo de lámina a cuatro aguas
+    {const e=eG,Lg=e.L,bays=Math.floor((Lg-1)/6),st=(Lg-bays*6)/2,ops=[];for(let i=0;i<bays;i++)ops.push({c:st+3+i*6,w:4.2,spring:2.9});
+      fextr(e,gy,arcade(0,Lg,5.6,ops),3.2,4,YEL);fflat(e,0,Lg,0,4,'plaza',.12,3.2);
+      for(const q of ops){fpane(e,gy,q.c,1.9,4.6,3.6,.03,'#2d363c');fpane(e,gy,q.c,4.5,4.6,1.2,.03,'#e7cf86');fpane(e,gy,q.c,8.15,3.6,2.5,.03,'#3a3f42');fsolid(e,q.c+2.1,q.c+3.9,3.2,4)}
+      fbox(e,gy,0,Lg,5.6,6.3,0,4.15,'#f4e6bf');fbox(e,gy,0,Lg,6.3,6.75,3.65,4,'#f4e6bf');fbox(e,gy,0,Lg,7.35,7.5,3.6,4.05,WH);
+      for(let x=.3;x<Lg;x+=.55)fbox(e,gy,x-.04,x+.04,6.75,7.35,3.78,3.86,'#5b4a3a');
+      for(let x=st;x<=Lg-st+.01;x+=6)fbox(e,gy,x-.32,x+.32,6.3,9.9,3.4,4.04,YEL);
+      fbox(e,gy,-.6,Lg+.6,9.8,10.45,3.3,5.1,WH);hipRoof(e,gy,-.6,Lg+.6,-33,5.4,10.45,6)}
+    // entrada: el gran arco con el letrero "Paseo de La Castellana" y su techo con linterna
+    {const e=eP,Lp=e.L,c=Lp/2;fextr(e,gy,arcade(0,Lp,14,[{c,w:8,spring:6.2}]),0,1.2,'#f7efdc');fpane(e,gy,c,5.1,8,10.2,.03,'#2b2a28');fpane(e,gy,c,3.4,7.2,.25,.05,'#c8a24a');
+      fbox(e,gy,0,Lp,Hb,14,-10,0,'#f7efdc');fbox(e,gy,-.1,1.3,0,1.3,1.1,1.35,YEL);fbox(e,gy,Lp-1.3,Lp+.1,0,1.3,1.1,1.35,YEL);fflat(e,1,Lp-1,0,6,'plaza',.13,2.4);
+      fmesh(e,gy,c,12.1,1.23,Math.min(11.6,Lp-1),3.62,smat(ctex(1024,320,(g,w,h)=>{g.fillStyle='#f7efdc';g.fillRect(0,0,w,h);
+        const dia=(x,y,r,col)=>{g.fillStyle=col;g.beginPath();g.moveTo(x,y-r);g.lineTo(x+r,y);g.lineTo(x,y+r);g.lineTo(x-r,y);g.closePath();g.fill()};
+        [['#1d4f9c',-1],['#f2c21f',0],['#1d4f9c',1]].forEach(([col,k])=>dia(w/2+k*84,52,40,col));g.fillStyle='#1d3c78';g.textAlign='center';g.textBaseline='middle';g.font='700 66px Georgia,serif';g.fillText('PASEO DE LA',w/2,134);
+        g.font='700 128px Georgia,serif';g.fillText('CASTELLANA',w/2,218,w-30);g.font='italic 600 44px Georgia,serif';g.fillStyle='#b08510';g.fillText('¡Tu Paseo de Encuentro!',w/2,292)})));
+      fbox(e,gy,-.6,Lp+.6,14,14.6,-10.6,1.8,'#7a5636');hipRoof(e,gy,-1.4,Lp+1.4,-11.4,2.6,14.6,3.6);
+      fbox(e,gy,c-1.7,c+1.7,17.2,19.4,-5.7,-2.3,'#f7efdc');fpane(e,gy,c,18.3,2.2,1.3,-2.27,'#3a3f42');fbox(e,gy,c-2.1,c+2.1,19.4,19.7,-6.1,-1.9,'#7a5636');hipRoof(e,gy,c-2.1,c+2.1,-6.1,-1.9,19.7,1.6);
+      fsolid(e,0,c-4,-10,1.2);fsolid(e,c+4,Lp,-10,1.2)}
+    // almacén ancla: bloque amarillo con su letrero, aviso rojo de ofertas, ventanas y entrada de vidrio
+    {const e=eA,La=e.L;fbox(e,gy,0,Math.min(22,La*.42),0,13.4,0,.6,'#f5cf12');fbox(e,gy,0,La,Hb,12.9,-.4,.25,'#f6efdc');
+      fmesh(e,gy,Math.min(22,La*.42)/2,8.4,.63,Math.min(20,La*.4),5,smat(ctex(1024,256,(g,w,h)=>{g.fillStyle='#f5cf12';g.fillRect(0,0,w,h);g.fillStyle='#161616';let fs=150;g.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
+        while(g.measureText('supermercado').width>w-60&&fs>40){fs-=6;g.font=`900 ${fs}px "Arial Black",Arial,sans-serif`}g.textAlign='center';g.textBaseline='middle';g.fillText('supermercado',w/2,h/2+6)})));
+      const r0=La*.48;fbox(e,gy,r0,r0+8,8,11.2,0,.6,'#d62828');
+      fmesh(e,gy,r0+4,9.6,.62,7.6,2.8,smat(ctex(256,96,(g,w,h)=>{g.fillStyle='#d62828';g.fillRect(0,0,w,h);g.fillStyle='#fff';g.font='800 58px Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('ofertas',w/2-14,h/2+2);
+        g.fillStyle='#ffd23f';g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?7:17;g.lineTo(222+Math.cos(a)*r,48+Math.sin(a)*r)}g.fill()})));
+      for(let x=r0+10;x<La-3;x+=6.5)fpane(e,gy,x,8,4.2,3,.03,'#5a6670');fpane(e,gy,(La*.45+La-2)/2,1.7,La*.55-2,3.4,.03,'#33424c');fbox(e,gy,La*.45,La-1,3.4,3.9,0,2.4,WH)}
+    // ala curva de vitrinas (edificio vecino de OpenStreetMap)
+    if(s.wing){const Q=ccw(s.wing),gw=minG(Q);band(Q,gw-2,gw+7.2,'plain',colObj('#efbe35'),0,1,1,false);band(Q,gw+7.2,gw+8.4,'plain',colObj(CREAM),0,1,1,false);flatRoof(Q,gw+8.4,'plain',colObj('#8f9496'),6);addSolidPoly(Q);addSpecial(Q);
+      const [cx,cz]=cen(P);for(const e of fEdges(Q)){if(e.L<3.5||(e.mx-cx)*e.nx+(e.mz-cz)*e.nz<0)continue;fpane(e,gw,e.L/2,2.6,e.L-.9,4.2,.04,'#3a4a55');fpane(e,gw,e.L/2,5.6,e.L-.9,.9,.04,'#f6e7b8')}}
+    // parqueadero entre la fachada y la avenida: puestos, palmeras, plazoleta frente al arco y el seto con postes
+    {const a=fP(eA,0,0),b=fP(eG,eG.L,0),F=fr(a[0],a[1],b[0],b[1],null);if(F.nz>0){F.nx=-F.nx;F.nz=-F.nz;F.tx=-F.tx;F.tz=-F.tz;F.lx=a[0];F.lz=a[1];F.yaw=Math.atan2(F.nx,F.nz)}
+      const Lf=F.L,mid=fP(F,Lf/2,0),rd=nearestRoad(mid[0],mid[1],80,q=>/Pedro de Heredia/.test(q.name||''));const D=clamp(rd?rd.d-rd.s.w/2-3.4:24,14,40);
+      const pr=q=>{const v=[q[0]-F.lx,q[1]-F.lz];return v[0]*F.tx+v[1]*F.tz},sp0=Math.min(pr(fP(eP,0,0)),pr(fP(eP,eP.L,0))),sp1=Math.max(pr(fP(eP,0,0)),pr(fP(eP,eP.L,0)));
+      fflat(F,-2,Lf+2,-.5,D,'asphalt',.09,8,'#8a8782');fflat(F,sp0-6,sp1+6,0,D-1,'plaza',.105,3.2);addSpecial([...fP(F,-2,-1),...fP(F,Lf+2,-1),...fP(F,Lf+2,D),...fP(F,-2,D)]);
+      const stall=(x,o0,o1)=>{const p=fP(F,x,(o0+o1)/2),g=new THREE.PlaneGeometry(.14,o1-o0);g.rotateX(-Math.PI/2);geoInto('paint',g,colObj('#f2c21f'),place(p[0],ground(p[0],p[1])+.12,p[1],0,F.yaw,0))};
+      for(let x=3;x<Lf-2;x+=2.6){if(x>sp0-7&&x<sp1+7)continue;stall(x,6,11);if(D>=22)stall(x,D-8,D-3)}
+      for(let x=6;x<Lf;x+=12)if(x<sp0-6||x>sp1+6)XPALMS.push(fP(F,x,3));for(const x of [sp0-5,sp1+5])XPALMS.push(fP(F,x,9));
+      const gaps=[[3,11],[sp0-4,sp1+4],[Lf-11,Lf-3]];let hx=-2;
+      const gAt=(x,o)=>{const p=fP(F,x,o);return ground(p[0],p[1])};
+      for(const [g0,g1] of gaps.concat([[Lf+2,Lf+2]])){if(g0-hx>1){for(let x=hx;x<g0-.01;x+=6){const x2=Math.min(g0,x+6);fbox(F,gAt((x+x2)/2,D-.8)-.15,x,x2,0,1.2,D-1.4,D-.2,'#3f6f2f')}fsolid(F,hx,g0,D-1.4,D-.2)}
+        for(let x=hx+1;x<g0-.5;x+=7){const gp=gAt(x,D-.8);fbox(F,gp,x-.22,x+.22,0,1.35,D-1.02,D-.58,'#f4f1ea');fbox(F,gp,x-.26,x+.26,1.35,1.6,D-1.06,D-.54,'#f2c21f')}hx=g1}}
+    const door=fP(eP,eP.L/2,3.5),wall=fP(eP,eP.L/2,1.2);
+    MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eP.nx,nz:eP.nz,len:16,yaw:eP.yaw,gy,type:'mall',name:s.n,mall:true,custom:true});
+    addLM(s.n,s.x,s.z,26,1,door[0],door[1]);icon('mall',door[0],door[1],s.n)}
   const LOG={sitios:0};
   for(const s of SIT){const k=s.k,P=s.p?ccw(s.p):null;LOG.sitios++;
     if(k==='baluarte'){addLM(s.n,s.x,s.z,12,0);continue}
@@ -1181,6 +1314,8 @@ function construirSitios(){
       for(const e of E){if(e.L<20||!isWater(e.mx+e.nx*15,e.mz+e.nz*15))continue;for(const t of [.35,.65]){const x=e.ax+(e.bx-e.ax)*t-e.nx*2.5,z=e.az+(e.bz-e.az)*t-e.nz*2.5;geoInto('plain',new THREE.CylinderGeometry(.28,.38,3,10),colObj('#1d1d1d'),place(x+e.nx*.8,gy+6.6,z+e.nz*.8,0,Math.atan2(e.ux,e.uz),-Math.PI/2));box(1.4,.6,1.4,'#5b4634',x,gy+6.3,z,rot(e))}}
       let fx=cx,fz=cz;if(!inPoly(P,fx,fz)){fx=P[0]*.7+cx*.3;fz=P[1]*.7+cz*.3}cyl(.12,.12,9,'#d9d9d9',fx,gy+10.5,fz,6);box(4.5,1,.06,'#fcd116',fx+2.3,gy+14.2,fz);box(4.5,.5,.06,'#003893',fx+2.3,gy+13.45,fz);box(4.5,.5,.06,'#ce1126',fx+2.3,gy+12.95,fz);
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
+    if(k==='castellana'){castellana(s,P);continue}
+    if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
       const gy=minG(P),e=facade(P);let top;
@@ -2917,7 +3052,7 @@ EX.init();money=60000;$('money').textContent=fmt(money);
 EX.onHome=k=>{if(k==='save'){saveGame();toast('Partida guardada en tu casa',1800);return}const sleep=k==='sleep';
   EX.fade(sleep?'Durmiendo… zzz':'Echando una siesta…',()=>{gameH=sleep?6:(gameH+2)%24;EX.P.en=EX.P.max;updateDay(0)});setTimeout(()=>toast(sleep?'¡Buenos días! Dormiste hasta las 6:00 y tienes toda la energía':'Qué buena siesta: tienes toda la energía',2400),900)};
 // shops of the generated barrios and the big malls, then the blocks around the starting point
-{const t0=performance.now();const gs=pickShops();{const home=pickHome();if(home){gs.push(home);EX.HOME=home}else console.warn('sin lote para la casa')}for(const s of gs.concat(MALL_SHOPS))EX.SHOPS.push(s);if(MALL_SHOPS.length)for(const m of EX.buildFacades(MALL_SHOPS))scene.add(m);
+{const t0=performance.now();const gs=pickShops();{const home=pickHome();if(home){gs.push(home);EX.HOME=home}else console.warn('sin lote para la casa')}for(const s of gs.concat(MALL_SHOPS))EX.SHOPS.push(s);if(MALL_SHOPS.length)for(const m of EX.buildFacades(MALL_SHOPS.filter(m=>!m.custom)))scene.add(m);
   buildIcons();updateChunks(player.x,player.z,1e9);console.log('ciudad: '+gs.length+' locales, '+CHK.size+' bloques en '+Math.round(performance.now()-t0)+' ms')}
 const CEL=window.CELULAR({THREE,scene,player,EX,LM,MAP,ground,onLand,solidAt,nearestRoad,zoneName,toast,fmt,chime,tone,isTouch,dist2,clamp,
   getMoney:()=>money,setMoney:n=>{money=Math.max(0,Math.round(n));$('money').textContent=fmt(money)},getH:()=>gameH,openBig:()=>openBig(),

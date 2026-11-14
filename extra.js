@@ -22,7 +22,7 @@ const TYPES={
   recuerdos:{label:'Artesanías',bg:'#1f9aa6',fg:'#ffffff',names:['Artesanías Las Bóvedas','Recuerdos del Caribe','Artesanías Zenú'],wall:'#f5ead7',room:[9,10]},
   joyeria:{label:'Joyería',bg:'#0b5d3b',fg:'#f6e7a8',names:['Esmeraldas del Corralito','Joyería La Esmeralda'],wall:'#e9efe9',room:[8,8]},
 };
-const MALLS=['Centro Comercial Bahía Plaza','Centro Comercial Portal de La Popa','Centro Comercial Los Ejecutivos','Centro Comercial La Castellana'];
+const MALLS=['Centro Comercial Los Ejecutivos','Centro Comercial Paseo de La Castellana'];
 const COLS={rojo:'#d32f2f',amarillo:'#f0b429',azul:'#1565c0',verde:'#2e7d32',negro:'#1d1d1d',blanco:'#f4f1ea',turquesa:'#1f9aa6',coral:'#e4572e'};
 const MENUS={
   tienda:[{n:'Agua en bolsa',p:1000,e:15},{n:'Gaseosa',p:2500,e:22},{n:'Paquete de galletas',p:2000,e:18},{n:'Pan de bono',p:1500,e:15},{n:'Bolis de tamarindo',p:800,e:10},{n:'Jugo de corozo',p:3000,e:28}],

@@ -26,7 +26,10 @@ En las tiendas: acércate a un producto (neveras, mostrador, estantes) y presion
   - **Muelle de La Bodeguita**: malecón con bolardos, taquilla, sala de espera techada y lanchas amarradas.
   - **Fuerte de San Sebastián del Pastelillo**: muros de piedra coralina con garitas, cañones y la bandera.
   - **Puerto de Cartagena** (Sociedad Portuaria, en Manga): patios de contenedores, grúas pórtico en el muelle y un buque portacontenedores.
-  - **Centro Comercial Caribe Plaza**, **Mall Plaza El Castillo** y **Centro Comercial Plaza Bocagrande**, con letrero y locales.
+  - **Mall Plaza El Castillo**, modelado a partir de fotos sobre su planta real: muros granate con la franja beige arriba, la esquina de vidrio con la entrada hacia la Avenida Pedro de Heredia, el panel «mallplaza», el jardín vertical, el alero sobre las vitrinas, paneles solares y claraboyas en el techo, la plaza de ladrillo rojo con círculos de piedra y el parqueadero con carros.
+  - **Centro Comercial Paseo de La Castellana**, en su edificio real al sur de la Avenida Pedro de Heredia, frente a la estación de Transcaribe, modelado a partir de fotos: el almacén ancla amarillo, la entrada con el gran arco y el letrero «Paseo de La Castellana», la galería de dos pisos con arcos amarillos y techo de lámina, el ala curva de vitrinas, el parqueadero con palmeras y el seto con postes blancos y amarillos.
+  - **Centro Comercial Caribe Plaza** y **Centro Comercial Plaza Bocagrande**, con letrero y locales.
+  - Los avisos de los almacenes son genéricos («súper», «almacén», «supermercado»), sin las marcas reales.
   - **Hospital Naval de Cartagena** en Bocagrande.
   - **Universidad de Cartagena · Claustro de San Agustín**, con su torre y su letrero.
   - **Monumento a Blas de Lezo** frente al Castillo de San Felipe.

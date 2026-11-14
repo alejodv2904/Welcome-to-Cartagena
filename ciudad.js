@@ -96,7 +96,6 @@ const LUGARES=[
   {name:'Centro de Salud Nelson Mandela',kind:'salud',x:7885,z:6591,w:30,d:20},
   {name:'Centro de Salud Blas de Lezo',kind:'salud',x:7000,z:3800,w:30,d:20},
   {name:'Centro Comercial Los Ejecutivos',kind:'mall',x:5300,z:2590,w:70,d:48,mission:1},
-  {name:'Centro Comercial La Castellana',kind:'mall',x:6676,z:2866,w:70,d:48,mission:1},
   {name:'Estadio de Béisbol Once de Noviembre',kind:'estadio',x:5750,z:1850,r:62,mission:1},
   {name:'Universidad de Cartagena · Zaragocilla',kind:'universidad',x:4900,z:2700,w:70,d:35,mission:1},
   {name:'Mercado de Bazurto',kind:'mercado',x:2050,z:1000,label:true,mission:1},
