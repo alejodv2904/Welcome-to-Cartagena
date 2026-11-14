@@ -80,13 +80,13 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
   <div id="speedo"><b id="kmh">0</b><small>km/h</small><div id="hp"><i id="hpbar"></i></div></div>
   <div id="touch">
     <div id="stick"><i id="knob"></i></div>
-    <div id="btns"><button id="bTaxi">Taxi</button><button id="bAct">Entrar</button><button id="bRun">Correr</button><button id="bHorn">Bocina</button></div>
+    <div id="btns"><button id="bTaxi">Transporte</button><button id="bAct">Entrar</button><button id="bRun">Correr</button><button id="bHorn">Bocina</button></div>
   </div>
 </div>
 <div id="start"><div class="box">
   <h1>Cartagena Libre</h1>
   <p>Empiezas en el Monumento a la India Catalina. Recorre toda Cartagena y su 1.500.000 habitantes: el Centro amurallado, Getsemaní, Manga, Bocagrande y La Popa, y los barrios de toda la ciudad, desde Crespo, el aeropuerto y La Boquilla hasta Olaya Herrera, El Pozón, Ternera, Nelson Mandela y Mamonal. Entra a los lugares reales de la ciudad (bancos, bares, discotecas, hoteles, farmacias, universidades, talleres, restaurantes y centros comerciales), usa los cajeros, abre tu cuenta de banco y tu Nequi, súbete a un taxi, una moto, una chiva o un coche de caballos, pide un taxi o una buseta para que te lleve, lleva pasajeros y encargos, y no te metas en problemas con la policía, que patrulla en moto. Si se arma un trancón, llega un agente de tránsito a despejarlo. El día pasa en 48 minutos: cada minuto del juego son 2 segundos, y muchos lugares tienen horario.</p>
-  <div class="keys"><b>W A S D / flechas</b><span>trotar o conducir (C: caminar despacio)</span><b>Shift</b><span>correr (gasta energía) / freno de mano</span><b>Espacio · G</b><span>saltar · golpear</span><b>F</b><span>subir al vehículo (o sacar al conductor y robarlo), entrar a locales y comprar (1-9)</span><b>T</b><span>pedir taxi, mototaxi o buseta: llega hasta ti, eliges destino y te lleva (Espacio: llegar ya)</span><b>En las tiendas</b><span>F: tomar productos y pagar en la caja · B: tomar o comer lo de la mochila · X: devolver la canasta</span><b>R · H</b><span>cambiar emisora · bocina</span><b>Botón Calidad</b><span>ajusta gráficos y velocidad (Auto recomendado)</span><b>Mouse</b><span>mover la cámara (clic en el juego para capturarlo; también Q E)</span><b>M · ESC</b><span>mapa de Cartagena · menú para guardar y cargar la partida</span><b>Encargos</b><span>los marcadores $ y T del mapa: acércate y presiona F</span><b>Transcaribe</b><span>en las estaciones de la Av. Pedro de Heredia: F para subir</span><b>P</b><span>celular: Nequi, banco, Uber, DiDi, Lugares (con GPS), mapa y teléfono</span><b>Cajeros y talleres</b><span>F frente al cajero · llega manejando a la puerta del taller y presiona F para reparar</span></div>
+  <div class="keys"><b>W A S D / flechas</b><span>trotar o conducir (C: caminar despacio)</span><b>Shift</b><span>correr (gasta energía) / freno de mano</span><b>Espacio · G</b><span>saltar · golpear</span><b>F</b><span>subir al vehículo (o sacar al conductor y robarlo), entrar a locales y comprar (1-9)</span><b>T</b><span>pedir transporte: escoges buseta, mototaxi o taxi (1, 2, 3), llega hasta ti, eliges destino y te lleva (Espacio: llegar ya)</span><b>En las tiendas</b><span>F: tomar productos y pagar en la caja · B: tomar o comer lo de la mochila · X: devolver la canasta</span><b>R · H</b><span>cambiar emisora · bocina</span><b>Botón Calidad</b><span>ajusta gráficos y velocidad (Auto recomendado)</span><b>Mouse</b><span>mover la cámara (clic en el juego para capturarlo; también Q E)</span><b>M · ESC</b><span>mapa de Cartagena · menú para guardar y cargar la partida</span><b>Encargos</b><span>los marcadores $ y T del mapa: acércate y presiona F</span><b>Transcaribe</b><span>en las estaciones de la Av. Pedro de Heredia: F para subir</span><b>P</b><span>celular: Nequi, banco, Uber, DiDi, Lugares (con GPS), mapa y teléfono</span><b>Cajeros y talleres</b><span>F frente al cajero · llega manejando a la puerta del taller y presiona F para reparar</span></div>
   <p class="fine">Calles, edificios, murallas y costa del Centro, Getsemaní, Manga, Bocagrande y alrededores tomados de OpenStreetMap (© colaboradores de OpenStreetMap, licencia ODbL); el resto de la ciudad se genera a partir de su geografía aproximada (costa, Ciénaga de la Virgen, avenidas y barrios). Texturas y cielo de Poly Haven y ambientCG (CC0). Personas: modelos de Ready Player Me y Mixamo con animaciones de captura de movimiento de Mixamo; caballo del proyecto ro.me (todos incluidos en los ejemplos de three.js). Vehículos (incluida la chiva rumbera) modelados para el juego. Barrios, bancos, cajeros y demás lugares con nombre del área detallada tomados de OpenStreetMap; las tiendas de barrio sin nombre, los locales de los barrios generados y las emisoras son inventados. Nequi, Uber, DiDi y los bancos son marcas de sus dueños, usadas solo como referencia. La altura y el color de la mayoría de los edificios son aproximados. Relieve: datos de elevación SRTM (NASA/USGS) vía Mapzen Terrain Tiles en AWS Open Data.</p>
   <button id="go" disabled>Cargando ciudad…</button>
 </div></div>
@@ -3425,14 +3425,24 @@ const svMark=(function(){const g=new THREE.Group();const m=new THREE.MeshBasicMa
   const r=new THREE.Mesh(new THREE.RingGeometry(1.2,1.6,32),m);r.rotation.x=-Math.PI/2;r.position.y=.3;g.add(r);const a=new THREE.Mesh(new THREE.ConeGeometry(.45,.9,4),m);a.rotation.x=Math.PI;a.position.y=4.2;g.add(a);g.visible=false;scene.add(g);return g})();
 const SNAME=v=>v.app?(v.app==='uber'?'Uber':'DiDi'):v.type==='taxi'?'taxi':v.type==='mototaxi'?'mototaxi':'buseta';
 const HAILABLE=t=>t==='taxi'||t==='mototaxi'||t==='buseta';
-function hail(){if(!started||player.car||player.ride||EX.inside||EX.entering||EX.busy)return;
-  if(SV.v){toast(SV.state==='coming'?'Tu '+SNAME(SV.v)+' ya viene en camino':'Tu '+SNAME(SV.v)+' te está esperando',1500);return}
-  const pk=curbEdge(player.x,player.z,70);if(!pk){toast('Acércate a una calle para pedir un taxi',1700);return}
+/* T: el menú para escoger el servicio (buseta, mototaxi o taxi); se escoge con 1, 2, 3 o con el clic */
+const SVOPTS=[['buseta','Buseta','Pasa por la calle y te recoge en la esquina'],['mototaxi','Mototaxi','Rápido y barato, en la parrilla de la moto'],['taxi','Taxi','El amarillo de siempre, con aire']];
+const svEl=document.createElement('div');svEl.id='svUI';svEl.innerHTML='<div class="sbox"><h3>¿Qué servicio pides?</h3><p class="sub">Escoge con 1, 2 o 3 · Esc o T para cerrar</p><div class="items"></div></div>';document.body.appendChild(svEl);
+{const box=svEl.querySelector('.items');SVOPTS.forEach(([k,n,d],i)=>{const b=document.createElement('button');b.className='it';b.innerHTML=`<span>${i+1}. ${n}</span><small>${d}</small>`;b.addEventListener('click',()=>svPick(i));box.appendChild(b)})}
+const svOpen=()=>svEl.classList.contains('on');
+function closeSvMenu(){svEl.classList.remove('on')}
+function svCan(){if(!started||player.car||player.ride||EX.inside||EX.entering||EX.busy)return false;
+  if(SV.v){toast(SV.state==='coming'?'Tu '+SNAME(SV.v)+' ya viene en camino':'Tu '+SNAME(SV.v)+' te está esperando',1500);return false}
+  if(!curbEdge(player.x,player.z,70)){toast('Acércate a una calle para pedir transporte',1700);return false}return true}
+function openSvMenu(){if(svOpen()){closeSvMenu();return}if(rideOpen()||tcOpen()||EX.menu||PAUSE.open||BIG.open||!svCan())return;svEl.classList.add('on');syncLock()}
+function svPick(i){const o=SVOPTS[i];if(!o)return;closeSvMenu();hail(o[0])}
+window.addEventListener('keydown',e=>{if(!svOpen()||e.repeat)return;if(e.code==='Escape'){closeSvMenu();return}const n=parseInt(e.key,10);if(n>=1&&n<=3)svPick(n-1)});
+function hail(type){if(!svCan())return;type=HAILABLE(type)?type:'taxi';const pk=curbEdge(player.x,player.z,70),nom=type==='taxi'?'taxi':type==='mototaxi'?'mototaxi':'buseta';
   player.waveT=1.8;
-  const list=vehicles.filter(v=>v.ai&&!v.hail&&HAILABLE(v.type)&&dist2(v.x,v.z,player.x,player.z)<340).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,6);
+  const list=vehicles.filter(v=>v.ai&&!v.hail&&v.type===type&&dist2(v.x,v.z,player.x,player.z)<340).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z)).slice(0,6);
   let best=null;for(const v of list){const r=routeFor(v,pk);if(r&&r.len<1400&&(!best||r.len<best.r.len))best={v,r}}
-  for(let k=0;k<8&&!best;k++){const v=spawnAI(true,rand()<.5?'taxi':rand()<.7?'mototaxi':'buseta');if(!v)continue;const r=routeFor(v,pk);if(r&&r.len<1600)best={v,r};else{scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}}
-  if(!best){toast('No pasa ningún taxi por aquí, prueba en otra calle',1900);return}
+  for(let k=0;k<8&&!best;k++){const v=spawnAI(true,type);if(!v)continue;const r=routeFor(v,pk);if(r&&r.len<1600)best={v,r};else{scene.remove(v.mesh);vehicles.splice(vehicles.indexOf(v),1)}}
+  if(!best){toast((type==='buseta'?'No pasa ninguna buseta':'No pasa ningún '+nom)+' por aquí, prueba en otra calle',1900);return}
   const v=best.v;v.pax=false;Object.assign(SV,{v,state:'coming',t:0,dest:null});v.hail={stop:{e:pk.ei,t:pk.t}};v.route=best.r.path;v.next=-1;v.tlStop=false;
   toast((v.type==='taxi'?'¡Taxiii!':v.type==='mototaxi'?'¡Mototaxi!':'¡Buseta!')+' Ya viene a recogerte',1900);horn()}
 function releaseService(){const v=SV.v;if(v){v.hail=null;v.route=null;v.pullT=0;v.next=-1;v.app=null;if(!v.ai&&v!==player.car){v.ai=true}}Object.assign(SV,{v:null,state:'',dest:null,app:null,appFare:0,payFn:null});svMark.visible=false}
@@ -3567,7 +3577,7 @@ $('btnSnd').addEventListener('click',()=>{muted=!muted;$('btnSnd').textContent=m
 /* ---------- input ---------- */
 const keys={};let stick={x:0,y:0},runHeld=false,lastDrag=0,started=false;
 const gameKeys=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','KeyF','KeyH','KeyQ','KeyE','Space','KeyT'];
-window.addEventListener('keydown',e=>{if(gameKeys.includes(e.code))e.preventDefault();if(e.repeat)return;keys[e.code]=true;if(!started)return;if(e.code==='KeyF'||(e.code==='Enter'))act();if(e.code==='KeyH')horn();if(e.code==='KeyT')hail();if(e.code==='Space'&&!player.car&&!player.ride)EX.jump();if(e.code==='KeyG')EX.punch();if(e.code==='KeyR')EX.radioNext()});
+window.addEventListener('keydown',e=>{if(gameKeys.includes(e.code))e.preventDefault();if(e.repeat)return;keys[e.code]=true;if(!started)return;if(e.code==='KeyF'||(e.code==='Enter'))act();if(e.code==='KeyH')horn();if(e.code==='KeyT'&&!e.repeat)openSvMenu();if(e.code==='Space'&&!player.car&&!player.ride)EX.jump();if(e.code==='KeyG')EX.punch();if(e.code==='KeyR')EX.radioNext()});
 window.addEventListener('keyup',e=>{keys[e.code]=false});
 // truco: escribir DINERO con el teclado suma $ 1.000.000 cada vez; el celular lo va contando hasta el último peso
 let cheatBuf='';window.addEventListener('keydown',e=>{const tg=e.target;if(!started||tg&&(tg.tagName==='INPUT'||tg.tagName==='TEXTAREA'))return;
@@ -3586,7 +3596,7 @@ stickEl.addEventListener('pointermove',e=>{if(e.pointerId===stickId)setStick(e)}
 ['pointerup','pointercancel'].forEach(n=>stickEl.addEventListener(n,e=>{if(e.pointerId===stickId){stickId=null;stick.x=stick.y=0;knob.style.transform=''}}));
 $('bAct').addEventListener('pointerdown',e=>{e.preventDefault();act()});
 $('bHorn').addEventListener('pointerdown',e=>{e.preventDefault();horn()});
-const bTaxi=$('bTaxi');bTaxi.addEventListener('pointerdown',e=>{e.preventDefault();hail()});
+const bTaxi=$('bTaxi');bTaxi.addEventListener('pointerdown',e=>{e.preventDefault();openSvMenu()});
 const bRun=$('bRun');bRun.addEventListener('pointerdown',e=>{e.preventDefault();runHeld=true;bRun.classList.add('down')});
 ['pointerup','pointercancel','pointerleave'].forEach(n=>bRun.addEventListener(n,()=>{runHeld=false;bRun.classList.remove('down')}));
 function readInput(){let ix=0,iz=0;
@@ -3636,6 +3646,7 @@ function tcAct(){const R=TC.ride;if(!R.dest){openTcMenu();return}
   if(EX.busy)return;EX.fade('Llegando a '+R.dest.name+'…',()=>{const T=R.v.tc;T.s=R.dest.s-T.dir*.6;T.st='run';R.v.speed=0;tcPlace(R.v)})}
 const tcEl=document.createElement('div');tcEl.id='tcUI';tcEl.innerHTML='<div class="sbox"><h3>Transcaribe · ¿en qué estación se baja?</h3><p class="sub">Ya pagaste el pasaje. El bus para en todas las estaciones.</p><div class="items"></div></div>';document.body.appendChild(tcEl);
 {const st=document.createElement('style');st.textContent='#tcUI{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;background:rgba(10,8,6,.35)}#tcUI.on{display:flex}#tcUI .sbox{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;background:rgba(23,19,15,.93);border:1px solid rgba(31,154,166,.7);border-radius:10px;padding:16px;color:#f5ead7;font:15px var(--body)}#tcUI h3{margin:0 0 4px;font:400 22px var(--display);color:#3fc6d3}#tcUI .sub{margin:0 0 10px;opacity:.8}#tcUI .items{display:flex;flex-direction:column;gap:6px}#tcUI .it{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:inherit;font:inherit;text-align:left;cursor:pointer}#tcUI .it:hover,#tcUI .it:focus{background:rgba(31,154,166,.25);outline:none}';document.head.appendChild(st)}
+{const st=document.createElement('style');st.textContent='#svUI{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;background:rgba(10,8,6,.35)}#svUI.on{display:flex}#svUI .sbox{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;background:rgba(23,19,15,.93);border:1px solid rgba(31,154,166,.7);border-radius:10px;padding:16px;color:#f5ead7;font:15px var(--body)}#svUI h3{margin:0 0 4px;font:400 22px var(--display);color:#3fc6d3}#svUI .sub{margin:0 0 10px;opacity:.8}#svUI .items{display:flex;flex-direction:column;gap:6px}#svUI .it{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:inherit;font:inherit;text-align:left;cursor:pointer}#svUI .it:hover,#svUI .it:focus{background:rgba(31,154,166,.25);outline:none}#svUI .it small{opacity:.7;text-align:right}';document.head.appendChild(st)}
 let tcOpts=[];
 function openTcMenu(){const R=TC.ride;if(!R)return;const T=R.v.tc;const st=TCW.stations;tcOpts=T.dir>0?st.filter(q=>q.s>T.s+2):st.filter(q=>q.s<T.s-2).reverse();
   if(!tcOpts.length){toast('Este bus va para el patio: espera a que regrese',1500);return}
@@ -3911,7 +3922,7 @@ function updateOffers(dt){const t=performance.now()/1000;for(const o of OFFERS){
 /* ---------- cámara con el mouse (sin hacer clic): el puntero queda dentro del juego; ESC lo suelta y abre el menú ---------- */
 const PL={intent:false};
 const canLock=()=>!isTouch()&&!!cvs.requestPointerLock;
-function anyUI(){return rideOpen()||tcOpen()||EX.menu||PAUSE.open||BIG.open}
+function anyUI(){return rideOpen()||tcOpen()||svOpen()||EX.menu||PAUSE.open||BIG.open}
 function lockMouse(){if(started&&canLock()&&!anyUI()&&document.pointerLockElement!==cvs){try{const r=cvs.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}
 document.addEventListener('mousemove',e=>{if(document.pointerLockElement!==cvs)return;player.cy-=e.movementX*.0026;player.cp=clamp(player.cp+e.movementY*.002,.1,1.25);lastDrag=performance.now()});
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===cvs){PL.intent=false;return}if(started&&!PL.intent&&!anyUI())openPause();PL.intent=false});
@@ -3937,7 +3948,7 @@ function renderPause(){const box=pauseEl.querySelector('.pbtns');box.innerHTML='
   add('Ver mapa de Cartagena (M)',()=>{closePause(true);openBig()});
   add(qBtn.textContent,()=>{qBtn.click();renderPause()});add('Sonido: '+(muted?'apagado':'encendido'),()=>{$('btnSnd').click();renderPause()});
   pauseEl.querySelector('.pinfo').textContent=sv?'Última partida guardada: '+when(sv.t)+' · '+fmt(sv.money):'Todavía no has guardado esta partida.';
-  pauseEl.querySelector('.pkeys').innerHTML='<b>Mouse</b><span>mover la cámara (clic en el juego para capturarlo)</span><b>W A S D</b><span>caminar o manejar</span><b>F</b><span>entrar, subir, aceptar encargos, comprar</span><b>T</b><span>pedir taxi, mototaxi o buseta</span><b>M</b><span>mapa de Cartagena</span><b>B · X</b><span>tomar de la mochila · devolver la canasta</span><b>ESC</b><span>este menú</span>'}
+  pauseEl.querySelector('.pkeys').innerHTML='<b>Mouse</b><span>mover la cámara (clic en el juego para capturarlo)</span><b>W A S D</b><span>caminar o manejar</span><b>F</b><span>entrar, subir, aceptar encargos, comprar</span><b>T</b><span>pedir transporte: buseta, mototaxi o taxi</span><b>M</b><span>mapa de Cartagena</span><b>B · X</b><span>tomar de la mochila · devolver la canasta</span><b>ESC</b><span>este menú</span>'}
 function openPause(){if(!started||PAUSE.open)return;PAUSE.open=true;PAUSE.at=performance.now();renderPause();pauseEl.classList.add('on');syncLock();for(const k in keys)keys[k]=false}
 function closePause(noLock){if(!PAUSE.open)return;PAUSE.open=false;pauseEl.classList.remove('on');if(!noLock)lockMouse()}
 function saveGame(){const P=EX.P;const d={v:1,t:Date.now(),x:player.x,z:player.z,yaw:player.yaw,money,h:gameH,en:P.en,max:P.max,inv:P.inv,spec:P.spec,uni:P.uni,cel:CEL.save()};
