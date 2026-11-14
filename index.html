@@ -423,7 +423,7 @@ function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get
     const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const d=Math.hypot(x-s.ax-ex*t,z-s.az-ez*t),hw=s.w/2;
     if(d<=hw+.05){v=Math.max(v,RLIFT[s.ty]);continue}
     if(s.ty>=1&&s.ty<=4&&d<=hw+2.45){const L=Math.sqrt(l2),at=t*L,tr=s.w*.7;if((at<tr&&isJunction(s.ax,s.az))||(L-at<tr&&isJunction(s.bx,s.bz)))continue;walk=Math.max(walk,RLIFT[s.ty]+.17)}}}
-  if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;if(Math.abs(dx*st.tx+dz*st.tz)<st.hl&&Math.abs(-dx*st.tz+dz*st.tx)<st.hw)v=Math.max(v,st.top)}
+  if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;const al=dx*st.tx+dz*st.tz,pp=Math.abs(-dx*st.tz+dz*st.tx);if(pp>=st.hw)continue;if(Math.abs(al)<st.hl)v=Math.max(v,st.top);else if(st.rl){const e=-al-st.hl;if(e>=0&&e<st.rl)v=Math.max(v,st.base+(st.top-st.base)*(1-e/st.rl))}}
   if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
 const standY=(x,z)=>ground(x,z)+surfLift(x,z);
 const colObj=c=>new THREE.Color(c);
@@ -516,24 +516,76 @@ const TCW={path:null,S:null,L:0,stations:[]};
   for(const o of [-4.75,4.75,-1.15,1.15])ribbonP(P,.22,LIFT+.012,'paint',YEL,o,0,false);
   for(const o of [-3.05,3.05])dashed(P.flat(),.14,LIFT+.012,WHT,2.5,o);
   for(let i=0;i<P.length-1;i++)addRoadSeg({ax:P[i][0],az:P[i][1],bx:P[i+1][0],bz:P[i+1][1],ty:0,name:'Carril exclusivo de Transcaribe',w:9.8,walk:true,bw:true});
-  // stations on the median: raised platform, teal roof on pillars, glass back panels and the name at both ends
+  // estaciones como las del Transcaribe de verdad: plataforma elevada en el separador, techo plano gris claro con el borde oscuro sobre columnas blancas,
+  // paredes de lamas grises verticales con puertas de vidrio donde paran los buses, la taquilla naranja con su ventanilla y los torniquetes en la entrada,
+  // la rampa con barandas y el aviso naranja con el nombre de la estación
   const NST=Math.max(8,Math.round((TCW.L-300)/600)+1),TSTEP=(TCW.L-300)/(NST-1),OLDN=['Chambacú','La Popa','El Prado','Bazurto','Delicias'],usedN=new Set(OLDN);let k=0;
   const stName=(k,x,z)=>{if(k===NST-1)return'Portal de Transcaribe';if(k>=0&&k<OLDN.length)return OLDN[k];let n=zoneName(x,z);if(usedN.has(n))n=n+' Sur';if(usedN.has(n))n=n.replace(/ Sur$/,' Norte');usedN.add(n);return n};
-  const roofM=new THREE.MeshLambertMaterial({color:'#1f9aa6'}),platM=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#d8d2c4'}),pilM=mat('#e9e6dc'),glassM=new THREE.MeshPhongMaterial({color:'#cfe8f0',transparent:true,opacity:.3,shininess:90,depthWrite:false,side:THREE.DoubleSide});
-  // estaciones: con ciudad-osm.js, las reales (con su nombre) y, donde quedan más de 900 m sin estación, otras en medio; el Portal al final
-  let STS=null;if(CD.OSM&&CD.OSM.transcaribe){const at=[];for(const [nm,x,z] of CD.OSM.transcaribe){let bi=-1,bd=160;P.forEach((q,i)=>{const d=Math.hypot(q[0]-x,q[1]-z);if(d<bd){bd=d;bi=i}});if(bi>=0&&S[bi]>100&&S[bi]<TCW.L-150)at.push({s:S[bi],name:nm})}
-    at.sort((a,b)=>a.s-b.s);const A=[];for(const q of at)if(!A.length||q.s-A[A.length-1].s>250)A.push(q);
+  const platM=new THREE.MeshLambertMaterial({map:TX.stone_tile,color:'#dcd8cf'}),glassM=new THREE.MeshPhongMaterial({color:'#cfe8f0',transparent:true,opacity:.3,shininess:90,depthWrite:false,side:THREE.DoubleSide});
+  const louvM=new THREE.MeshLambertMaterial({map:(()=>{const c=document.createElement('canvas');c.width=64;c.height=4;const q=c.getContext('2d');const gr=q.createLinearGradient(0,0,44,0);gr.addColorStop(0,'#a4aaad');gr.addColorStop(.45,'#eceeee');gr.addColorStop(1,'#b6bbbe');q.fillStyle=gr;q.fillRect(0,0,40,4);const t=new THREE.CanvasTexture(c);t.wrapS=THREE.RepeatWrapping;return t})(),emissive:'#34383b',alphaTest:.5,side:THREE.DoubleSide});
+  const canv=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;return new THREE.MeshBasicMaterial({map:t})};
+  const taqM=canv(256,72,(q,w,h)=>{q.fillStyle='#5f6469';q.fillRect(0,0,w,h);q.strokeStyle='#d9dcde';q.lineWidth=3;q.strokeRect(4,4,w-8,h-8);q.fillStyle='#fff';q.font='bold 34px Arial,sans-serif';q.textAlign='center';q.fillText('TAQUILLA 1',w/2,47)});
+  // aviso naranja: la gaviota y «TransCaribe» a la izquierda, el nombre grande y debajo «… Station»
+  const signM=nm=>canv(1024,256,(q,w,h)=>{q.fillStyle='#e8622a';q.fillRect(0,0,w,h);q.fillStyle='rgba(0,0,0,.12)';q.fillRect(0,h-14,w,14);
+    q.strokeStyle='#fff';q.lineWidth=9;q.lineCap='round';q.beginPath();q.moveTo(52,104);q.quadraticCurveTo(84,64,118,98);q.quadraticCurveTo(150,62,186,96);q.stroke();
+    q.fillStyle='#fff';q.textAlign='center';q.font='bold 30px Arial,sans-serif';q.fillText('TransCaribe',120,150);
+    let fs=86;q.font='bold '+fs+'px Arial,sans-serif';while(q.measureText(nm).width>700&&fs>40){fs-=4;q.font='bold '+fs+'px Arial,sans-serif'}q.fillText(nm,622,128);
+    q.font='34px Arial,sans-serif';q.fillText(nm+' Station',622,190)});
+  // las piezas de cada estación se juntan por material (pocas mallas por estación)
+  const mergeG=list=>{let n=0;const gs=list.map(g=>{const q=g.index?g.toNonIndexed():g;n+=q.attributes.position.count;return q});const pos=new Float32Array(n*3),nor=new Float32Array(n*3),uv=new Float32Array(n*2);let o=0;
+    for(const q of gs){pos.set(q.attributes.position.array,o*3);nor.set(q.attributes.normal.array,o*3);uv.set(q.attributes.uv.array,o*2);o+=q.attributes.position.count}
+    const G=new THREE.BufferGeometry();G.setAttribute('position',new THREE.BufferAttribute(pos,3));G.setAttribute('normal',new THREE.BufferAttribute(nor,3));G.setAttribute('uv',new THREE.BufferAttribute(uv,2));G.computeBoundingSphere();return G};
+  // las estaciones que OpenStreetMap dibuja como edificios sobre el separador (building=transportation) no se construyen como casas: ahí va la estación
+  TCW.skipBld=new Set();TCW.skipMap=new Set();
+  const onPath=(pts,dmax,pmax)=>{let cx=0,cz=0;const n=pts.length/2;for(let i=0;i<pts.length;i+=2){cx+=pts[i];cz+=pts[i+1]}cx/=n;cz/=n;let bi=-1,bd=dmax;P.forEach((q,i)=>{const d=Math.hypot(q[0]-cx,q[1]-cz);if(d<bd){bd=d;bi=i}});if(bi<0)return null;
+    const j=Math.min(bi,P.length-2),tl=Math.hypot(P[j+1][0]-P[j][0],P[j+1][1]-P[j][1])||1,tx=(P[j+1][0]-P[j][0])/tl,tz=(P[j+1][1]-P[j][1])/tl;let a0=1e9,a1=-1e9,p0=1e9,p1=-1e9;
+    for(let i=0;i<pts.length;i+=2){const dx=pts[i]-cx,dz=pts[i+1]-cz,al=dx*tx+dz*tz,pp=-dx*tz+dz*tx;a0=Math.min(a0,al);a1=Math.max(a1,al);p0=Math.min(p0,pp);p1=Math.max(p1,pp)}
+    const len=a1-a0;if(len<28||len>200||p1-p0>pmax||len<3*(p1-p0))return null;const s=S[j]+(cx-P[j][0])*tx+(cz-P[j][1])*tz;if(s<100||s>TCW.L-150)return null;return{s,len,cx,cz}};
+  // estaciones: con ciudad-osm.js, las reales (con su nombre, donde están sus edificios) y, donde quedan más de 900 m sin estación, otras en medio; el Portal al final
+  let STS=null;if(CD.OSM&&CD.OSM.transcaribe){const at=[];for(const [nm,x,z] of CD.OSM.transcaribe){let bi=-1,bd=160;P.forEach((q,i)=>{const d=Math.hypot(q[0]-x,q[1]-z);if(d<bd){bd=d;bi=i}});if(bi>=0&&S[bi]>100&&S[bi]<TCW.L-150)at.push({s:S[bi],name:nm,x,z})}
+    const BS=[];if(CD.OSM.bld)CD.OSM.bld.forEach((b,i)=>{if(b[1]!==16||b[2].length>12)return;const q=onPath(b[2],16,18);if(q){BS.push(q);TCW.skipBld.add(i)}});
+    MAP.buildings.forEach((b,i)=>{if(b[3].length>12)return;const q=onPath(b[3],6,10);if(q){BS.push(q);TCW.skipMap.add(i)}});
+    for(const q of BS){let bn=null,bd=160;for(const a of at)if(!a.b){const d=Math.hypot(a.x-q.cx,a.z-q.cz);if(d<bd){bd=d;bn=a}}if(bn)Object.assign(bn,{s:q.s,len:q.len,b:true});else at.push({s:q.s,len:q.len,b:true})}
+    at.sort((a,b)=>a.s-b.s);const A=[];for(const q of at){const l=A[A.length-1];if(!l||q.s-l.s>(q.b&&l.b?110:250))A.push(q);else if(q.b&&!l.b){q.name=q.name||l.name;A[A.length-1]=q}else if(!l.name)l.name=q.name}
     STS=[];let prev=0;for(const q of A.concat([{s:TCW.L-60,name:'Portal de Transcaribe'}])){const gap=q.s-prev,n=Math.floor(gap/650);if(gap>900)for(let j=1;j<=n;j++)STS.push({s:prev+gap*j/(n+1)});STS.push(q);prev=q.s}
-    STS=STS.filter(q=>q.s>=120);for(const q of A)usedN.add(q.name)}
+    STS=STS.filter(q=>q.s>=120);for(const q of A)if(q.name)usedN.add(q.name)}
+  const RL=5,W=2.6,H=.42,WH=3.3,RW=4.6,orM=new THREE.MeshLambertMaterial({color:'#ee6a2c',emissive:'#5a2008'});
   for(let sAt=STS?STS[0].s:160,si=0;STS?si<STS.length:sAt<TCW.L-100&&k<NST;STS?(sAt=STS[++si]&&STS[si].s):sAt+=TSTEP){let i=0;while(i<S.length-2&&S[i+1]<sAt)i++;const a=P[i],b=P[i+1],tl=Math.hypot(b[0]-a[0],b[1]-a[1])||1,tx=(b[0]-a[0])/tl,tz=(b[1]-a[1])/tl,f=(sAt-S[i])/tl,x=a[0]+(b[0]-a[0])*f,z=a[1]+(b[1]-a[1])*f;
-    const y=ground(x,z)+LIFT,yaw=Math.atan2(tx,tz),g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=yaw;scene.add(g);const H=.42;
-    const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
-    add(new THREE.BoxGeometry(2.6,H,34),platM,0,H/2,0);add(new THREE.BoxGeometry(2.62,.06,34.02),mat('#f0b429'),0,H-.02,0);
-    for(let zz=-15;zz<=15;zz+=6)add(new THREE.BoxGeometry(.16,2.9,.16),pilM,0,H+1.45,zz);add(new THREE.BoxGeometry(3.4,.18,35),roofM,0,H+2.95,0);
-    for(const e of [-1,1])add(new THREE.PlaneGeometry(30,1.6),glassM,0,H+1.05,0).rotation.y=Math.PI/2*e;
-    const nm='Estación '+(STS&&STS[si].name||stName(STS?-1:k,x,z));const sg=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.8),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const q=c.getContext('2d');q.fillStyle='#1f9aa6';q.fillRect(0,0,512,128);q.fillStyle='#f0b429';q.fillRect(0,96,512,32);q.fillStyle='#fff';q.font='bold 34px sans-serif';q.textAlign='center';q.fillText('Transcaribe',256,42);q.font='bold 30px sans-serif';q.fillText(nm.replace('Estación ',''),256,84);return new THREE.CanvasTexture(c)})()}));
-    for(const e of [-1,1]){const m=sg.clone();m.position.set(0,H+3.5,e*17.6);m.rotation.y=e>0?0:Math.PI;g.add(m)}
-    TCW.stations.push({name:nm,s:sAt,x,z,tx,tz,yaw,y:y+H});TC_ST.push({x,z,tx,tz,hl:17,hw:1.3,top:LIFT+H});k++}})();
+    const y=ground(x,z)+LIFT,yaw=Math.atan2(tx,tz),g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=yaw;scene.add(g);
+    const LEN=Math.round(clamp(STS&&STS[si].len||40,32,48)),hl=LEN/2,parts=new Map();
+    const put=(geo,m,px,py,pz,ry,rx)=>{if(rx)geo.rotateX(rx);if(ry)geo.rotateY(ry);geo.translate(px,py,pz);let L=parts.get(m);if(!L){L=[];parts.set(m,L)}L.push(geo)};
+    const box=(w,h,d,m,px,py,pz,ry,rx)=>put(new THREE.BoxGeometry(w,h,d),m,px,py,pz,ry,rx);
+    // lamas: un plano con la textura repetida cada 20 cm
+    const louv=(len,h,px,py,pz,ry)=>{const G=new THREE.PlaneGeometry(len,h),u=G.attributes.uv;for(let j=0;j<u.count;j++)u.setX(j,u.getX(j)*len/.2);put(G,louvM,px,py,pz,ry)};
+    // plataforma con el borde amarillo
+    box(W,H,LEN,platM,0,H/2,0);for(const e of [-1,1])box(.3,.02,LEN,mat('#e8c23a'),e*(W/2-.15),H+.01,0);box(W+.04,.1,LEN+.04,mat('#b9b5ad'),0,.05,0);
+    // techo: losa gris claro con el canto oscuro, la cara de abajo blanca; vuela sobre la rampa de la entrada
+    const r0=-hl-RL,r1=hl+.6,RLn=r1-r0,rc=(r0+r1)/2,ry0=H+WH;
+    box(RW,.34,RLn,mat('#a3a8ab'),0,ry0+.17,rc);box(RW+.02,.05,RLn+.02,mat('#4a4f53'),0,ry0+.02,rc);box(RW-.12,.04,RLn-.12,mat('#d5d8d8'),0,ry0+.35,rc);box(RW-.12,.02,RLn-.12,mat('#f1f2ef'),0,ry0-.01,rc);
+    // columnas blancas en la línea de las paredes (sin tapar las puertas) y dos sobre la rampa
+    for(let zz=-hl+.3;zz<=hl-.2;zz+=6.4){if(Math.abs(Math.abs(zz)-6.2)<2)continue;for(const e of [-1,1])put(new THREE.CylinderGeometry(.1,.1,WH,10),mat('#eceeec'),e*1.16,H+WH/2,zz)}
+    for(const e of [-1,1])put(new THREE.CylinderGeometry(.1,.1,ry0,10),mat('#eceeec'),e*1.1,ry0/2,r0+.4);
+    // paredes de lamas a los dos lados, con las puertas de vidrio donde abren los buses articulados
+    const DZ=6.2,DW=3.4,wy=H+.12+(WH-.12)/2,wh=WH-.12;
+    for(const e of [-1,1]){const xw=e*1.24,cuts=[[-DZ-DW/2,-DZ+DW/2],[DZ-DW/2,DZ+DW/2]];let z0=e>0?-hl+3.4:-hl+.05;
+      for(const [c0,c1] of cuts.concat([[hl-.05,hl]])){if(c0>z0+.2)louv(c0-z0,wh,xw,wy,(z0+c0)/2,Math.PI/2);z0=c1}
+      for(const [c0,c1] of cuts){box(.08,.28,DW,mat('#3d4246'),xw,ry0-.14,(c0+c1)/2);for(const zz of [c0,c1])box(.08,WH,.08,mat('#3d4246'),xw,H+WH/2,zz);
+        for(const zz of [c0+.62,c1-.62])box(.03,WH-.34,1.2,glassM,xw,H+(WH-.34)/2,zz)}}
+    louv(W-.12,wh,0,wy,hl-.06,0);
+    // la taquilla naranja con su ventanilla hacia el paso, el letrero gris y los torniquetes
+    box(1.25,WH,3.3,orM,.62,H+WH/2,-hl+1.65);box(.02,1.0,1.4,glassM,-.04,H+1.55,-hl+1.7);box(.04,.08,1.5,mat('#3d4246'),-.05,H+1.03,-hl+1.7);
+    put(new THREE.PlaneGeometry(.95,.27),taqM,.62,H+2.6,-hl-.01,Math.PI);
+    for(const xx of [-1.05,-.5])box(.22,.95,.55,mat('#9aa0a5'),xx,H+.475,-hl+3.9);box(.6,.04,.06,mat('#3d4246'),-.78,H+.85,-hl+3.9);
+    // rampa de la entrada con barandas metálicas
+    const ra=Math.atan2(H,RL),rlen=Math.hypot(RL,H);box(2.4,.5,rlen,mat('#c9c6bf'),0,H/2-.25*Math.cos(ra),-hl-RL/2,0,-ra);
+    for(const e of [-1,1]){const xr=e*1.22;for(const t of [0,.5,1]){const zz=-hl-RL*t,yb=H*(1-t);box(.05,1,.05,mat('#a8adb0'),xr,yb+.5,zz)}
+      for(const hh of [1,.5])box(.05,.05,rlen,mat('#a8adb0'),xr,H/2+hh,-hl-RL/2,0,-ra)}
+    // avisos naranja: sobre la entrada (debajo del alero) y en la otra punta
+    const nm='Estación '+(STS&&STS[si].name||stName(STS?-1:k,x,z)),sm=signM(nm.replace('Estación ',''));
+    box(3.2,.8,.08,orM,0,ry0-.42,r0+.25);put(new THREE.PlaneGeometry(3.2,.8),sm,0,ry0-.42,r0+.2,Math.PI);
+    box(3.2,.8,.08,orM,0,ry0-.42,r1-.25);put(new THREE.PlaneGeometry(3.2,.8),sm,0,ry0-.42,r1-.2);
+    for(const [m,L] of parts){const o=new THREE.Mesh(mergeG(L),m);const solid=m!==glassM&&m!==louvM&&!(m instanceof THREE.MeshBasicMaterial);o.castShadow=solid;o.receiveShadow=m!==glassM;g.add(o)}
+    TCW.stations.push({name:nm,s:sAt,x,z,tx,tz,yaw,y:y+H});TC_ST.push({x,z,tx,tz,hl,hw:W/2,top:LIFT+H,base:LIFT,rl:RL});k++}})();
 /* ---------- buildings ---------- */
 // real Cartagena palette: colonial ochres, yellows, terracottas, blues; Bocagrande white towers
 const colA=['#e9b949','#f2c14e','#e07a4f','#d9643a','#f4d58d','#7fb7be','#5f9ea0','#e8a0a8','#c96a83','#f1e3c2','#9ec5d8','#f0a35e','#b8d8a8','#f7e7a1','#d4553f','#3e7cb1'];
@@ -625,7 +677,7 @@ function pisosZona(zn,ar,k,r,r2,cx,cz){const q=Math.round;
   if(zn==='El Bosque'||zn==='Pie de la Popa'||zn==='El Prado')return ar>500?(r<.4?4+q(r2*6):2+q(r2*2)):1+q(r*2);
   return ar>2500?3+q(r*3):ar>700?2+q(r*2):(r<.55?1:2)}
 // (los edificios del castillo y su taquilla tienen modelo propio)
-function building(bd,idx){let [h,flags,name,pts]=bd;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0)||Math.hypot(cx0-996,cz0-28)<9)return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
+function building(bd,idx){let [h,flags,name,pts]=bd;if(TCW.skipMap&&TCW.skipMap.has(idx))return;if(/Castillo/i.test(name||''))return;if(CASTLE_P.length){let cx0=0,cz0=0;for(let i=0;i<pts.length;i+=2){cx0+=pts[i];cz0+=pts[i+1]}cx0/=pts.length/2;cz0/=pts.length/2;if(inPoly(CASTLE_P,cx0,cz0)||Math.hypot(cx0-996,cz0-28)<9)return}let n=pts.length/2;if(signedArea(pts)<0){const q=[];for(let i=n-1;i>=0;i--)q.push(pts[i*2],pts[i*2+1]);pts=q}
   let cx=0,cz=0;for(let i=0;i<n;i++){cx+=pts[i*2];cz+=pts[i*2+1]}cx/=n;cz/=n;const ar=Math.abs(signedArea(pts));
   if(Math.hypot(cx-GM.popa[0],cz-GM.popa[1])<40)return;if(inPoly(pts,TORRE.P[0],TORRE.P[1]))return; // la Torre del Reloj tiene su propio modelo
   if(sitioSkip(cx,cz))return;if(name==='Iglesia La Hermita')name='Iglesia de La Ermita';
@@ -1682,7 +1734,7 @@ function osmSolidAt(x,z){const a=sgrid.get(skey(Math.floor(x/CELL),Math.floor(z/
 /* edificios reales de OpenStreetMap en el resto de la ciudad (ciudad-osm.js): cada uno queda asignado a la calle más cercana
    (así se construye, puede ser local y sirve de casa) y, donde ya hay muchos, no se inventan casas */
 const RB=(function(){const O=CD.OSM;if(!O||!O.bld)return null;const C=50,grid=new Map(),dens=new Map(),all=[];
-  O.bld.forEach((b,i)=>{const pts=b[2];let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9,cx=0,cz=0;const n=pts.length/2;
+  O.bld.forEach((b,i)=>{if(TCW.skipBld&&TCW.skipBld.has(i))return;const pts=b[2];let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9,cx=0,cz=0;const n=pts.length/2;
     for(let k=0;k<pts.length;k+=2){x0=Math.min(x0,pts[k]);x1=Math.max(x1,pts[k]);z0=Math.min(z0,pts[k+1]);z1=Math.max(z1,pts[k+1]);cx+=pts[k];cz+=pts[k+1]}cx/=n;cz/=n;
     const o={i,lv:b[0],kind:b[1],pts,x0,z0,x1,z1,cx,cz,ar:Math.abs(signedArea(pts))};all.push(o);
     for(let a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(let c=Math.floor(z0/C);c<=Math.floor(z1/C);c++){const k=a*100000+c;let L=grid.get(k);if(!L){L=[];grid.set(k,L)}L.push(o)}
@@ -2748,7 +2800,7 @@ const MPX=3,mapC=document.createElement('canvas');mapC.width=Math.ceil((BOX[2]-B
   g.lineCap='round';g.lineJoin='round';
   [7,6,5,4,3,2,1,0].forEach(ty=>{if(ty===7)return;g.strokeStyle=ty<=2?'#fff6d8':ty===6?'#e8d6ac':'#f8efd6';g.lineWidth=RW[ty]*(ty<=2?1.6:1.4);g.beginPath();
     MAP.roads.forEach(r=>{if(r[0]!==ty)return;const p=r[5];g.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)g.lineTo(p[i],p[i+1])});g.stroke()});
-  MAP.buildings.forEach(b=>poly(b[3],'rgba(120,104,80,.55)'));
+  MAP.buildings.forEach((b,i)=>{if(!(TCW.skipMap&&TCW.skipMap.has(i)))poly(b[3],'rgba(120,104,80,.55)')});
   g.strokeStyle='#a88c5a';g.lineWidth=9;MAP.walls.forEach(p=>{g.beginPath();g.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)g.lineTo(p[i],p[i+1]);g.stroke()});
   g.restore()})();
 /* ---------- mapa de toda la ciudad (8 m por píxel) debajo del mapa detallado ---------- */
