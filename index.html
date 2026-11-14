@@ -777,37 +777,151 @@ PORTALS.forEach(p=>{const S=colObj('#c4b08a'),D=colObj('#3a2a1e'),Dk=colObj('#a8
     const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute([...g1.attributes.position.array,...g2.attributes.position.array],3));bg.setAttribute('uv',new THREE.Float32BufferAttribute([...g1.attributes.uv.array,...g2.attributes.uv.array],2));bg.computeVertexNormals();
     instChunks(bg,new THREE.MeshLambertMaterial({map:TX.bougain,alphaTest:.5,side:THREE.DoubleSide}),BOUG.map((q,i)=>({x:q.x,z:q.z,m:place(q.x,q.y,q.z,0,q.yaw,0,.8+hash(i,1)*.5,.8+hash(i,2)*.5,1)})),'boug',false)}
 })();
-/* ---------- city walls of coral stone, with gates where streets pass and garitas on the bastions ---------- */
+/* ---------- murallas de piedra coralina ----------
+   OpenStreetMap dibuja cada tramo como un anillo cerrado: el contorno del cuerpo de la muralla (unos 12 m de grueso en los lienzos,
+   más en los baluartes). Cada anillo se levanta macizo, como en las fotos: cara de afuera en talud con manchas oscuras abajo,
+   cordón de piedra, parapeto redondeado (con cañoneras en los baluartes), adarve enladrillado encima, cara de adentro casi vertical,
+   garitas colgadas de las puntas de los baluartes y túneles abovedados donde una calle atraviesa la muralla. */
 MATS.roof_tile.side=THREE.DoubleSide;
-const WALLC=colObj('#e8dcc4'),WALLTOP=colObj('#cbb995');
-const GARITAS=[];
-MAP.walls.forEach(pts=>{const np=pts.length/2;
-  for(let i=0;i<pts.length-2;i+=2){const ax=pts[i],az=pts[i+1],bx=pts[i+2],bz=pts[i+3];const L=Math.hypot(bx-ax,bz-az);if(L<.5)continue;
-  const n=Math.max(1,Math.ceil(L/4)),dx=(bx-ax)/L,dz=(bz-az)/L,nx=-dz,nz=dx,hw=4.5;
-  for(let k=0;k<n;k++){const s0=k*L/n,s1=(k+1)*L/n,mx=ax+dx*(s0+s1)/2,mz=az+dz*(s0+s1)/2;
-    const rd=nearestRoad(mx,mz,10,s=>!s.walk);const gate=rd&&rd.d<rd.s.w/2+2.5;
-    const p0x=ax+dx*s0,p0z=az+dz*s0,p1x=ax+dx*s1,p1z=az+dz*s1;
-    const c=[[p0x+nx*hw,p0z+nz*hw],[p1x+nx*hw,p1z+nz*hw],[p1x-nx*hw,p1z-nz*hw],[p0x-nx*hw,p0z-nz*hw]];
-    const y0=gate?6:-1,y1=9,b=bucket('coral',mx,mz);
-    for(let q=0;q<4;q++){const A=c[q],B=c[(q+1)%4];const ua=(q%2?0:s0)/4,ub=(q%2?hw*2:s1)/4;quad(b,[A[0],y0,A[1]],[B[0],y0,B[1]],[B[0],y1,B[1]],[A[0],y1,A[1]],[[ua,y0/4],[ub,y0/4],[ub,y1/4],[ua,y1/4]],WALLC)}
-    quadW(bucket('coral',mx,mz),[c[0][0],y1,c[0][1]],[c[3][0],y1,c[3][1]],[c[2][0],y1,c[2][1]],[c[1][0],y1,c[1][1]],4,WALLTOP);
-    // parapet on both edges of the walkway
-    for(const e of [[c[0],c[1]],[c[3],c[2]]]){const A=e[0],B=e[1];const bb=bucket('coral',mx,mz);const ix=(e[0]===c[0]?-nx:nx)*.6,iz=(e[0]===c[0]?-nz:nz)*.6;
-      quad(bb,[A[0],y1,A[1]],[B[0],y1,B[1]],[B[0],y1+1.1,B[1]],[A[0],y1+1.1,A[1]],[[s0/4,0],[s1/4,0],[s1/4,.28],[s0/4,.28]],WALLC);
-      quadW(bb,[A[0],y1+1.1,A[1]],[B[0],y1+1.1,B[1]],[B[0]+ix,y1+1.1,B[1]+iz],[A[0]+ix,y1+1.1,A[1]+iz],4,WALLTOP)}
-    if(gate)quadW(bucket('coral',mx,mz),[c[0][0],y0,c[0][1]],[c[1][0],y0,c[1][1]],[c[2][0],y0,c[2][1]],[c[3][0],y0,c[3][1]],4,WALLTOP);
-    if(!gate)addSolidPoly([c[0][0],c[0][1],c[1][0],c[1][1],c[2][0],c[2][1],c[3][0],c[3][1]])}}
-  // garitas (sentry boxes) at sharp corners of the bastions
-  for(let i=1;i<np-1;i++){const ax=pts[i*2-2],az=pts[i*2-1],bx=pts[i*2],bz=pts[i*2+1],cx=pts[i*2+2],cz=pts[i*2+3];
-    const d1=[bx-ax,bz-az],d2=[cx-bx,cz-bz];const l1=Math.hypot(...d1),l2=Math.hypot(...d2);if(l1<6||l2<6)continue;
-    const cos=(d1[0]*d2[0]+d1[1]*d2[1])/(l1*l2);if(cos>.35)continue;
-    // point outward: away from the bisector of the inner angle
-    let ox=d1[0]/l1-d2[0]/l2,oz=d1[1]/l1-d2[1]/l2;const ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;
-    GARITAS.push([bx+ox*4.2,bz+oz*4.2])}});
-(function(){const C=colObj('#efe4cc'),D=colObj('#2a221c');
-  GARITAS.forEach(([x,z])=>{const y=9;geoInto('coralS',new THREE.CylinderGeometry(1.1,1.1,2.6,10,1,true),C,place(x,y+1.3,z));geoInto('coralS',new THREE.ConeGeometry(1.1,1.4,10,1,true),C,place(x,y-.7,z,Math.PI,0,0));
-    geoInto('coralS',new THREE.SphereGeometry(1.25,10,5,0,TAU,0,Math.PI/2),C,place(x,y+2.6,z));geoInto('coralS',new THREE.SphereGeometry(.22,6,4),C,place(x,y+3.9,z));
-    for(let k=0;k<4;k++){const a=k/4*TAU;geoInto('plain',new THREE.PlaneGeometry(.35,.9),D,place(x+Math.sin(a)*1.12,y+1.6,z+Math.cos(a)*1.12,0,a,0))}})})();
+const WALL_TOP=9,WALL_RINGS=[],GARITAS=[];
+(function(){
+  const STK=colObj('#7a7366'),STM=colObj('#d2c5ab'),STT=colObj('#fbf0d8'),CORD=colObj('#fff6e2'),PAR=colObj('#f4e8cf'),PAV=colObj('#c49c80'),TUN=colObj('#8b8172'),GRS=colObj('#ffffff');
+  const SQ=MAP.squares;
+  const shade=(c,k)=>({r:c.r*k,g:c.g*k,b:c.b*k}),mix=(a,b,t)=>({r:a.r+(b.r-a.r)*t,g:a.g+(b.g-a.g)*t,b:a.b+(b.b-a.b)*t});
+  const prep=p=>{const o=[];for(let i=0;i<p.length;i+=2){const m=o.length;if(m&&Math.hypot(p[i]-o[m-2],p[i+1]-o[m-1])<.8)continue;o.push(p[i],p[i+1])}
+    while(o.length>6&&Math.hypot(o[0]-o[o.length-2],o[1]-o[o.length-1])<.8)o.splice(-2,2);
+    if(signedArea(o)<0){const q=[];for(let i=o.length/2-1;i>=0;i--)q.push(o[i*2],o[i*2+1]);return q}return o};
+  // contorno con cada lado metido hacia adentro su propia distancia d[i] (lado i va del vértice i al i+1)
+  const insetE=(p,d)=>{const n=p.length/2,o=[];for(let i=0;i<n;i++){const h=(i+n-1)%n,j=(i+1)%n,ax=p[h*2],az=p[h*2+1],bx=p[i*2],bz=p[i*2+1],qx=p[j*2],qz=p[j*2+1];
+    const l1=Math.hypot(bx-ax,bz-az)||1,l2=Math.hypot(qx-bx,qz-bz)||1,n1x=-(bz-az)/l1,n1z=(bx-ax)/l1,n2x=-(qz-bz)/l2,n2z=(qx-bx)/l2,d1=d[h],d2=d[i];
+    const det=n1x*n2z-n1z*n2x,c1=d1,c2=d2;let mx,mz;
+    if(Math.abs(det)<.15){let ax2=n1x+n2x,az2=n1z+n2z;const al=Math.hypot(ax2,az2);if(al<1e-3){ax2=n1x;az2=n1z}else{ax2/=al;az2/=al}mx=ax2*(d1+d2)/2;mz=az2*(d1+d2)/2}
+    else{mx=(c1*n2z-c2*n1z)/det;mz=(n1x*c2-n2x*c1)/det}
+    const ml=Math.hypot(mx,mz),lim=2.4*Math.max(d1,d2);if(ml>lim){mx*=lim/ml;mz*=lim/ml}o.push(bx+mx,bz+mz)}return o};
+  // edificios cerca: lado de la ciudad
+  const BG=new Map();MAP.buildings.forEach(b=>{const p=b[3];let x=0,z=0;for(let i=0;i<p.length;i+=2){x+=p[i];z+=p[i+1]}x/=p.length/2;z/=p.length/2;const k=Math.floor(x/20)+'|'+Math.floor(z/20);BG.set(k,(BG.get(k)||0)+1)});
+  const bNear=(x,z)=>{let c=0;const i0=Math.floor(x/20),j0=Math.floor(z/20);for(let i=i0-1;i<=i0+1;i++)for(let j=j0-1;j<=j0+1;j++)c+=BG.get(i+'|'+j)||0;return c};
+  // la Boca del Puente la levanta torreDelReloj
+  const T=TORRE,inTorre=(x,z)=>{const a=(x-T.S[0])*T.u[0]+(z-T.S[1])*T.u[1],b=(x-T.S[0])*T.n[0]+(z-T.S[1])*T.n[1];return a>-1&&a<T.L+1&&Math.abs(b)<T.hw+1.5};
+  // calles (no peatonales) para buscar dónde cruzan
+  const RD=[];{const seen=new Set();for(const a of roadSegs.values())for(const s of a){if(seen.has(s)||s.walk)continue;seen.add(s);RD.push(s)}}
+  const segX=(ax,az,bx,bz,cx,cz,dx,dz)=>{const rx=bx-ax,rz=bz-az,sx=dx-cx,sz=dz-cz,den=rx*sz-rz*sx;if(Math.abs(den)<1e-9)return null;const t=((cx-ax)*sz-(cz-az)*sx)/den,u=((cx-ax)*rz-(cz-az)*rx)/den;return t>=0&&t<=1&&u>=0&&u<=1?[t,u]:null};
+  const triO=(b,P,U,C,want)=>{const e1=[P[1][0]-P[0][0],P[1][1]-P[0][1],P[1][2]-P[0][2]],e2=[P[2][0]-P[0][0],P[2][1]-P[0][1],P[2][2]-P[0][2]];
+    const nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];const ord=nx*want[0]+ny*want[1]+nz*want[2]<0?[0,2,1]:[0,1,2];
+    for(const i of ord){b.p.push(P[i][0],P[i][1],P[i][2]);b.u.push(U[i][0],U[i][1]);b.c.push(C[i].r,C[i].g,C[i].b)}};
+  let nGates=0;
+  MAP.walls.forEach((raw,ri)=>{const p=prep(raw),n=p.length/2;if(n<3)return;
+    let gmin=1e9,gmax=-1e9;for(let i=0;i<n;i++){const g=groundRaw(p[i*2],p[i*2+1]);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g)}
+    const y0=gmin-1.2,y1=Math.max(WALL_TOP,gmax+7.5),H=y1-y0;
+    // cada lado: largo, dirección, normal hacia adentro, si mira afuera (foso, mar, avenida) o a la ciudad, y el grueso de muralla detrás
+    const E=[];for(let i=0;i<n;i++){const j=(i+1)%n,ax=p[i*2],az=p[i*2+1],bx=p[j*2],bz=p[j*2+1],L=Math.hypot(bx-ax,bz-az)||1,dx=(bx-ax)/L,dz=(bz-az)/L,nx=-dz,nz=dx,mx=(ax+bx)/2,mz=(az+bz)/2;
+      let th=0;while(th<70&&inPoly(p,mx+nx*(th+.5),mz+nz*(th+.5)))th+=.5;
+      const water=isWater(mx-nx*14,mz-nz*14)||isWater(mx-nx*35,mz-nz*35);const out=water||bNear(mx-nx*20,mz-nz*20)<3;
+      E.push({i,j,ax,az,bx,bz,L,dx,dz,nx,nz,th:Math.max(th,1),out,wide:th>17,bat:out?.2:.05})}
+    const top=insetE(p,E.map(e=>e.bat*H));WALL_RINGS.push({p,top,y1});
+    // punto de la cara del lado e a la distancia s del vértice y a la altura y (lineal en s: interpola entre el borde de abajo y el de arriba)
+    const FB=(e,f)=>{const tx=top[e.i*2],tz=top[e.i*2+1],ux=top[e.j*2],uz=top[e.j*2+1];return{bx:e.ax+(tx-e.ax)*f,bz:e.az+(tz-e.az)*f,dx:((e.bx-e.ax)+((ux-tx)-(e.bx-e.ax))*f)/e.L,dz:((e.bz-e.az)+((uz-tz)-(e.bz-e.az))*f)/e.L}};
+    const F=(e,s,y)=>{const f=(y-y0)/H,q=FB(e,f);return[q.bx+q.dx*s,y,q.bz+q.dz*s]};
+    // s donde la recta (px,pz)+(ux,uz)t corta la cara del lado e a la altura y
+    const sAt=(e,y,px,pz,ux,uz)=>{const q=FB(e,(y-y0)/H),den=q.dx*uz-q.dz*ux;if(Math.abs(den)<1e-6)return null;return((px-q.bx)*uz-(pz-q.bz)*ux)/den};
+    const colY=(y,k)=>{const t=(y-y0)/H;return t<.28?mix(shade(STK,k),shade(STM,k),t/.28):mix(shade(STM,k),shade(STT,k),Math.min(1,(t-.28)/.5))};
+    // calles que cruzan: entrada por un lado, salida por otro (túnel)
+    const G=E.map(()=>[]);const cross=[];
+    for(const s of RD){if(Math.max(s.ax,s.bx)<Math.min(...p.filter((_,k)=>!(k&1)))-5)continue;
+      for(const e of E){const r=segX(s.ax,s.az,s.bx,s.bz,e.ax,e.az,e.bx,e.bz);if(r)cross.push({s,e,x:s.ax+(s.bx-s.ax)*r[0],z:s.az+(s.bz-s.az)*r[0]})}}
+    const used=new Set();
+    for(const c of cross){if(used.has(c))continue;used.add(c);const s=c.s,e=c.e;if(inTorre(c.x,c.z))continue;
+      let ux=s.bx-s.ax,uz=s.bz-s.az;const ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;if(ux*e.nx+uz*e.nz<0){ux=-ux;uz=-uz}
+      const cosI=ux*e.nx+uz*e.nz;if(cosI<.35)continue;
+      let t=.3;while(t<45&&inPoly(p,c.x+ux*t,c.z+uz*t))t+=.3;if(t>=45||t<2)continue;
+      const qx=c.x+ux*t,qz=c.z+uz*t;let e2=null,bd=4;for(const f of E){if(f===e)continue;const ex=f.bx-f.ax,ez=f.bz-f.az,l2=ex*ex+ez*ez;const k=clamp(((qx-f.ax)*ex+(qz-f.az)*ez)/l2,0,1),d=Math.hypot(f.ax+ex*k-qx,f.az+ez*k-qz);if(d<bd){bd=d;e2=f}}
+      if(!e2||-(ux*e2.nx+uz*e2.nz)<.35)continue;
+      for(const o of cross)if(!used.has(o)&&Math.hypot(o.x-qx,o.z-qz)<6)used.add(o);
+      const hw=clamp((s.w||7)/2+.6,2.2,5.5),gy=groundRaw(c.x,c.z),crown=Math.min(gy+6.4,y1-1.6),spring=Math.max(gy+2.8,crown-hw);
+      // perfil del túnel: (desplazamiento lateral, altura) de abajo a la izquierda, por la bóveda, a abajo a la derecha
+      const PR=[[-hw,y0]];const NA=10;for(let k=0;k<=NA;k++){const a=Math.PI-k/NA*Math.PI;PR.push([Math.cos(a)*hw,spring+Math.sin(a)*(crown-spring)])}PR.push([hw,y0]);
+      const vx=-uz,vz=ux;const sides=[];
+      let ok=true;for(const [f,dir] of [[e,1],[e2,-1]]){const S=PR.map(([l,y])=>sAt(f,y,c.x+vx*l,c.z+vz*l,ux,uz));if(S.some(v=>v===null||v<.4||v>f.L-.4)){ok=false;break}
+        const lo=Math.min(...S)-1.2,hi=Math.max(...S)+1.2;if(G[f.i].some(g=>!(hi<g.lo||lo>g.hi))){ok=false;break}sides.push({f,S,lo:Math.max(0,lo),hi:Math.min(f.L,hi)})}
+      if(!ok)continue;nGates++;
+      for(const sd of sides)G[sd.f.i].push({lo:sd.lo,hi:sd.hi,S:sd.S,PR,gl:Math.min(sd.S[0],sd.S[sd.S.length-1]),gr:Math.max(sd.S[0],sd.S[sd.S.length-1])});
+      // bóveda y paredes del túnel, de cara a cara
+      const [A,B]=sides,b=bucket('coral',(c.x+qx)/2,(c.z+qz)/2);let ua=0;
+      for(let k=0;k<PR.length-1;k++){const P0=F(A.f,A.S[k],PR[k][1]),P1=F(A.f,A.S[k+1],PR[k+1][1]),Q0=F(B.f,B.S[k],PR[k][1]),Q1=F(B.f,B.S[k+1],PR[k+1][1]);
+        const ml=(PR[k][0]+PR[k+1][0])/2,my=(PR[k][1]+PR[k+1][1])/2,want=[-vx*ml,(spring-my)*.5+.01,-vz*ml];const seg=Math.hypot(PR[k+1][0]-PR[k][0],PR[k+1][1]-PR[k][1])/4,len=t/4;
+        const c0=shade(TUN,PR[k][1]<gy+1.5?.75:1),c1=shade(TUN,PR[k+1][1]<gy+1.5?.75:1);
+        triO(b,[P0,P1,Q1],[[ua,0],[ua+seg,0],[ua+seg,len]],[c0,c1,c1],want);triO(b,[P0,Q1,Q0],[[ua,0],[ua+seg,len],[ua,len]],[c0,c1,c0],want);ua+=seg}
+      // que no se pueda atravesar la muralla por los lados del túnel
+      for(const sg of [-1,1]){const l0=sg*hw,l1=sg*(hw+1.6);addSolidPoly([c.x+vx*l0,c.z+vz*l0,qx+vx*l0,qz+vz*l0,qx+vx*l1,qz+vz*l1,c.x+vx*l1,c.z+vz*l1])}}
+    // caras
+    for(const e of E){const gates=G[e.i].sort((a,b)=>a.lo-b.lo),want=[-e.nx,0,-e.nz],k0=.82+.3*hash(ri*31+e.i,7);
+      const solid=[];let s=0;for(const g of gates){if(g.lo>s)solid.push([s,g.lo]);s=g.hi}if(s<e.L)solid.push([s,e.L]);
+      for(const [a,bnd] of solid){const m=Math.max(1,Math.round((bnd-a)/5));for(let q=0;q<m;q++){const s0=a+(bnd-a)*q/m,s1=a+(bnd-a)*(q+1)/m;const mx=e.ax+e.dx*(s0+s1)/2,mz=e.az+e.dz*(s0+s1)/2;if(inTorre(mx,mz))continue;
+        const k=k0*(.86+.24*hash(Math.round(mx*3),Math.round(mz*3))),kb=k*(.8+.3*hash(Math.round(mz*5),Math.round(mx*5))),b=bucket('coral',mx,mz),ys=y0+H*.28,u0=s0/4,u1=s1/4;
+        const a0=F(e,s0,y0),a1=F(e,s1,y0),m0=F(e,s0,ys),m1=F(e,s1,ys),t0=F(e,s0,y1),t1=F(e,s1,y1),cB=shade(STK,kb),cM=shade(STM,(k+kb)/2),cT=shade(STT,k);
+        triO(b,[a0,a1,m1],[[u0,y0/4],[u1,y0/4],[u1,ys/4]],[cB,cB,cM],want);triO(b,[a0,m1,m0],[[u0,y0/4],[u1,ys/4],[u0,ys/4]],[cB,cM,cM],want);
+        triO(b,[m0,m1,t1],[[u0,ys/4],[u1,ys/4],[u1,y1/4]],[cM,cM,cT],want);triO(b,[m0,t1,t0],[[u0,ys/4],[u1,y1/4],[u0,y1/4]],[cM,cT,cT],want);
+        // colisión: franja maciza detrás de la cara (no más que el grueso de la muralla)
+        const dd=Math.min(7,e.th-.2);addSolidPoly([a0[0],a0[2],a1[0],a1[2],a1[0]+e.nx*dd,a1[2]+e.nz*dd,a0[0]+e.nx*dd,a0[2]+e.nz*dd]);
+        // prado del foso al pie de la cara de afuera, hasta la calle, el agua, un edificio o una plaza
+        if(e.out){const ext=[s0,s1].map(sv=>{const fx=e.ax+e.dx*sv,fz=e.az+e.dz*sv;let d=0;for(;d<26;d+=1){const x=fx-e.nx*(d+1),z=fz-e.nz*(d+1);
+            if(solidAt(x,z)||isWater(x,z)&&(d>=20||isWater(x-e.nx*14,z-e.nz*14)))break;const r=nearestRoad(x,z,12);if(r&&r.d<(r.s.w||4)/2+1)break;let sq=false;for(const P of SQ)if(inPoly(P,x,z)){sq=true;break}if(sq)break}return d});
+          if(ext[0]>1.5&&ext[1]>1.5){const P=(sv,d)=>{const x=e.ax+e.dx*sv-e.nx*d,z=e.az+e.dz*sv-e.nz*d;return[x,ground(x,z)+.05,z]};const gb=bucket('grass',mx,mz);
+            const A=P(s0,0),B=P(s1,0),C=P(s1,ext[1]),D=P(s0,ext[0]);triO(gb,[A,B,C],[[A[0]/5,A[2]/5],[B[0]/5,B[2]/5],[C[0]/5,C[2]/5]],[GRS,GRS,GRS],[0,1,0]);triO(gb,[A,C,D],[[A[0]/5,A[2]/5],[C[0]/5,C[2]/5],[D[0]/5,D[2]/5]],[GRS,GRS,GRS],[0,1,0])}}}}
+      // la cara sobre cada arco
+      for(const g of gates){const S=g.S,PR=g.PR,C=[[g.lo,y0]];const lr=S[0]<S[S.length-1];const idx=PR.map((_,k)=>k);if(!lr)idx.reverse();
+        for(const k of idx)C.push([S[k],PR[k][1]]);C.push([g.hi,y0],[g.hi,y1],[g.lo,y1]);
+        const V=C.map(([x,y])=>new THREE.Vector2(x,y));let tr;try{tr=THREE.ShapeUtils.triangulateShape(V,[])}catch(err){tr=[]}
+        const mx=e.ax+e.dx*(g.lo+g.hi)/2,mz=e.az+e.dz*(g.lo+g.hi)/2,b=bucket('coral',mx,mz);
+        for(const q of tr){const P=q.map(i=>F(e,C[i][0],C[i][1]));triO(b,P,q.map(i=>[C[i][0]/4,C[i][1]/4]),q.map(i=>colY(C[i][1],k0)),want)}
+        // dovelas: un aro de piedra clara alrededor del arco
+        const CL=colObj('#efe6d2');for(let k=1;k<PR.length-2;k++){const i0=k,i1=k+1;const P0=F(e,S[i0],PR[i0][1]),P1=F(e,S[i1],PR[i1][1]);
+          const o0=[P0[0]-e.nx*.12,P0[1],P0[2]-e.nz*.12],o1=[P1[0]-e.nx*.12,P1[1],P1[2]-e.nz*.12];const r0=(PR[i0][1]-y0),r1=(PR[i1][1]-y0);
+          const up0=[o0[0],o0[1]+.55,o0[2]],up1=[o1[0],o1[1]+.55,o1[2]];if(r0<0||r1<0)continue;
+          triO(b,[o0,o1,up1],[[0,0],[.3,0],[.3,.15]],[CL,CL,CL],want);triO(b,[o0,up1,up0],[[0,0],[.3,.15],[0,.15]],[CL,CL,CL],want)}}}
+    // adarve: piso enladrillado arriba
+    {const V=[];for(let i=0;i<n;i++)V.push(new THREE.Vector2(top[i*2],top[i*2+1]));let tr;try{tr=THREE.ShapeUtils.triangulateShape(V,[])}catch(err){tr=[]}
+      for(const q of tr){const a=V[q[0]],bb=V[q[1]],c=V[q[2]],cx=(a.x+bb.x+c.x)/3,cz=(a.y+bb.y+c.y)/3;if(inTorre(cx,cz))continue;const k=.9+.15*hash(Math.round(cx/9),Math.round(cz/9));
+        triO(bucket('stone',cx,cz),[[a.x,y1,a.y],[bb.x,y1,bb.y],[c.x,y1,c.y]],[[a.x/2.5,a.y/2.5],[bb.x/2.5,bb.y/2.5],[c.x/2.5,c.y/2.5]],[shade(PAV,k),shade(PAV,k),shade(PAV,k)],[0,1,0])}}
+    // parapeto: por fuera alto, redondeado, con cañoneras en los baluartes; por dentro un pretil bajo
+    const PT=E.map(e=>e.out?1:.55),q=insetE(top,PT);
+    for(const e of E){const ax=top[e.i*2],az=top[e.i*2+1],bx=top[e.j*2],bz=top[e.j*2+1],L=Math.hypot(bx-ax,bz-az);if(L<.3)continue;
+      const ix0=q[e.i*2],iz0=q[e.i*2+1],ix1=q[e.j*2],iz1=q[e.j*2+1],h=e.out?1.3:.75,bay=e.out&&e.wide&&L>9?5.5:0,m=bay?Math.round(L/bay):0,gw=Math.min(.42,1.2*m/Math.max(L,1));
+      const parts=[];if(!m)parts.push([0,1,h]);else for(let s=0;s<m;s++){const t0=s/m,t1=(s+1)/m,tc=t1-gw/m;parts.push([t0,tc,h],[tc,t1,.45])}
+      const want=[-e.nx,0,-e.nz],wIn=[e.nx,0,e.nz];
+      for(const [t0,t1,hh] of parts){const O0=[ax+(bx-ax)*t0,az+(bz-az)*t0],O1=[ax+(bx-ax)*t1,az+(bz-az)*t1],I0=[ix0+(ix1-ix0)*t0,iz0+(iz1-iz0)*t0],I1=[ix0+(ix1-ix0)*t1,iz0+(iz1-iz0)*t1];
+        if(inTorre((O0[0]+O1[0])/2,(O0[1]+O1[1])/2))continue;const b=bucket('coral',(O0[0]+O1[0])/2,(O0[1]+O1[1])/2),u0=L*t0/4,u1=L*t1/4,yt=y1+hh,v1=hh/4,c=shade(PAR,.9+.15*hash(Math.round(O0[0]),Math.round(O0[1])));
+        triO(b,[[O0[0],y1,O0[1]],[O1[0],y1,O1[1]],[O1[0],yt,O1[1]]],[[u0,0],[u1,0],[u1,v1]],[c,c,c],want);triO(b,[[O0[0],y1,O0[1]],[O1[0],yt,O1[1]],[O0[0],yt,O0[1]]],[[u0,0],[u1,v1],[u0,v1]],[c,c,c],want);
+        const ci=shade(c,.88);triO(b,[[I0[0],y1,I0[1]],[I1[0],y1,I1[1]],[I1[0],yt,I1[1]]],[[u0,0],[u1,0],[u1,v1]],[ci,ci,ci],wIn);triO(b,[[I0[0],y1,I0[1]],[I1[0],yt,I1[1]],[I0[0],yt,I0[1]]],[[u0,0],[u1,v1],[u0,v1]],[ci,ci,ci],wIn);
+        // remate redondeado: dos planos inclinados hacia una arista central un poco más alta
+        const M0=[(O0[0]+I0[0])/2,yt+.18,(O0[1]+I0[1])/2],M1=[(O1[0]+I1[0])/2,yt+.18,(O1[1]+I1[1])/2],ct=CORD;
+        triO(b,[[O0[0],yt,O0[1]],[O1[0],yt,O1[1]],M1],[[u0,0],[u1,0],[u1,.12]],[ct,ct,ct],[-e.nx,1,-e.nz]);triO(b,[[O0[0],yt,O0[1]],M1,M0],[[u0,0],[u1,.12],[u0,.12]],[ct,ct,ct],[-e.nx,1,-e.nz]);
+        triO(b,[[I0[0],yt,I0[1]],[I1[0],yt,I1[1]],M1],[[u0,0],[u1,0],[u1,.12]],[ct,ct,ct],[e.nx,1,e.nz]);triO(b,[[I0[0],yt,I0[1]],M1,M0],[[u0,0],[u1,.12],[u0,.12]],[ct,ct,ct],[e.nx,1,e.nz]);
+        if(hh<h)for(const [P,Q,sg] of [[O0,I0,1],[O1,I1,-1]]){const cc=shade(PAR,.75),w=[e.dx*sg,0,e.dz*sg];
+          triO(b,[[P[0],y1+hh,P[1]],[Q[0],y1+hh,Q[1]],[Q[0],y1+h,Q[1]]],[[0,0],[.25,0],[.25,.2]],[cc,cc,cc],w);triO(b,[[P[0],y1+hh,P[1]],[Q[0],y1+h,Q[1]],[P[0],y1+h,P[1]]],[[0,0],[.25,.2],[0,.2]],[cc,cc,cc],w)}}
+      // cordón de piedra: moldura redonda que corre por debajo del parapeto en la cara de afuera
+      if(e.out){const cy0=y1-.6,cy1=y1-.12,o=.32,f0=(cy0-y0)/H,f1=(cy1-y0)/H;const m2=Math.max(1,Math.round(e.L/8));
+        for(let k=0;k<m2;k++){const s0=e.L*k/m2,s1=e.L*(k+1)/m2;const A0=F(e,s0,cy0),A1=F(e,s1,cy0),B0=F(e,s0,cy1),B1=F(e,s1,cy1);if(inTorre((A0[0]+A1[0])/2,(A0[2]+A1[2])/2))continue;
+          const ox=-e.nx*o,oz=-e.nz*o,b=bucket('coral',A0[0],A0[2]);const Om=(P,dy)=>[P[0]+ox,P[1]+dy,P[2]+oz];
+          triO(b,[Om(A0,.12),Om(A1,.12),Om(B1,-.1)],[[s0/4,0],[s1/4,0],[s1/4,.12]],[CORD,CORD,CORD],[-e.nx,0,-e.nz]);triO(b,[Om(A0,.12),Om(B1,-.1),Om(B0,-.1)],[[s0/4,0],[s1/4,.12],[s0/4,.12]],[CORD,CORD,CORD],[-e.nx,0,-e.nz]);
+          const cu=shade(CORD,1.05);triO(b,[Om(B0,-.1),Om(B1,-.1),B1],[[0,0],[1,0],[1,.1]],[cu,cu,cu],[-e.nx,1,-e.nz]);triO(b,[Om(B0,-.1),B1,B0],[[0,0],[1,.1],[0,.1]],[cu,cu,cu],[-e.nx,1,-e.nz]);
+          const cd=shade(CORD,.7);triO(b,[A0,A1,Om(A1,.12)],[[0,0],[1,0],[1,.1]],[cd,cd,cd],[-e.nx,-1,-e.nz]);triO(b,[A0,Om(A1,.12),Om(A0,.12)],[[0,0],[1,.1],[0,.1]],[cd,cd,cd],[-e.nx,-1,-e.nz])}}}
+    // garitas: en las puntas agudas de los baluartes que miran afuera
+    for(let i=0;i<n;i++){const e1=E[(i+n-1)%n],e2=E[i];if(!e1.out||!e2.out||e1.L<9||e2.L<9)continue;
+      const cr=e1.dx*e2.dz-e1.dz*e2.dx;if(cr<=0)continue;if(e1.dx*e2.dx+e1.dz*e2.dz>.3)continue;
+      let ox=e1.dx-e2.dx,oz=e1.dz-e2.dz;const ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;const x=top[i*2]+ox*.35,z=top[i*2+1]+oz*.35;if(inTorre(x,z))continue;GARITAS.push([x,z,y1])}
+  });
+  window.__walls={rings:WALL_RINGS.length,gates:nGates,garitas:GARITAS.length};
+})();
+// garita de Cartagena: torreón redondo con cúpula y bola, colgado de la punta del baluarte sobre una ménsula en cono
+(function(){const C=colObj('#ece1c9'),D=colObj('#2a221c');
+  GARITAS.forEach(([x,z,y])=>{y+=.2;geoInto('coralS',new THREE.CylinderGeometry(1.05,1.05,2.5,12,1,true),C,place(x,y+1.25,z));geoInto('coralS',new THREE.ConeGeometry(1.05,1.5,12,1,true),C,place(x,y-.75,z,Math.PI,0,0));
+    geoInto('coralS',new THREE.CylinderGeometry(1.25,1.25,.25,12),C,place(x,y+2.55,z));geoInto('coralS',new THREE.SphereGeometry(1.15,12,6,0,TAU,0,Math.PI/2),C,place(x,y+2.65,z));
+    geoInto('coralS',new THREE.CylinderGeometry(.14,.2,.35,6),C,place(x,y+3.9,z));geoInto('coralS',new THREE.SphereGeometry(.24,8,5),C,place(x,y+4.2,z));
+    for(let k=0;k<4;k++){const a=k/4*TAU+Math.PI/4;geoInto('plain',new THREE.PlaneGeometry(.3,.85),D,place(x+Math.sin(a)*1.07,y+1.5,z+Math.cos(a)*1.07,0,a,0))}})})();
+// punto del adarve más cercano a (x,z), metido hacia el centro de la muralla (para poner cosas encima)
+function wallTopNear(x,z,maxD){let best=null;for(const r of WALL_RINGS){const t=r.top,n=t.length/2;for(let i=0;i<n;i++){const j=(i+1)%n,ax=t[i*2],az=t[i*2+1],dx=t[j*2]-ax,dz=t[j*2+1]-az,l2=dx*dx+dz*dz||1;
+  const k=clamp(((x-ax)*dx+(z-az)*dz)/l2,0,1),qx=ax+dx*k,qz=az+dz*k,d=Math.hypot(qx-x,qz-z);if(d<maxD&&(!best||d<best.d)){const L=Math.sqrt(l2);best={d,x:qx-dz/L*3,z:qz+dx/L*3,ux:dx/L,uz:dz/L,y:r.y1}}}}return best}
 
 /* ---------- landmarks ---------- */
 const LM=[];
@@ -1116,10 +1230,10 @@ function freeSpot(x,z,clear){if(solidAt(x,z)||!onLand(x,z)){let best=null;for(le
   add(S,b,-.25,1.25,1.35,.4,.36,.9);             // pierna
   addSolidPoly([x-1.6,z-1.6,x+1.6,z-1.6,x+1.6,z+1.6,x-1.6,z+1.6])})();
 /* Café del Mar, sobre el Baluarte de Santo Domingo: mesas con parasoles blancos encima de la muralla */
-(function(){const l=LM.byName('Café del Mar');if(!l)return;let best=null;
-  MAP.walls.forEach(p=>{for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],dx=p[i+2]-ax,dz=p[i+3]-az,l2=dx*dx+dz*dz||1;const t=clamp(((l.x-ax)*dx+(l.z-az)*dz)/l2,0,1);const qx=ax+dx*t,qz=az+dz*t,d=Math.hypot(qx-l.x,qz-l.z);if(d<40&&(!best||d<best.d))best={d,x:qx,z:qz,ux:dx/Math.sqrt(l2),uz:dz/Math.sqrt(l2)}}});
+(function(){const l=LM.byName('Café del Mar');if(!l)return;
+  const best=wallTopNear(l.x,l.z,60);
   if(!best)return;const cloth=new THREE.MeshLambertMaterial({color:'#f7f4ec',side:THREE.DoubleSide}),pole=mat('#5b4634'),tab=mat('#e9e2d2');
-  for(let k=-3;k<=3;k++){const px=best.x+best.ux*k*4.2,pz=best.z+best.uz*k*4.2,py=9;
+  for(let k=-3;k<=3;k++){const px=best.x+best.ux*k*4.2,pz=best.z+best.uz*k*4.2,py=best.y;
     const u=new THREE.Mesh(new THREE.ConeGeometry(1.7,.7,10,1,true),cloth);u.position.set(px,py+2.6,pz);scene.add(u);
     const pl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.6,6),pole);pl.position.set(px,py+1.3,pz);scene.add(pl);
     const tb=new THREE.Mesh(new THREE.CylinderGeometry(.6,.6,.06,12),tab);tb.position.set(px,py+.75,pz);tb.castShadow=true;scene.add(tb)}
