@@ -654,6 +654,8 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
 {const O=window.CIUDAD_OSM;if(O&&O.bld){const at=(x,z,amin)=>{let best=null,bd=30;for(const b of O.bld){const p=b[2];if(p.length<8)continue;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1]}cx/=p.length/2;cz/=p.length/2;
     const d=Math.hypot(cx-x,cz-z);if(d<bd&&Math.abs(signedArea(p))>amin){bd=d;best=p}}return best};
   const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing});
+  // Éxito Cartagena: su edificio real de ciudad-osm.js, al otro lado de la Av. Pedro de Heredia, frente a La Castellana; el modelo está en construirSitios
+  const exi=at(6906,3004,9000);if(exi)SIT.push({n:'Éxito Cartagena',k:'exito',x:6902,z:3074,p:exi});
   // Hospital Universitario del Caribe (Zaragocilla): su planta real de ciudad-osm.js (10 pisos en OpenStreetMap); el modelo está en construirSitios
   const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
 // Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
@@ -1578,6 +1580,93 @@ function construirSitios(){
     const door=fP(eP,eP.L/2,3.5),wall=fP(eP,eP.L/2,1.2);
     MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eP.nx,nz:eP.nz,len:16,yaw:eP.yaw,gy,type:'mall',name:s.n,mall:true,custom:true});
     addLM(s.n,s.x,s.z,26,1,door[0],door[1]);icon('mall',door[0],door[1],s.n)}
+  /* Éxito Cartagena (Av. Pedro de Heredia, del lado norte, frente al C.C. Paseo de La Castellana), modelado a partir de fotos sobre su planta
+     real de OpenStreetMap: el portal amarillo de la esquina con el logo «éxito» en sus dos caras, abierto por debajo, y la escalinata que le da
+     la vuelta; la fachada larga de ladrillo con el alero, la franja de vidrio con persianas, la baranda y el letrero verde de Dollarcity; al otro
+     extremo el cubo amarillo con Smart Fit y Dollarcity sobre las bocas del parqueadero («salida»); al frente la bahía de taxis con los toldos de
+     Droguerías Cafam y los bolardos rojos y blancos, y hacia la Carrera 69 la plazoleta de ladrillo con palmeras y arbustos */
+  function exito(s,P){
+    const gy=minG(P),H=12.2,YEL='#f6c40c',BR='#8f4f3b',WH='#ecebe5',CON='#d9d6cf',W=16,D=13,R=2.6,K=9,RISE=.2,TR=.38,RUN=K*TR,UP=K*RISE;
+    // marco de la fachada de la avenida: s de oeste a este, o hacia la avenida (sur)
+    let x0=1e9,x1=-1e9,zS=-1e9,zN=1e9;for(let i=0;i<P.length;i+=2){x0=Math.min(x0,P[i]);x1=Math.max(x1,P[i]);zS=Math.max(zS,P[i+1]);zN=Math.min(zN,P[i+1])}
+    const eF=fr(x1,zS,x0,zS,null),L=eF.L,E0=L-24,eW=fr(x0,zS+.6,x0,zS-D-.4,null),eI=fr(x0+W,zS-R,x0+W,zS-D,null);
+    // la planta de OpenStreetMap con el frente recogido bajo el alero y la esquina abierta debajo del portal
+    const Q=[];for(let i=0;i<P.length;i+=2)if(P[i+1]<zS-20)Q.push(P[i],P[i+1]);Q.push(...fP(eF,L,-R),...fP(eF,W,-R),...fP(eF,W,-D),...fP(eF,0,-D));
+    const B=ccw(Q);band(B,gy-2,gy+H,'plain',colObj(BR),0,1,1,false);ring(B,gy+H-.05,gy+H+.6,0,colObj('#d8d2c6'),'plain');flatRoof(B,gy+H+.3,'plain',colObj('#9c9a94'),6);
+    addSolidPoly(P);addSpecial(P);
+    // en el techo: equipos de aire acondicionado y claraboyas
+    for(let i=0;i<14;i++){const a=8+hash(i,63)*(L-16),o=-D-8-hash(i,64)*(zS-zN-D-16),p=fP(eF,a,o);if(!inPoly(B,p[0],p[1]))continue;
+      if(i%3)fbox(eF,gy,a-1.6,a+1.6,H+.3,H+1.9,o-1.1,o+1.1,'#b9bcbc');else fbox(eF,gy,a-4,a+4,H+.3,H+.9,o-1.4,o+1.4,'#cfe0e6')}
+    const brickM=smat(ctex(256,256,(g,w,h)=>{g.fillStyle='#cfc4b6';g.fillRect(0,0,w,h);let sd=7;const Rn=()=>(sd=(sd*16807)%2147483647)/2147483647,bh=h/14,bw=w/4;
+      for(let r=0;r<14;r++)for(let c=-1;c<4;c++){g.fillStyle=`hsl(${11+Rn()*9},${36+Rn()*16}%,${31+Rn()*12}%)`;g.fillRect(c*bw+(r%2?bw/2:0)+2,r*bh+2,bw-4,bh-3)}},true));
+    // ladrillo a la vista en los costados y atrás
+    for(const e of fEdges(B)){if(e.L<3||e.mz-zS>-D-.5)continue;fmesh(e,gy,e.L/2,(H-1)/2,.04,e.L,H+1,brickM,e.L/1.2,(H+1)/1.2)}
+    // el alero de ladrillo sobre la franja de vidrio, su remate claro y el plafón oscuro
+    fbox(eF,gy,W,L,7.6,H,-R,0,BR);fmesh(eF,gy,(W+L)/2,(7.6+H)/2,.03,L-W,H-7.6,brickM,(L-W)/1.2,(H-7.6)/1.2);
+    fbox(eF,gy,W,L+.15,H,H+.6,-R,.15,'#d8d2c6');fbox(eF,gy,W,L,7.3,7.6,-R,0,'#4b4b48');
+    const glassM=smat(ctex(128,128,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#e3e8e9');gr.addColorStop(.5,'#bcc6ca');gr.addColorStop(1,'#93a0a6');g.fillStyle=gr;g.fillRect(0,0,w,h);
+      g.fillStyle='rgba(255,255,255,.4)';for(let x=7;x<w;x+=10)g.fillRect(x,6,5,h-8);g.fillStyle='#585e62';g.fillRect(0,0,w,5);g.fillRect(0,h/2-2,w,4);g.fillRect(0,0,5,h)},true),{emissive:'#1e2326'});
+    fmesh(eF,gy,(W+E0)/2,(1.8+7.3)/2,-R+.05,E0-W,5.5,glassM,(E0-W)/2.4,1);fmesh(eF,gy,(E0+L)/2,(4+7.3)/2,-R+.05,L-E0,3.3,glassM,(L-E0)/2.4,.6);
+    // el pretil blanco de la terraza con su baranda
+    fbox(eF,gy,W,E0,-.6,1.8,-R,0,WH);fbox(eF,gy,W,E0,1.8,1.85,-R,0,'#bdb7ad');
+    for(let x=W+.3;x<=E0;x+=1.6)fbox(eF,gy,x-.04,x+.04,1.8,2.8,-.26,-.18,'#c3c7c9');fbox(eF,gy,W,E0,2.75,2.85,-.28,-.16,'#c3c7c9');fbox(eF,gy,W,E0,2.28,2.33,-.25,-.19,'#c3c7c9');
+    // el parqueadero del extremo este: bocas oscuras con sus persianas enrolladas, columnas, viga y el aviso de «salida»
+    fpane(eF,gy,(E0+L)/2,1.7,L-E0,3.4,-R+.04,'#26292b');fbox(eF,gy,E0,L,3.4,4,-R,0,CON);
+    for(let i=0;i<=4;i++){const x=E0+i*(L-E0)/4;fbox(eF,gy,x-.35,x+.35,-.5,3.4,-R,-.15,CON);if(i<4)fbox(eF,gy,x+.35,x+(L-E0)/4-.35,2.95,3.4,-R+.1,-R+.5,'#9fa3a5')}
+    fmesh(eF,gy,E0+4,3.7,.03,3.4,.5,smat(ctex(256,40,(g,w,h)=>{g.fillStyle='#ece3c8';g.fillRect(0,0,w,h);g.fillStyle='#4a4a46';g.font='600 30px Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('salida',w/2,h/2+1)})));
+    // el cubo amarillo del extremo con Smart Fit y Dollarcity
+    const dollarM=smat(ctex(1024,256,(g,w,h)=>{g.fillStyle='#0d5c36';g.fillRect(0,0,w,h);g.strokeStyle='#f3c316';g.lineWidth=8;g.strokeRect(14,14,w-28,h-28);g.fillStyle='#f6c81a';
+      let fs=170;g.font=`800 ${fs}px "Arial Rounded MT Bold",Arial,sans-serif`;while(g.measureText('Dollarcity').width>w-90&&fs>40){fs-=6;g.font=`800 ${fs}px "Arial Rounded MT Bold",Arial,sans-serif`}
+      g.textAlign='center';g.textBaseline='middle';g.fillText('Dollarcity',w/2,h/2+8)}));
+    const smartM=smat(ctex(1024,384,(g,w,h)=>{g.fillStyle='#1d1d1d';g.fillRect(0,0,w,h);let fs=210;g.font=`800 ${fs}px Arial,sans-serif`;while(g.measureText('smart fit').width>w-110&&fs>40){fs-=6;g.font=`800 ${fs}px Arial,sans-serif`}g.textBaseline='alphabetic';
+      const a=g.measureText('smart ').width,b=g.measureText('fit').width,x=(w-a-b)/2,y=h*.62;g.fillStyle='#ffffff';g.fillText('smart',x,y);g.fillStyle='#ffc20e';g.fillText('fit',x+a,y);
+      g.strokeStyle='#ffc20e';g.lineWidth=16;g.lineCap='round';g.beginPath();g.arc(x+a+b/2,y-20,b*.62,Math.PI*.22,Math.PI*.78);g.stroke()}));
+    fbox(eF,gy,L-11,L+.4,3.6,13.2,-R-.2,.9,YEL);fmesh(eF,gy,L-5.3,10.8,.92,8.6,3.2,smartM);fmesh(eF,gy,L-5.3,7.6,.92,8.6,2.15,dollarM);
+    // el portal amarillo de la esquina: pilares, el bloque de arriba con el logo «éxito» en sus dos caras y el cielo raso claro
+    const Y1=9.4,Y2=14.2;
+    fbox(eF,gy,-.6,2.6,-.5,Y1,-2.6,.6,YEL);fbox(eF,gy,W-2.2,W+.4,-.5,Y1,-R,.6,YEL);fbox(eF,gy,-.6,2,-.5,Y1,-D-.4,-D+2,YEL);fbox(eF,gy,-.6,W+.4,Y1,Y2,-D-.4,.6,YEL);
+    fbox(eF,gy,.4,W-.4,Y1-.12,Y1,-D+.6,-.4,'#f4ecd2');for(let x=3;x<W-1;x+=3.5)for(const o of [-3.5,-8])fbox(eF,gy,x-.4,x+.4,Y1-.16,Y1-.12,o-.4,o+.4,'#fffbe8');
+    const logoM=smat(ctex(1024,320,(g,w,h)=>{g.font='900 236px "Arial Black","Arial Rounded MT Bold",Arial,sans-serif';g.textBaseline='alphabetic';const t='éxito',tw=g.measureText(t).width,x=(w-tw)/2,y=h*.7;
+      g.fillStyle='#3a3a39';g.fillText(t,x,y);g.fillStyle='#e30613';g.beginPath();g.arc(x+g.measureText('éx').width-6,y+48,30,0,TAU);g.fill()}),{transparent:true,alphaTest:.35});
+    fmesh(eF,gy,W/2,11.9,.62,12.4,3.9,logoM);fmesh(eW,gy,eW.L/2,11.9,.62,11.4,3.6,logoM);
+    // por debajo del portal: el piso, la entrada de vidrio al fondo y el local de Dollarcity del costado
+    fbox(eF,gy,-.6,W,-.5,UP,-D,0,'#d6cfc3');
+    fpane(eF,gy,W/2+1,(UP+Y1)/2,W-2,Y1-UP,-D+.04,'#f1efe8');fpane(eF,gy,W/2+1,UP+2.1,W-5,4.2,-D+.07,'#2e3940');fbox(eF,gy,3,W-1,UP+4.2,UP+4.45,-D,-D+.4,'#c9cdd0');
+    fmesh(eF,gy,W/2+1,UP+5.4,-D+.08,4.4,.8,smat(ctex(256,48,(g,w,h)=>{g.fillStyle='#f6c40c';g.fillRect(0,0,w,h);g.fillStyle='#3a3a39';g.font='700 32px Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('servicios',w/2,h/2+1)})));
+    fpane(eI,gy,eI.L/2,(UP+Y1)/2,eI.L,Y1-UP,.04,'#f1efe8');fpane(eI,gy,eI.L/2,UP+1.9,eI.L-2,3.8,.07,'#34424a');fmesh(eI,gy,eI.L/2,UP+4.7,.08,5.4,1.35,dollarM);
+    // la escalinata que da la vuelta a la esquina, con sus pasamanos
+    for(let k=0;k<K;k++){const r=(K-k)*TR,y=(k+1)*RISE,c=k%2?'#d2ccc1':'#c6bfb3';fbox(eF,gy,-r,W+6,-.5,y,0,r,c);fbox(eF,gy,-r,0,-.5,y,-D-1.5,0,c)}
+    fsolid(eF,-RUN,W+6,0,RUN);fsolid(eF,-RUN,0,-D-1.5,0);
+    const rail=(e,s0)=>{const Lr=Math.hypot(RUN,UP),g=new THREE.BoxGeometry(.07,.07,Lr);g.rotateX(Math.atan2(UP,RUN));g.translate(s0,UP/2+.95,RUN/2);geoInto('plain',g,colObj('#c9cdd0'),fM(e,gy));
+      for(const t of [.12,.5,.88]){const o=RUN*t,y=Math.ceil(K-o/TR)*RISE;fbox(e,gy,s0-.03,s0+.03,y-.1,UP*(1-t)+.95,o-.03,o+.03,'#c9cdd0')}};
+    rail(eF,W*.36);rail(eF,W*.7);rail(eW,eW.L-D*.5);
+    // la avenida y la Carrera 69: hasta dónde llega el andén
+    const mid=fP(eF,L/2,0),rd=nearestRoad(mid[0],mid[1],60,q=>/Pedro de Heredia/.test(q.name||'')),Df=clamp(rd?rd.d-rd.s.w/2+.6:12,RUN+3,30);
+    const wc=fP(eF,0,-D),rw=nearestRoad(wc[0],wc[1],40,q=>/Carrera 69/.test(q.name||'')),Gw=clamp(rw?rw.d-rw.s.w/2-1:8,RUN+1,14);
+    fflat(eF,W+6,L+6,0,Df,'plaza',.1,3.2,'#b8b3a9');fflat(eF,-Gw,W+6,0,Df,'plaza',.105,3.2,'#c0907b');fflat(eF,-Gw,0,-D-30,0,'plaza',.105,3.2,'#c0907b');
+    addSpecial([...fP(eF,-Gw,-D-30),...fP(eF,0,-D-30),...fP(eF,0,0),...fP(eF,L+6,0),...fP(eF,L+6,Df),...fP(eF,-Gw,Df)]);
+    // palmeras y arbustos hacia la Carrera 69
+    for(const o of [-4,-16,-28]){const p=fP(eF,-Gw*.55,o);if(roadClear(p[0],p[1],1))XPALMS.push(p)}{const p=fP(eF,-Gw*.6,Df-2.5);if(roadClear(p[0],p[1],1))XPALMS.push(p)}
+    for(const [a,o,r] of [[-Gw+1.2,Df-1.4,1.1],[-Gw+1.1,Df-3.6,.95],[-Gw+1.1,-9,.9],[-Gw+1.1,-21,.9]]){const p=fP(eF,a,o);if(!roadClear(p[0],p[1],.5))continue;const g=new THREE.IcosahedronGeometry(r,2);g.scale(1.15,.7,1);geoInto('plain',g,colObj('#557f3d'),place(p[0],ground(p[0],p[1])+r*.5,p[1]))}
+    // la bahía de taxis frente a la fachada: los toldos de Droguerías Cafam, los taxis y los bolardos
+    const cafamM=smat(ctex(512,48,(g,w,h)=>{g.fillStyle='#2747a6';g.fillRect(0,0,w,h);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.font='800 30px Arial,sans-serif';g.fillText('Cafam',w*.32,h/2+1);
+      g.font='600 26px Arial,sans-serif';g.fillText('Droguerías',w*.68,h/2+1);g.strokeStyle='#fff';g.lineWidth=3;g.strokeRect(w*.32-58,7,116,h-14)}));
+    const tent=(x,o,col,txt)=>{const p=fP(eF,x,o),y=ground(p[0],p[1]);for(const [a,b] of [[-1.6,-1.6],[1.6,-1.6],[1.6,1.6],[-1.6,1.6]])fbox(eF,y,x+a-.04,x+a+.04,0,2.5,o+b-.04,o+b+.04,'#d4d6d8');
+      const c=new THREE.ConeGeometry(2.33,.9,4,1,true);c.rotateY(Math.PI/4);c.translate(x,2.95,o);geoInto('plain',c,colObj(col),fM(eF,y));fbox(eF,y,x-1.65,x+1.65,2.2,2.5,o-1.65,o+1.65,col);
+      if(txt){fmesh(eF,y,x,2.35,o+1.67,3.3,.3,cafamM)}};
+    const taxi=(x,o,yw)=>{const p=fP(eF,x,o),y=ground(p[0],p[1]),a=eF.yaw+yw;if(solidAt(p[0],p[1]))return;
+      geoInto('plain',new THREE.BoxGeometry(1.72,.5,3.3),colObj('#1e1e1e'),place(p[0],y+.3,p[1],0,a,0));geoInto('plain',new THREE.BoxGeometry(1.7,.66,4.05),colObj('#f2c12e'),place(p[0],y+.72,p[1],0,a,0));
+      geoInto('plain',new THREE.BoxGeometry(1.5,.55,2.1),colObj('#2a3238'),place(p[0],y+1.32,p[1],0,a,.0));geoInto('plain',new THREE.BoxGeometry(1.52,.07,1.85),colObj('#f2c12e'),place(p[0],y+1.62,p[1],0,a,0));
+      addSolidPoly(rectPts(p[0],p[1],1.8,4.2,a))};
+    if(Df>8){tent(W+11,R+.6,'#2747a6',true);tent(W+17,R+.6,'#cf8f80',false);tent(W+29,R+.6,'#2747a6',true);
+      for(let x=W+9,i=0;x<E0-3;x+=3,i++)if(hash(i,61)<.6)taxi(x,4.6,Math.PI);
+      if(Df>14)for(let x=E0-26,i=0;x<E0+6;x+=5.2,i++)if(hash(i,62)<.75)taxi(x,Df-5,Math.PI/2);
+      const bol=(x,o)=>{const p=fP(eF,x,o),y=ground(p[0],p[1]);geoInto('plain',new THREE.CylinderGeometry(.07,.08,.9,6),colObj('#d8352a'),place(p[0],y+.45,p[1]));geoInto('plain',new THREE.CylinderGeometry(.085,.085,.16,6),colObj('#f4f4f0'),place(p[0],y+.66,p[1]))};
+      for(let x=E0-30;x<L-1;x+=2.2)bol(x,Df-2.5);for(let o=9;o<Df-2;o+=2.2)bol(E0-30,o)}
+    const door=fP(eF,W*.53,RUN+1.3),wall=fP(eF,W*.53,0);
+    MALL_SHOPS.push({x:door[0],z:door[1],wx:wall[0],wz:wall[1],nx:eF.nx,nz:eF.nz,len:12,yaw:eF.yaw,gy,type:'supermercado',name:s.n,custom:true});
+    const top=fP(eF,W/2,-D/2);addLM(s.n,top[0],top[1],Y2+6,1,door[0],door[1]);
+    window.__exito={gy,L,Df,Gw,rd:rd?[rd.d,rd.s.w]:null,rw:rw?[rw.d,rw.s.w]:null,door}}
   /* Hospital Universitario del Caribe (Zaragocilla), modelado a partir de fotos sobre su planta real de OpenStreetMap: la torre blanca
      de doce pisos con franjas corridas de ventanitas, el extremo oeste con los balcones hundidos y escalonados, la caseta del techo con el
      logo azul «HUC», la base blanca de tres pisos con techos de lámina azul, el letrero rojo de la entrada, el patio de urgencias con
@@ -1925,6 +2014,7 @@ function construirSitios(){
       let fx=cx,fz=cz;if(!inPoly(P,fx,fz)){fx=P[0]*.7+cx*.3;fz=P[1]*.7+cz*.3}cyl(.12,.12,9,'#d9d9d9',fx,gy+10.5,fz,6);box(4.5,1,.06,'#fcd116',fx+2.3,gy+14.2,fz);box(4.5,.5,.06,'#003893',fx+2.3,gy+13.45,fz);box(4.5,.5,.06,'#ce1126',fx+2.3,gy+12.95,fz);
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
     if(k==='castellana'){castellana(s,P);continue}
+    if(k==='exito'){exito(s,P);continue}
     if(k==='huc'){hospitalCaribe(s,P);continue}
     if(k==='trinidad'){trinidad(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
