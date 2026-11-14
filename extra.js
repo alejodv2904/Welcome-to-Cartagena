@@ -734,7 +734,7 @@ function placeGroup(g){const gD=grpD();const cand=edgesNear(player.x,player.z,gD
       p.ch.mesh.position.set(p.x,gy+(p.pose==='talk'?0:seatY(p.ch)),p.z)});return true}g.placed=false;return false}
 let gT=0;
 function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of GROUPS){if(!g.placed||dist2(g.x,g.z,player.x,player.z)>grpD()+55)placeGroup(g)}}
-  for(const g of GROUPS){const d=dist2(g.x,g.z,player.x,player.z);const gD=grpD();const vis=g.placed&&d<gD;g.grp.visible=vis;for(const p of g.people)p.ch.mesh.visible=vis;if(!vis)continue;const far=d>gD*.63;if(far&&(g.fr=(g.fr||0)+1)%4)continue;const gdt=far?dt*4:dt;
+  for(const g of GROUPS){const d=dist2(g.x,g.z,player.x,player.z);const gD=grpD();const vis=g.placed&&d<gD&&!((window.__lluvia||0)>.4);g.grp.visible=vis;for(const p of g.people)p.ch.mesh.visible=vis;if(!vis)continue;const far=d>gD*.63;if(far&&(g.fr=(g.fr||0)+1)%4)continue;const gdt=far?dt*4:dt;
     for(const p of g.people){if(p.down>0){p.down-=dt;const k=p.down>1?Math.min(1,(5-p.down)*5):Math.max(0,p.down);p.ch.mesh.rotation.x=-Math.PI/2*k;if(p.down<=0)p.ch.mesh.rotation.x=0;continue}
       anim(p.ch,0,gdt,p.pose)}
     // keep the player out of the furniture
