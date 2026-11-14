@@ -260,6 +260,9 @@ const MATS={
   grass:lam(TX.grass,{polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2}),
 };
 antiTile(MATS.asphalt,.06,.14);antiTile(MATS.cobble,.08,.12);antiTile(MATS.walk,.07,.12);antiTile(MATS.plaza,.06,.12);antiTile(MATS.grass,.05,.22);
+// piedra coralina y molduras que de noche doran los reflectores (fachada y torre de Santo Domingo)
+MATS.coralLit=lam(TX.coral_stone);MATS.plainLit=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
+for(const m of [MATS.coralLit,MATS.plainLit])m.onBeforeCompile=s=>{s.uniforms.uNight=U_NIGHT;s.fragmentShader='uniform float uNight;\n'+s.fragmentShader.replace('#include <output_fragment>','#include <output_fragment>\ngl_FragColor.rgb+=uNight*diffuseColor.rgb*vec3(1.0,.64,.28)*.95;')};
 const NOSHADOW=new Set(['asphalt','cobble','paint','plaza','grass','walk']);
 function flushBatches(){for(const b of batches.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(b.p,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(b.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(b.c,3));
@@ -649,6 +652,11 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
   const main=at(6804,3223,12000),wing=at(6699,3242,1000);if(main)SIT.push({n:'Centro Comercial Paseo de La Castellana',k:'castellana',x:6799,z:3150,p:main,wing});
   // Hospital Universitario del Caribe (Zaragocilla): su planta real de ciudad-osm.js (10 pisos en OpenStreetMap); el modelo está en construirSitios
   const huc=at(4926,2454,5000);if(huc)SIT.push({n:'Hospital Universitario del Caribe',k:'huc',x:4927,z:2437,p:huc})}}
+// Plaza de Santo Domingo: la iglesia y el edificio amarillo de balcones del oriente (mapa.js) tienen modelo propio (plazaSantoDomingo, en construirSitios)
+{const at=(x,z)=>{for(const b of MAP.buildings)if(inPoly(b[3],x,z))return b[3];return null};
+  const ig=at(GM.santoDomingo[0],GM.santoDomingo[1]),am=at(-305,-200),pl=MAP.squares.find(p=>inPoly(p,-330,-200));
+  if(ig&&pl){SIT.push({n:'Plaza de Santo Domingo',k:'santodomingo',x:-330,z:-200,p:ig,amarillo:am,plaza:pl});SIT_SKIP.push(ig);if(am)SIT_SKIP.push(am);
+    CHURCH_NAMES['Iglesia de Santo Domingo']=[-347.8,-185.1,ground(-347.8,-185.1)+40]}}
 function sitioSkip(x,z){for(const p of SIT_SKIP)if(inPoly(p,x,z))return true;return false}
 // distancia aproximada al agua (mar, bahía o caño), hasta 120 m
 function seaDist(x,z){for(const d of [25,50,80,120])for(let k=0;k<12;k++){const a=k*Math.PI/6;if(isWater(x+Math.cos(a)*d,z+Math.sin(a)*d))return d}return 999}
@@ -1100,21 +1108,6 @@ function freeSpot(x,z,clear){if(solidAt(x,z)||!onLand(x,z)){let best=null;for(le
     put(new THREE.TorusGeometry(.95,.12,8,20),br,0,2.95,-.9).rotation.x=Math.PI/2;
     for(let k=0;k<4;k++)put(new THREE.BoxGeometry(1.1,.07,.1),mat('#b9a27a'),0,1.15+k*.38,.18-k*.28).rotation.x=-.5}
   addSolidPoly([x-4.5,z-3.5,x+4.5,z-3.5,x+4.5,z+3.5,x-4.5,z+3.5]);l.x=x;l.z=z;if(l.sprite)l.sprite.position.set(x,y+14,z)})();
-/* La Gorda Gertrudis (Botero) recostada en la Plaza de Santo Domingo: bronce oscuro, brillante donde la gente la toca */
-(function(){const [x,z]=freeSpot(GM.gertrudis[0],GM.gertrudis[1],5);const y=ground(x,z);const r=nearestRoad(x,z,40);const yaw=r?Math.atan2(r.s.bx-r.s.ax,r.s.bz-r.s.az):0;
-  const grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
-  const b=new THREE.MeshPhongMaterial({color:'#4a3524',specular:0x9a7a4a,shininess:55}),st=mat('#d6ccb6');
-  const add=(g,m,px,py,pz,sx,sy,sz,rz)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.scale.set(sx||1,sy||1,sz||1);o.rotation.z=rz||0;o.castShadow=true;o.receiveShadow=true;grp.add(o);return o};
-  const S=new THREE.SphereGeometry(1,18,12);
-  add(new THREE.BoxGeometry(1.9,.7,4.4),st,0,.35,0);
-  add(S,b,0,1.35,-.9,.85,.62,1.05);             // torso
-  add(S,b,0,1.3,.5,.9,.72,.85);                 // caderas
-  add(S,b,-.2,1.95,-.65,.45,.42,.45);            // pecho
-  add(S,b,0,2.15,-1.85,.36,.4,.38);              // cabeza, apoyada en el brazo
-  add(S,b,.55,1.45,-1.75,.25,.55,.25,.4);        // brazo
-  add(S,b,.25,1.05,1.45,.42,.38,.95);            // pierna
-  add(S,b,-.25,1.25,1.35,.4,.36,.9);             // pierna
-  addSolidPoly([x-1.6,z-1.6,x+1.6,z-1.6,x+1.6,z+1.6,x-1.6,z+1.6])})();
 /* Café del Mar, sobre el Baluarte de Santo Domingo: mesas con parasoles blancos encima de la muralla */
 (function(){const l=LM.byName('Café del Mar');if(!l)return;let best=null;
   MAP.walls.forEach(p=>{for(let i=0;i<p.length-2;i+=2){const ax=p[i],az=p[i+1],dx=p[i+2]-ax,dz=p[i+3]-az,l2=dx*dx+dz*dz||1;const t=clamp(((l.x-ax)*dx+(l.z-az)*dz)/l2,0,1);const qx=ax+dx*t,qz=az+dz*t,d=Math.hypot(qx-l.x,qz-l.z);if(d<40&&(!best||d<best.d))best={d,x:qx,z:qz,ux:dx/Math.sqrt(l2),uz:dz/Math.sqrt(l2)}}});
@@ -1388,6 +1381,153 @@ function construirSitios(){
         fbox(e,gw,0,e.L,-1,2.6,-.35,0,'#e9e6df');fbox(e,gw,-.1,e.L+.1,2.6,2.8,-.45,.1,'#d5d1c8');fmesh(e,gw,e.L/2,1.25,.03,e.L,2.5,mural,e.L/10,1);fsolid(e,0,e.L,-.35,0)}}
     const door=fP(eA,eA.L/2,6),top=fP(eF,TL/2,-TD/2);addLM(s.n,top[0],top[1],HT+8,1,door[0],door[1]);icon('hospital',door[0],door[1],s.n);
     window.__huc={gy,HT,eA:[eA.mx,eA.mz,eA.L],eU:[eU.mx,eU.mz,eU.L]}}
+  /* Plaza de Santo Domingo, a partir de fotos. La Iglesia de Santo Domingo (la más antigua de Cartagena) sobre su planta real de mapa.js:
+     piedra coralina, la fachada sobria con contrafuertes, la portada de columnas con la hornacina y el frontón, el remate escalonado con
+     pináculos y la cruz, la nave con su techo de teja y la torre del campanario en la esquina sur, con la cúpula un poco torcida, como dice
+     la leyenda; de noche la doran los reflectores. En la plaza: la Gertrudis de Botero en su pedestal de piedra coralina, las mesas de los
+     restaurantes con manteles de colores, sillas de madera, parasoles y gente sentada, el farol de hierro con sus cinco faroles, el árbol con
+     su jardinera de artesanías y, al oriente, el edificio amarillo de balcones blancos */
+  function plazaSantoDomingo(s,P){
+    const C=colObj('#e3d2ad'),Cm=colObj('#ecdfc0'),gy=minG(P);
+    const cobj=c=>typeof c==='string'?colObj(c):c;
+    const rp=(e,s0,s1,o0,o1)=>ccw([...fP(e,s0,o0),...fP(e,s1,o0),...fP(e,s1,o1),...fP(e,s0,o1)]);
+    // macizo de piedra (paredes con textura y tapa) y cajas de molduras en el marco de la fachada
+    const mass=(e,s0,s1,o0,o1,y0,y1,mk,col)=>{const q=rp(e,s0,s1,o0,o1);band(q,gy+y0,gy+y1,mk||'coralLit',col||C,gy,5,5,false);flatRoof(q,gy+y1,mk||'coralLit',col||C,5)};
+    const kb=(e,s0,s1,y0,y1,o0,o1,col,mk)=>{const g=new THREE.BoxGeometry(s1-s0,y1-y0,o1-o0);g.translate((s0+s1)/2,(y0+y1)/2,(o0+o1)/2);geoInto(mk||'plainLit',g,cobj(col),fM(e,gy))};
+    const uvK=(g,k)=>{const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*k,uv.getY(i)*k);return g};
+    const kx=(e,shape,o0,o1,col,mk)=>{const g=uvK(new THREE.ExtrudeGeometry(shape,{depth:o1-o0,bevelEnabled:false,curveSegments:10}),.2);g.translate(0,0,o0);geoInto(mk||'plainLit',g,cobj(col),fM(e,gy))};
+    const archS=(c,w,y0,sp)=>{const h=new THREE.Shape();h.moveTo(c-w/2,y0);h.lineTo(c+w/2,y0);h.lineTo(c+w/2,sp);h.absarc(c,sp,w/2,0,Math.PI,false);h.lineTo(c-w/2,y0);return h};
+    // la fachada mira al oriente, a la plaza: s va de sur (0) a norte (28.4), o hacia la plaza
+    const eF=fr(-342.6,-208.2,-342.6,-179.8,null);
+    // el cuerpo de la iglesia (naves laterales) y la nave central, más alta, con su techo de teja a dos aguas
+    band(P,gy-1,gy+12,'coralS',C,gy,5,5,false);ring(P,gy+12,gy+12.6,.35,Cm,'plain');flatRoof(P,gy+12.5,'roof_tile',WHITE,2.2);addSolidPoly(P);addSpecial(P);
+    const E=[-343.4,-201.4],u=[-.9965,.0795],n=[.0795,.9965],W=(a,b,y)=>[E[0]+u[0]*a+n[0]*b,y,E[1]+u[1]*a+n[1]*b];
+    {const nv=[0,-5.9,53,-5.9,53,6.2,0,6.2],q=[];for(let i=0;i<8;i+=2){const p=W(nv[i],nv[i+1],0);q.push(p[0],p[2])}const N=ccw(q);
+      band(N,gy+12,gy+18,'coralS',C,gy,5,5,false);ring(N,gy+18,gy+18.5,.3,Cm,'plain');
+      const a0=-.4,a1=53.4,b0=-6.3,b1=6.6,bc=(b0+b1)/2,y=gy+18.4,yr=y+4.4,k=2.2,sl=Math.hypot(bc-b0,yr-y)/k,Pp=[],U=[];
+      const T=(p,q,r,up,uq,ur)=>{Pp.push(...p,...q,...r,...p,...r,...q);U.push(...up,...uq,...ur,...up,...ur,...uq)};
+      for(const bb of [b0,b1]){T(W(a0,bb,y),W(a1,bb,y),W(a1,bc,yr),[a0/k,0],[a1/k,0],[a1/k,sl]);T(W(a0,bb,y),W(a1,bc,yr),W(a0,bc,yr),[a0/k,0],[a1/k,sl],[a0/k,sl])}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));geoInto('roof_tile',g,WHITE);
+      const h=new THREE.BufferGeometry(),A=W(53,-5.9,y),B=W(53,6.2,y),Cc=W(53,bc,yr-.25);h.setAttribute('position',new THREE.Float32BufferAttribute([...A,...B,...Cc,...A,...Cc,...B],3));geoInto('coralS',h,C)}
+    // contrafuertes en los costados largos, donde no hay vecino ni calle
+    for(const e of edges(P)){if(e.L<20||Math.abs(e.nz)<.7)continue;
+      for(let t=6;t<e.L-4;t+=7.5){const x=e.ax+e.ux*t,z=e.az+e.uz*t;if(solidAt(x+e.nx*2,z+e.nz*2)||!roadClear(x+e.nx*1.5,z+e.nz*1.5,0))continue;
+        box(1.4,10,1.5,'#d8c6a0',x+e.nx*.7,gy+5,z+e.nz*.7,rot(e),'coralS')}}
+    // fachada de la nave (s 14.6..28.4) y del costado bajo (s 9.6..14.8), con cornisas y dos contrafuertes
+    mass(eF,14.6,28.4,-1.6,.3,0,18.6);mass(eF,9.6,14.8,-1.2,.1,0,12.8);
+    kb(eF,14.4,28.6,13.4,14,.3,.8,Cm);kb(eF,14.4,28.6,18.2,18.8,.3,.85,Cm);kb(eF,9.4,15,12.6,13.1,.1,.6,Cm);
+    for(const [a,b] of [[14.6,16.2],[26.8,28.4]]){mass(eF,a,b,.3,1.9,0,15.2);mass(eF,a+.2,b-.2,.3,1.3,15.2,16.6)}
+    // remate escalonado con pináculos y la cruz de hierro
+    mass(eF,17.4,25.6,-1.4,.2,18.6,20.6);mass(eF,19.4,23.6,-1.2,.1,20.6,22.2);kb(eF,17.2,25.8,20.4,20.8,.2,.6,Cm);
+    const pin=(sx,y,o)=>{kb(eF,sx-.45,sx+.45,y,y+.9,o-.45,o+.45,Cm);const q=fP(eF,sx,o);geoInto('plainLit',new THREE.ConeGeometry(.42,1.5,4),Cm,place(q[0],gy+y+1.65,q[1],0,eF.yaw+Math.PI/4,0))};
+    pin(15.1,18.8,-.5);pin(27.9,18.8,-.5);pin(17.9,20.8,-.5);pin(25.1,20.8,-.5);
+    kb(eF,21.38,21.62,22.2,24.8,-.62,-.38,'#4a3d30','plain');kb(eF,20.8,22.2,23.7,23.94,-.62,-.38,'#4a3d30','plain');
+    // la portada: puerta de madera en arco, marco de piedra, dos pares de columnas sobre pedestales, entablamento,
+    // segundo cuerpo con pilastras y la hornacina con la imagen, frontón; encima la ventana del coro
+    const c=21.5;
+    kx(eF,arcade(c-2.4,c+2.4,6.9,[{c,w:3.2,spring:4.3}]),.3,.8,Cm);kx(eF,archS(c,3.2,0,4.3),.25,.4,'#4a2f1d');
+    kb(eF,c-.04,c+.04,.1,5.7,.4,.46,'#2a1a10','plain');for(const y of [1.4,2.8,4.2])kb(eF,c-1.5,c+1.5,y-.05,y+.05,.4,.46,'#2a1a10','plain');
+    for(const k of [-1,1])for(const d of [2.9,3.75]){const sx=c+k*d;kb(eF,sx-.45,sx+.45,0,1.5,.3,1.35,Cm);const q=fP(eF,sx,.85);
+      geoInto('plainLit',new THREE.CylinderGeometry(.28,.33,4.9,12),Cm,place(q[0],gy+3.95,q[1]));kb(eF,sx-.42,sx+.42,6.4,6.85,.35,1.3,Cm)}
+    kb(eF,c-4.5,c+4.5,6.85,7.9,.3,1.45,Cm);kb(eF,c-4.7,c+4.7,7.9,8.2,.3,1.55,Cm);
+    for(const k of [-1,1])kb(eF,c+k*2-.3,c+k*2+.3,8.2,11.8,.3,.95,Cm);
+    kx(eF,archS(c,1.8,8.5,10.2),.3,.36,'#4a3a2c');
+    {const q=fP(eF,c,.75);geoInto('plainLit',new THREE.CylinderGeometry(.26,.38,1.5,10),colObj('#f2ece0'),place(q[0],gy+9.3,q[1]));geoInto('plainLit',new THREE.SphereGeometry(.21,10,8),colObj('#f2ece0'),place(q[0],gy+10.25,q[1]))}
+    kb(eF,c-2.8,c+2.8,11.8,12.25,.3,1.1,Cm);{const t=new THREE.Shape();t.moveTo(c-2.8,12.25);t.lineTo(c+2.8,12.25);t.lineTo(c,13.3);t.lineTo(c-2.8,12.25);kx(eF,t,.3,.9,Cm)}
+    kx(eF,archS(c,1.6,14.6,16.2),.3,.36,'#2b2520');kx(eF,archS(12.2,1.8,0,2.6),.1,.22,'#4a2f1d');kx(eF,archS(12.2,1,6.6,7.6),.1,.16,'#2b2520');
+    // la torre del campanario: caña de piedra con cornisas y saeteras
+    const T0=.4,T1=9.6,O0=-9.8,O1=-.1,TH=23.6;mass(eF,T0,T1,O0,O1,0,TH);
+    const tring=(y,h,out)=>{const q=rp(eF,T0-out,T1+out,O0-out,O1+out);band(q,gy+y,gy+y+h,'plainLit',Cm,gy,5,5,false);flatRoof(q,gy+y+h,'plainLit',Cm,5)};
+    tring(12.4,.6,.3);tring(TH-.5,.8,.35);for(const y of [4.5,9,16,19.5])kx(eF,archS(5,.5,y,y+1.3),O1,O1+.06,'#2b2520');
+    // campanario, tambor ochavado, cúpula, linterna y cruz, un poco torcidos (la torre de Santo Domingo, según la leyenda, la torció el diablo)
+    {const q=fP(eF,(T0+T1)/2,(O0+O1)/2),base=new THREE.Matrix4().compose(new THREE.Vector3(q[0],gy+TH+.3,q[1]),new THREE.Quaternion().setFromEuler(new THREE.Euler(.04,eF.yaw,-.025,'YXZ')),new THREE.Vector3(1,1,1));
+      const Ut=(geo,col,mk,x,y,z,ry)=>geoInto(mk||'coralLit',geo,cobj(col),base.clone().multiply(place(x,y,z,0,ry||0,0)));const hw=4.1,K=[[-1,-1],[1,-1],[1,1],[-1,1]];
+      for(let i=0;i<4;i++){const sh=new THREE.Shape();sh.moveTo(-hw,0);sh.lineTo(hw,0);sh.lineTo(hw,6.4);sh.lineTo(-hw,6.4);sh.lineTo(-hw,0);sh.holes.push(archS(0,3,1.1,3.9));
+        const g=uvK(new THREE.ExtrudeGeometry(sh,{depth:.7,bevelEnabled:false,curveSegments:10}),.2);g.translate(0,0,hw-.7);Ut(g,C,'coralLit',0,0,0,i*Math.PI/2)}
+      for(const [x,z] of K)Ut(new THREE.BoxGeometry(.9,6.4,.9),Cm,'plainLit',x*(hw-.2),3.2,z*(hw-.2));
+      for(let i=0;i<4;i++){const a=i*Math.PI/2,r=hw-1.3;Ut(new THREE.CylinderGeometry(.35,.75,1.1,12,1,true),'#5b4a2e','plain',Math.sin(a)*r,3.3,Math.cos(a)*r);Ut(new THREE.BoxGeometry(.12,.9,.12),'#3b3024','plain',Math.sin(a)*r,4.25,Math.cos(a)*r)}
+      Ut(new THREE.BoxGeometry(2*hw+.8,.6,2*hw+.8),Cm,'plainLit',0,6.7,0);
+      for(const [x,z] of K){Ut(new THREE.BoxGeometry(.7,.8,.7),Cm,'plainLit',x*(hw-.1),7.4,z*(hw-.1));Ut(new THREE.ConeGeometry(.38,1.3,4),Cm,'plainLit',x*(hw-.1),8.45,z*(hw-.1),Math.PI/4)}
+      Ut(new THREE.CylinderGeometry(2.9,3.1,2.6,8),C,'coralLit',0,8.3,0,Math.PI/8);Ut(new THREE.CylinderGeometry(3.25,3.25,.4,8),Cm,'plainLit',0,9.8,0,Math.PI/8);
+      Ut(new THREE.SphereGeometry(3,16,8,0,TAU,0,Math.PI/2),'#e9dfc6','plainLit',0,10,0);
+      Ut(new THREE.CylinderGeometry(.55,.6,1.5,8),Cm,'plainLit',0,13.6,0);Ut(new THREE.SphereGeometry(.65,10,6,0,TAU,0,Math.PI/2),'#e9dfc6','plainLit',0,14.35,0);
+      Ut(new THREE.BoxGeometry(.16,1.9,.16),'#4a3d30','plain',0,15.9,0);Ut(new THREE.BoxGeometry(1.1,.16,.16),'#4a3d30','plain',0,16.3,0)}
+    // reflectores al pie de la fachada (de noche)
+    for(const sx of [3,7,12.2,17.5,21.5,25.5])XGLOW.push([...(q=>[q[0],gy+.35,q[1]])(fP(eF,sx,3.2)),0xffd08a,.55]);
+    {const q=fP(eF,c,5);icon('church',q[0],q[1],'Iglesia de Santo Domingo')}
+
+    // el edificio amarillo del oriente: seis pisos, alero de teja y balcones blancos de balaustres en cada piso hacia la plaza y las calles
+    const Y=s.amarillo?ccw(s.amarillo):null;
+    if(Y){const g0=minG(Y),Cy=colObj('#f0c24e'),fl=6,top=g0+GF+(fl-1)*FL,WT='#f8f4ea';
+      band(Y,g0-2,g0+GF,'col_gf',Cy,g0,GF,8,true);band(Y,g0+GF,top,'col_up',Cy,g0+GF,FL,8,true);
+      ring(Y,top-.05,top+.3,.25,colObj(WT),'plain');ring(Y,top+.3,top+.7,1.1,colObj('#b4552f'),'plain');ring(Y,top+.3,top+1.3,0,Cy,'plain');flatRoof(Y,top+.8,'roof_flat',WHITE,6);addSolidPoly(Y);
+      const bt=ctex(256,96,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#fbf8f1';g.fillRect(0,0,w,12);g.fillRect(0,h-10,w,10);
+        for(let x=8;x<w;x+=16){g.beginPath();g.ellipse(x,h*.36,4,7,0,0,TAU);g.ellipse(x,h*.66,5,10,0,0,TAU);g.fill();g.fillRect(x-2.5,10,5,h-20)}},true);
+      const L=[],add=(geo,m)=>{const q=geo.toNonIndexed();q.applyMatrix4(m);L.push(q)};
+      for(const e of edges(Y)){if(e.L<5)continue;const ox=e.mx+e.nx*4,oz=e.mz+e.nz*4;if(solidAt(ox,oz)||!onLand(ox,oz))continue;
+        const nb=Math.max(1,Math.floor((e.L-1.4)/4.2)),st=(e.L-nb*4.2)/2+2.1;
+        for(let i=0;i<nb;i++){const t=st+i*4.2,x=e.ax+e.ux*t,z=e.az+e.uz*t,yw=rot(e);
+          for(let f=0;f<fl-1;f++){const y=g0+GF+f*FL;
+            box(2.7,.2,.95,WT,x+e.nx*.48,y+.1,z+e.nz*.48,yw);box(2.7,.1,.12,WT,x+e.nx*.92,y+1.05,z+e.nz*.92,yw);
+            for(const sd of [-1,1])box(.1,.1,.95,WT,x+e.ux*sd*1.3+e.nx*.48,y+1.05,z+e.uz*sd*1.3+e.nz*.48,yw);
+            add(new THREE.PlaneGeometry(2.6,.85),place(x+e.nx*.92,y+.62,z+e.nz*.92,0,e.yaw,0));
+            for(const sd of [-1,1])add(new THREE.PlaneGeometry(.9,.85),place(x+e.ux*sd*1.3+e.nx*.48,y+.62,z+e.uz*sd*1.3+e.nz*.48,0,e.yaw+Math.PI/2,0))}}}
+      if(L.length){const Pp=[],Uu=[],Nn=[];for(const q of L){Pp.push(...q.attributes.position.array);Uu.push(...q.attributes.uv.array);Nn.push(...q.attributes.normal.array)}
+        const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(Uu,2));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));
+        const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map:bt,alphaTest:.5,side:THREE.DoubleSide}));m.receiveShadow=true;scene.add(m)}}
+
+    // la Gertrudis de Botero: bronce oscuro, brillante donde la gente la toca, recostada sobre su pedestal de bloques de piedra coralina
+    {const x=-331,z=-189.6,y=ground(x,z),grp=new THREE.Group();grp.position.set(x,y,z);grp.rotation.y=Math.PI;scene.add(grp);
+      const br=new THREE.MeshPhongMaterial({color:'#4b3828',specular:0x9a7a4a,shininess:50}),au=new THREE.MeshPhongMaterial({color:'#b8913d',specular:0xffe7a0,shininess:90});
+      const stoneT=TX.coral_stone.clone();stoneT.needsUpdate=true;stoneT.wrapS=stoneT.wrapT=THREE.RepeatWrapping;stoneT.repeat.set(1.4,.5);
+      const add=(g,m,px,py,pz,sx,sy,sz,rz,ry,par)=>{const o=new THREE.Mesh(g,m);o.position.set(px,py,pz);o.scale.set(sx||1,sy||1,sz||1);o.rotation.set(0,ry||0,rz||0);o.castShadow=true;o.receiveShadow=true;(par||grp).add(o);return o};
+      add(new THREE.BoxGeometry(5.2,1.35,2.1),new THREE.MeshLambertMaterial({map:stoneT,color:'#e9d4a8'}),0,.675,0);
+      add(new THREE.BoxGeometry(.5,.32,.02),new THREE.MeshPhongMaterial({color:'#2c2620',specular:0x555555}),-1.9,.8,1.06);
+      add(new THREE.BoxGeometry(4.5,.07,1.7),br,0,1.385,0);
+      const f=new THREE.Group();f.position.set(-.45,1.42,0);f.scale.setScalar(.78);grp.add(f);const S=new THREE.SphereGeometry(1,20,14),F=(m,px,py,pz,sx,sy,sz,rz,ry)=>add(S,m,px,py,pz,sx,sy,sz,rz,ry,f);
+      F(br,.8,.75,-.1,1.05,.8,.85);                  // caderas
+      F(br,0,.78,.18,.9,.65,.62);                    // barriga
+      F(br,-.8,1.08,.02,.75,.86,.66,.35);            // el torso, levantado sobre el codo
+      F(au,-.72,1.18,.6,.34,.34,.34);F(au,-.5,.8,.64,.32,.32,.32);   // los senos, dorados de tanto tocarlos
+      F(br,-1.15,1.62,-.05,.42,.42,.42);             // hombro
+      F(br,-1.15,2.18,-.25,.24,.5,.25,.15);F(br,-1.25,2.64,-.3,.24,.24,.24);   // brazo levantado y codo
+      F(br,-1.6,2.48,-.2,.2,.4,.2,-1.1);F(br,-1.86,2.28,-.1,.17,.17,.17);       // antebrazo doblado detrás de la cabeza y la mano
+      F(br,-1.65,1.96,.15,.42,.46,.44);F(br,-1.9,2.12,-.22,.28,.27,.28);F(br,-1.4,1.72,.08,.22,.24,.22);   // cabeza, moño y cuello
+      F(br,-1.5,.3,.55,.75,.18,.2,0,.3);F(br,-2.2,.22,.78,.18,.12,.16);    // el otro brazo apoyado y la mano
+      F(br,1.75,.62,.15,1.0,.45,.5,-.08);F(br,2.55,.36,.02,.8,.3,.33);F(br,3.2,.28,0,.24,.15,.3);       // pierna de arriba
+      F(br,1.7,.3,-.35,.95,.38,.42);F(br,2.5,.2,-.38,.8,.28,.3);F(br,3.15,.18,-.4,.22,.14,.28);         // pierna de abajo
+      addSolidPoly(rectPts(x,z,5.4,2.3,0))}
+
+    // el farol de hierro de la plaza: base de piedra, columna con anillos y una corona de cinco faroles
+    {const x=-323.8,z=-192,y=ground(x,z),I='#24211e';box(1.5,1.5,1.5,'#d9c7a1',x,y+.75,z,0,'coralS');box(1.7,.2,1.7,'#e5d6b6',x,y+1.6,z);
+      cyl(.34,.42,.6,I,x,y+2,z,12);cyl(.15,.24,4.4,I,x,y+4.5,z,10);
+      for(const h of [2.6,3.6,5.6])geoInto('plain',new THREE.TorusGeometry(.22,.06,6,12),colObj(I),place(x,y+h,z,Math.PI/2,0,0));
+      for(let i=0;i<5;i++){const a=i/5*TAU,ax=x+Math.sin(a)*.95,az=z+Math.cos(a)*.95;box(1,.07,.07,I,x+Math.sin(a)*.5,y+6.05,z+Math.cos(a)*.5,a-Math.PI/2);
+        cyl(.17,.2,.5,'#fff1c8',ax,y+5.75,az,8);cyl(.03,.22,.22,I,ax,y+6.12,az,8);XGLOW.push([ax,y+5.75,az,0xffe2a0,.8])}
+      cyl(.22,.26,.7,'#fff1c8',x,y+6.9,z,8);cyl(.04,.3,.3,I,x,y+7.4,z,8);XGLOW.push([x,y+6.9,z,0xffe2a0,.9]);addSolidPoly(rectPts(x,z,1.6,1.6,0))}
+
+    // el árbol con su jardinera de piedra y las artesanías sobre el borde
+    {const x=-329.5,z=-208.5,y=ground(x,z),q=rectPts(x,z,4.2,4.2,0);band(q,y-.2,y+.55,'coralS',C,y,5,5,false);flatRoof(q,y+.55,'coralS',C,5);flatRoof(rectPts(x,z,3.2,3.2,0),y+.57,'plain',colObj('#5a4630'),4);
+      XTREES.push([x,z]);addSolidPoly(q);const AC=['#e4572e','#f2c230','#1f9aa6','#7b3fa0','#2e8b57','#f5f0e1','#c2185b'];let k=0;
+      for(const [sx,sz] of [[-1,0],[1,0],[0,-1],[0,1]])for(let t=-1.5;t<=1.5;t+=.6)box(.42,.06,.3,AC[k++%AC.length],x+(sx?sx*1.85:t),y+.58,z+(sz?sz*1.85:t),sx?Math.PI/2:0)}
+
+    // las mesas de los restaurantes: manteles de colores (sobre todo amarillos), sillas de madera, parasoles y gente sentada
+    const pl=s.plaza,SKIP=[[-331,-189.6,5.6],[-323.8,-192,2.4],[-329.5,-208.5,3.8]],CL=['#f2c230','#f2c230','#f2c230','#d9443a','#2f6db5','#e98a2b','#f6f1e4'],WD='#7a4e2d',SEATS=[];let ti=0;
+    for(let x=-337.4;x<-318;x+=3.3)for(let z=-219.8;z<-181;z+=3.3){
+      if(SKIP.some(([a,b,r])=>Math.hypot(x-a,z-b)<r)||!roadClear(x,z,1.4))continue;
+      if([[0,0],[1.3,0],[-1.3,0],[0,1.3],[0,-1.3]].some(([a,b])=>!inPoly(pl,x+a,z+b)||solidAt(x+a,z+b)))continue;
+      const y=ground(x,z),cl=CL[(hash(Math.round(x*3),Math.round(z*3))*CL.length)|0];
+      for(const [lx,lz] of [[-.38,-.38],[.38,-.38],[.38,.38],[-.38,.38]])box(.05,.56,.05,WD,x+lx,y+.28,z+lz);
+      box(1.02,.24,1.02,cl,x,y+.66,z);
+      for(let i=0;i<4;i++){const a=i*Math.PI/2,sa=Math.sin(a),ca=Math.cos(a),cx=x+sa*.8,cz=z+ca*.8;
+        box(.46,.05,.44,WD,cx,y+.46,cz,a);box(.46,.5,.05,WD,cx+sa*.2,y+.74,cz+ca*.2,a);
+        for(const [lx,lz] of [[-.19,-.18],[.19,-.18],[.19,.18],[-.19,.18]])box(.04,.44,.04,WD,cx+ca*lx+sa*lz,y+.22,cz-sa*lx+ca*lz,a);
+        SEATS.push([cx,cz,a+Math.PI])}
+      if(ti++%2===0){cyl(.035,.035,2.5,'#d8d2c4',x,y+1.25,z,6);geoInto('plain',new THREE.ConeGeometry(2.1,.75,4,1,true),colObj('#efe5cc'),place(x,y+2.75,z,0,Math.PI/4,0))}
+      addSolidPoly(rectPts(x,z,1.05,1.05,0))}
+    let nd=0;for(const [cx,cz,ang] of SEATS){if(nd>=22||hash(Math.round(cx*7),Math.round(cz*7))>.45)continue;nd++;
+      LATER.push(()=>{const p=stayAt(rand()<.55?'tourist':'local',cx,cz,ang,'sit');if(p){p.seat=.5;p.noFace=true}})}
+    window.__sd={gy,mesas:ti,comensales:nd}}
 
   /* Plaza de Toros La Monumental, modelada a partir de fotos: anillo de ladrillo rojo con galería de arcos arriba (barandas) y corona de
      almenas en punta con banderitas; talud de pasto alrededor con el muro rojo dentado; la entrada con las escaleras blancas entre muros rojos
@@ -1553,6 +1693,7 @@ function construirSitios(){
       const e=facade(P),f=front(e,5);addLM(s.n,cx,cz,20,1,f[0],f[1]);icon('fort',cx,cz,s.n);continue}
     if(k==='castellana'){castellana(s,P);continue}
     if(k==='huc'){hospitalCaribe(s,P);continue}
+    if(k==='santodomingo'){plazaSantoDomingo(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales
@@ -2176,7 +2317,7 @@ const CROWD=(function(){const P=[],Nn=[],PL=[],PV=[];
   let n=0;const me=mesh.instanceMatrix.array;
   // only the figures the camera can see go to the GPU (the sphere is generous so shadows don't pop at the screen edges)
   const FR=new THREE.Frustum(),PM=new THREE.Matrix4(),SPH=new THREE.Sphere(new THREE.Vector3(),3);
-  function push(p,speed){if(n>=MAX)return;const y=standY(p.x,p.z);SPH.center.set(p.x,y+.9,p.z);if(!FR.intersectsSphere(SPH))return;const L=p.look,s=L.scale,c=Math.cos(p.ang),sn=Math.sin(p.ang),o=n*16;
+  function push(p,speed){if(n>=MAX)return;const y=standY(p.x,p.z)-(p.down>0||p.mv?0:p.seat||0);SPH.center.set(p.x,y+.9,p.z);if(!FR.intersectsSphere(SPH))return;const L=p.look,s=L.scale,c=Math.cos(p.ang),sn=Math.sin(p.ang),o=n*16;
     me[o]=c*s;me[o+1]=0;me[o+2]=-sn*s;me[o+3]=0;me[o+4]=0;me[o+5]=s;me[o+6]=0;me[o+7]=0;me[o+8]=sn*s;me[o+9]=0;me[o+10]=c*s;me[o+11]=0;me[o+12]=p.x;me[o+13]=y;me[o+14]=p.z;me[o+15]=1;
     for(const k of ['aSkin','aTop','aBot','aHair','aHat']){const a=att[k].array,cc=L[k];a[n*3]=cc.r;a[n*3+1]=cc.g;a[n*3+2]=cc.b}
     const ai=att.aInfo.array;ai[n*4]=L.phase;ai[n*4+1]=speed;ai[n*4+2]=L.flags;n++}
@@ -2250,7 +2391,7 @@ function relod(){const ND=Q.nearD,cand=[];let i=0;
   for(const p of cand)if(p.down>0)p.skin=true}
 function showPed(p,dt,speed,pose,d){let build=updatePeds.budget>0;
   if(p.skin&&!p.ch&&(build||p.down>0)){pedBuild(p);updatePeds.budget--}
-  if(p.skin&&p.ch){if(!p.inScene){scene.add(p.mesh);p.inScene=true}p.mesh.position.set(p.x,standY(p.x,p.z),p.z);p.mesh.rotation.y=p.ang;
+  if(p.skin&&p.ch){if(!p.inScene){scene.add(p.mesh);p.inScene=true}p.mesh.position.set(p.x,standY(p.x,p.z)-(p.down>0||p.mv?0:p.seat||0),p.z);p.mesh.rotation.y=p.ang;
     if(p.down>0){downPose(p,dt);return}
     const near=d<Q.nearD*.6;if(near||(frameNo+p.look.phase*10|0)%2===0)animate(p.ch,speed,near?dt:dt*2,pose);return}
   if(p.inScene){scene.remove(p.mesh);p.inScene=false;p.mesh.rotation.x=0}
