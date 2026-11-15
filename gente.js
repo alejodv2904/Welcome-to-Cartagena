@@ -71,7 +71,7 @@ function analyseTop(mesh){const g=mesh.geometry,P=g.attributes.position,I=g.inde
   const kill=new Uint8Array(nT),vsh=new Uint8Array(P.count);
   for(let t=0;t<nT;t++){const r=find(vid[I[t*3]]),c=comp.get(r);
     if(c.n<40||(c.n<=200&&c.n!==117&&c.miny>1.3&&c.maxy<1.6))kill[t]=1;   // botones, corbatín, flor
-    if(r!==big)for(let k=0;k<3;k++)vsh[I[t*3+k]]=1}                      // todo lo que no es el saco: camisa
+    for(let k=0;k<3;k++)vsh[I[t*3+k]]=r!==big?1:2}                      // todo lo que no es el saco: camisa
   return{kill,vsh}}
 function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(true);const skinned=[];scene.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o)});
   const SZ=1024;const atlas=document.createElement('canvas');atlas.width=atlas.height=SZ;const ag=atlas.getContext('2d');
@@ -140,23 +140,29 @@ function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(tru
   let hips=null;scene.traverse(o=>{if(!hips&&strip(o.name)==='Hips')hips=o});
   // hombro, codo, cadera y rodilla en el espacio de la malla: desde ahí la ropa se vuelve piel (manga corta, sin mangas, pantaloneta)
   const bb=bonesOf(scene),lp=n=>{const b=bb[n];if(!b)return null;return first.worldToLocal(b.getWorldPosition(new THREE.Vector3()))};
-  const sh=lp('LeftArm'),el=lp('LeftForeArm'),hp=lp('LeftUpLeg'),kn=lp('LeftLeg');
+  const sh=lp('LeftArm'),el=lp('LeftForeArm'),wr=lp('LeftHand'),hp=lp('LeftUpLeg'),kn=lp('LeftLeg');
   const th=new THREE.Vector4(sh?Math.abs(sh.x):.18,el?Math.abs(el.x):.4,hp?hp.y:.9,kn?kn.y:.5);
-  return{kind,scene,hips,tex,mtex,tpl,skinAvg,plum,th,headBox,clips:{}}}
+  const arm=[sh,el,wr].every(Boolean)?[sh,el,wr]:null;
+  return{kind,scene,hips,tex,mtex,tpl,skinAvg,plum,th,headBox,arm,clips:{}}}
 
 /* ---------- shader: per-part recolouring, one draw call per person ---------- */
 const FRAG=`
 uniform sampler2D partMask;uniform vec3 pc[${NP}];uniform float pm[${NP}];uniform float pl[${NP}];
-uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uPatS,uSleeve,uShorts,uSuit,uHem,uJersey,uBelt;uniform vec3 uSkinA,uShirtC,uBeltC;uniform vec4 uTh;varying vec3 vBind;varying float vShirtV;
+uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uPatS,uSleeve,uShorts,uSuit,uHem,uJersey,uBelt,uArmK;uniform vec3 uArmA,uArmE,uArmW;uniform vec3 uSkinA,uShirtC,uBeltC;uniform vec4 uTh;varying vec3 vBind;varying float vShirtV;
 `;
 const WHITE=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1,THREE.RGBAFormat);WHITE.needsUpdate=true;
 // tejido: ruido fino de hilos que se repite sobre toda la ropa, para que la tela no se vea plana
 const WEAVE=(function(){const S=64,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');const d=g.createImageData(S,S);for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=(y*S+x)*4;const v=128+(((x+y)%4<2)?18:-18)+((x%2)?10:-10)+(Math.random()*44-22);d.data[i]=d.data[i+1]=d.data[i+2]=Math.max(0,Math.min(255,v));d.data[i+3]=255}g.putImageData(d,0,0);
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t})();
 function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMaterial({map:M.tex,skinning:true,shininess:14,specular:0x1c1a18});
-  const U={partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uPatS:{value:M.kind==='m'?14:26},
+  const AR=M.arm&&M.kind==='m'?M.arm:null,V3=a=>a.clone();
+  const U={uArmK:{value:AR?.66:1},uArmA:{value:AR?V3(AR[0]):new THREE.Vector3()},uArmE:{value:AR?V3(AR[1]):new THREE.Vector3()},uArmW:{value:AR?V3(AR[2]):new THREE.Vector3()},partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uPatS:{value:M.kind==='m'?14:26},
     uSuit:{value:X.suit?1:0},uShirtC:{value:col(X.shirtC||'#f4f2ee')},uHem:{value:X.hem!==undefined?X.hem:(M.kind==='m'?.84:-1e9)},uJersey:{value:X.jersey?1:0},uBelt:{value:X.belt&&M.kind==='m'?1:0},uBeltC:{value:col(X.beltC||'#3b2416')},uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
-  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBind=position;vShirtV=aShirt;');
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;uniform float uSleeve,uArmK;uniform vec4 uTh;uniform vec3 uArmA,uArmE,uArmW;\n'+s.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+vBind=position;vShirtV=aShirt;
+if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float cut=uSleeve>1.5?uTh.x*1.04:mix(uTh.x,uTh.y,0.7);float w=smoothstep(cut,cut+0.05,abs(position.x));
+  if(w>0.0){vec3 A=uArmA*vec3(sg,1.0,1.0),E=uArmE*vec3(sg,1.0,1.0),Wr=uArmW*vec3(sg,1.0,1.0);vec3 a=A,b=E;if(dot(position-E,E-A)>0.0){a=E;b=Wr;}
+    vec3 d=b-a;float t=clamp(dot(position-a,d)/dot(d,d),0.0,1.0);vec3 c=a+d*t;transformed=c+(position-c)*mix(1.0,uArmK,w);}}`);
     s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
     float pid=floor(texture2D(partMask,vUv).r*255.0/32.0+0.02);vec3 tc=diffuseColor.rgb;float lum=dot(tc,vec3(.299,.587,.114));
     vec3 pcol=vec3(1.0);float mode=0.0;float al=0.5;
@@ -164,12 +170,13 @@ function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMateria
     else if(pid<4.5){pcol=pc[4];mode=pm[4];al=pl[4];}else if(pid<5.5){pcol=pc[5];mode=pm[5];al=pl[5];}else if(pid>6.5){pcol=pc[7];mode=pm[7];al=pl[7];}
     bool isTop=pid>0.5&&pid<1.5;
     if(isTop&&vBind.y<uHem)discard;
-    if(isTop&&uSuit>0.5&&vShirtV>0.5){pcol=uShirtC;mode=2.0;}
+    if(isTop&&uSuit>0.5&&vShirtV>0.5&&vShirtV<1.5){pcol=uShirtC;mode=2.0;}
     float lr=lum/al;if(isTop)lr=mix(1.0,lr,0.18);
     bool bare=false;float ax=abs(vBind.x);
     float cutX=mix(uTh.x,uTh.y,0.7);
     if(isTop&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>cutX))bare=true;
     if(pid>1.5&&pid<2.5&&uShorts>0.5&&vBind.y<mix(uTh.w,uTh.z,0.2))bare=true;
+    if(bare&&vShirtV>0.5&&vShirtV<1.5)discard;
     if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lr,0.0,1.3);
     else if(uPatOn>0.5&&isTop)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lr,0.0,1.5);
     else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv*uPatS*0.8).rgb*clamp(0.3+0.7*lr,0.0,1.5);
