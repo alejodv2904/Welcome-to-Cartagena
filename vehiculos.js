@@ -268,19 +268,48 @@ SPEC.chiva=()=>{const A=B();const L=8.2,W=1.2,H=3.05,cols=['#e4572e','#f0b429','
   const wz=[2.7,-2.4],wr=.48;
   return{A,glass:[],head,tail,plates,wheels:wz.map((z,i)=>[-1,1].map(s=>({x:s*(W-.14),z,r:wr,w:.3,front:i===0,spokes:8,style:'steel'}))).flat(),seat:{x:.45,y:1.0,z:L/2-1.6},len:L,wid:W*2,roof:H}};
 // motorcycle (no body loft): frame, tank, seat, fork; rider seated
-SPEC.moto=(col)=>{const A=B();const dark='#1c1c1e',chrome='#b9bcc1';
-  addGeo(A,new THREE.BoxGeometry(.1,.1,.95),dark,mx(0,.52,.0,-.25,0,0));addGeo(A,new THREE.BoxGeometry(.08,.08,.75),dark,mx(0,.42,-.25,.2,0,0));
-  const tank=new THREE.SphereGeometry(.2,12,8);addGeo(A,tank,col,mx(0,.78,.18,0,0,0,.85,.7,1.35));
-  addGeo(A,new THREE.BoxGeometry(.26,.09,.62),'#151515',mx(0,.8,-.32,.06,0,0));
-  addGeo(A,new THREE.BoxGeometry(.3,.28,.3),col,mx(0,.62,-.38));// side panels
-  addGeo(A,new THREE.BoxGeometry(.22,.24,.26),'#3a3c40',mx(0,.38,.05));// engine
-  const ex=new THREE.CylinderGeometry(.04,.05,.8,8);ex.rotateX(Math.PI/2);addGeo(A,ex,chrome,mx(.14,.32,-.35,.12,0,0));
-  for(const s of [-1,1]){const fk=new THREE.CylinderGeometry(.022,.022,.72,6);addGeo(A,fk,chrome,mx(s*.08,.6,.62,-.38,0,0))}
-  addGeo(A,new THREE.BoxGeometry(.66,.03,.03),chrome,mx(0,.98,.48));for(const s of [-1,1])addGeo(A,new THREE.BoxGeometry(.08,.04,.04),'#111',mx(s*.32,.98,.47));
-  addGeo(A,new THREE.BoxGeometry(.2,.04,.5),col,mx(0,.66,.66,-.3,0,0));// front fender
-  addGeo(A,new THREE.BoxGeometry(.16,.04,.44),col,mx(0,.62,-.66,.4,0,0));
-  const head=[new THREE.CylinderGeometry(.08,.07,.06,12).applyMatrix4(mx(0,.9,.62,Math.PI/2,0,0))],tail=[new THREE.BoxGeometry(.12,.05,.03).applyMatrix4(mx(0,.66,-.89))];
-  const plates=[new THREE.PlaneGeometry(.2,.1).applyMatrix4(mx(0,.56,-.9,-.3,Math.PI,0))];
+SPEC.moto=(col)=>{const A=B();const dark='#1c1c1e',chrome='#b9bcc1',steel='#6f7378',rubber='#111214',amber='#f59e0b';const cc=C(col),white=C('#ffffff');
+  const shade=(k,st)=>(x,y,z,nx,ny)=>{const c=cc.clone().lerp(white,Math.max(0,ny)*k);if(st&&Math.abs(x)<.028&&ny>.2)c.lerp(white,.7);return c};
+  // chasis: viga principal, tubo inferior y cuna bajo el motor
+  addGeo(A,new THREE.BoxGeometry(.09,.09,.95),dark,mx(0,.62,.02,-.22,0,0));addGeo(A,new THREE.BoxGeometry(.07,.07,.62),dark,mx(0,.4,.28,-.7,0,0));
+  addGeo(A,new THREE.BoxGeometry(.08,.08,.75),dark,mx(0,.46,-.3,.2,0,0));addGeo(A,new THREE.BoxGeometry(.1,.14,.1),dark,mx(0,.9,.5));
+  // tanque con cuello, franja y tapa
+  addGeo(A,new THREE.SphereGeometry(.2,16,10),col,mx(0,.8,.16,0,0,0,.9,.68,1.4),shade(.3,true));addGeo(A,new THREE.CylinderGeometry(.045,.05,.03,10),chrome,mx(0,.93,.2));
+  // asiento de dos plazas con borde
+  addGeo(A,new THREE.BoxGeometry(.27,.1,.5),'#141414',mx(0,.8,-.18,.05,0,0));addGeo(A,new THREE.BoxGeometry(.25,.11,.34),'#181818',mx(0,.83,-.55,-.1,0,0));addGeo(A,new THREE.BoxGeometry(.3,.025,.82),'#2a2a2c',mx(0,.76,-.32,.05,0,0));
+  // tapas laterales
+  addGeo(A,new THREE.BoxGeometry(.3,.26,.34),col,mx(0,.6,-.4),shade(.2));addGeo(A,new THREE.BoxGeometry(.28,.2,.2),col,mx(0,.62,-.1),shade(.2));
+  // motor: bloque inclinado con aletas, carter y tapa
+  addGeo(A,new THREE.BoxGeometry(.22,.26,.3),'#3a3c40',mx(0,.34,.0));addGeo(A,new THREE.CylinderGeometry(.075,.075,.26,10),'#44474c',mx(0,.52,.12,-.5,0,0));
+  for(let i=0;i<4;i++)addGeo(A,new THREE.BoxGeometry(.2,.012,.2),'#5b5f65',mx(0,.45+i*.04,.13-i*.0,-.5,0,0));addGeo(A,new THREE.CylinderGeometry(.09,.09,.24,12).applyMatrix4(mx(0,0,0,0,0,Math.PI/2)),'#4d5056',mx(0,.32,-.1));
+  // escape: tubo de salida y silenciador con punta oscura
+  const hdr=new THREE.CylinderGeometry(.025,.025,.5,8);addGeo(A,hdr,chrome,mx(.13,.3,.2,Math.PI/2+.1,0,0));
+  const muf=new THREE.CylinderGeometry(.055,.065,.62,12);muf.rotateX(Math.PI/2);addGeo(A,muf,chrome,mx(.17,.34,-.5,.1,0,0));addGeo(A,new THREE.CylinderGeometry(.045,.045,.03,10).applyMatrix4(mx(0,0,0,Math.PI/2)),'#222',mx(.17,.31,-.82,.1,0,0));
+  // brazo oscilante, amortiguadores con resorte y guardacadena
+  for(const s of [-1,1]){addGeo(A,new THREE.BoxGeometry(.045,.06,.66),dark,mx(s*.1,.33,-.37,.04,0,0));
+    addGeo(A,new THREE.CylinderGeometry(.018,.018,.34,6),steel,mx(s*.12,.55,-.55,.28,0,0));
+    for(let k=0;k<5;k++)addGeo(A,new THREE.TorusGeometry(.03,.007,5,10).applyMatrix4(mx(0,0,0,Math.PI/2)),'#c0392b',mx(s*.12,.43+k*.05,-.6+k*.014,.28,0,0));}
+  addGeo(A,new THREE.BoxGeometry(.03,.07,.5),dark,mx(-.12,.36,-.38));
+  // horquilla: barras cromadas arriba, botellas oscuras abajo
+  for(const s of [-1,1]){addGeo(A,new THREE.CylinderGeometry(.02,.02,.4,8),chrome,mx(s*.08,.72,.57,-.26,0,0));addGeo(A,new THREE.CylinderGeometry(.03,.026,.34,8),'#26282b',mx(s*.08,.45,.64,-.26,0,0));
+    addGeo(A,new THREE.BoxGeometry(.04,.08,.1),'#888',mx(s*.1,.32,.69));}
+  // manubrio con puños, palancas, espejos y tablero
+  addGeo(A,new THREE.BoxGeometry(.7,.028,.028),chrome,mx(0,1.0,.45));for(const s of [-1,1]){addGeo(A,new THREE.CylinderGeometry(.021,.021,.1,8).applyMatrix4(mx(0,0,0,0,0,Math.PI/2)),rubber,mx(s*.34,1.0,.45));
+    addGeo(A,new THREE.BoxGeometry(.012,.012,.12),'#333',mx(s*.3,.99,.51));addGeo(A,new THREE.CylinderGeometry(.007,.007,.2,5),'#222',mx(s*.3,1.1,.44,0,0,s*-.15));
+    addGeo(A,new THREE.SphereGeometry(.045,8,6),'#222',mx(s*.32,1.2,.43,0,0,0,1.2,.75,.4));addGeo(A,new THREE.BoxGeometry(.04,.025,.03),amber,mx(s*.26,.98,.62));addGeo(A,new THREE.BoxGeometry(.04,.025,.03),amber,mx(s*.16,.7,-.88))}
+  addGeo(A,new THREE.CylinderGeometry(.075,.075,.06,12),'#111',mx(0,1.03,.42,-.6,0,0));
+  // faro: carcasa cromada con visera y soporte
+  addGeo(A,new THREE.SphereGeometry(.1,14,10),'#d4d7db',mx(0,.9,.56,0,0,0,1,1,.8));addGeo(A,new THREE.BoxGeometry(.16,.02,.1),dark,mx(0,1.0,.6,-.3,0,0));
+  // guardabarros delantero y trasero curvos
+  const fF=new THREE.CylinderGeometry(.355,.355,.14,18,1,true,Math.PI*.1,Math.PI*.78);fF.rotateZ(Math.PI/2);addGeo(A,fF,col,mx(0,.3,.68),shade(.15));
+  addGeo(A,new THREE.BoxGeometry(.13,.03,.12),col,mx(0,.41,.9,.55,0,0),shade(.1));
+  const fR=new THREE.CylinderGeometry(.36,.36,.17,18,1,true,Math.PI*.55,Math.PI*.45);fR.rotateZ(Math.PI/2);addGeo(A,fR,col,mx(0,.3,-.66),shade(.1));
+  addGeo(A,new THREE.BoxGeometry(.2,.03,.3),col,mx(0,.7,-.82,.35,0,0),shade(.1));addGeo(A,new THREE.BoxGeometry(.04,.03,.4),chrome,mx(0,.78,-.78,.1,0,0));// parrilla
+  // estribos, pata de cabra, cadena
+  for(const s of [-1,1]){addGeo(A,new THREE.BoxGeometry(.16,.025,.05),'#222',mx(s*.2,.28,-.1));addGeo(A,new THREE.BoxGeometry(.14,.02,.045),'#222',mx(s*.2,.4,-.58))}
+  addGeo(A,new THREE.CylinderGeometry(.012,.012,.28,5),steel,mx(-.14,.17,-.15,0,0,.7));
+  const head=[new THREE.CylinderGeometry(.075,.065,.06,14).applyMatrix4(mx(0,.9,.64,Math.PI/2,0,0))],tail=[new THREE.BoxGeometry(.14,.05,.03).applyMatrix4(mx(0,.62,-.97,.35,0,0))];
+  const plates=[new THREE.PlaneGeometry(.2,.1).applyMatrix4(mx(0,.54,-.98,-.3,Math.PI,0))];
   return{A,glass:[],head,tail,plates,wheels:[{x:0,z:.68,r:.3,w:.11,front:true,spokes:6,style:'black'},{x:0,z:-.66,r:.3,w:.13,front:false,spokes:6,style:'black'}],seat:{x:0,y:.82,z:-.25},len:2,wid:.7,roof:1.2,moto:true}};
 // motos de la Policía (verde neón, baúl con letrero y luces) y de Tránsito (blanca y azul), con espacio para dos
 function motoKit(col,box,trim,txt,fg){const s=SPEC.moto(col);const A=s.A;
@@ -375,7 +404,7 @@ function riderGeo(type,seat,rear){const pol=type==='motopol',tra=type==='mototra
   for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.11,.42,.12),pants,mx(sd*.14,y-.2,z+.38,-.25,0,0));
   addGeo(A,new THREE.BoxGeometry(.36,.52,.22),shirt,mx(0,y+.32,z-.02,.18*f,0,0));
   for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.09,.09,.42),shirt,mx(sd*.21,y+.42,z+.2,.55,0,0));
-  addGeo(A,new THREE.BoxGeometry(.18,.2,.2),skin,mx(0,y+.7,z+.06));addGeo(A,new THREE.BoxGeometry(.25,.17,.27),helm,mx(0,y+.82,z+.05));
+  addGeo(A,new THREE.BoxGeometry(.18,.2,.2),skin,mx(0,y+.7,z+.06));addGeo(A,new THREE.BoxGeometry(.25,.17,.27),helm,mx(0,y+.82,z+.05));addGeo(A,new THREE.BoxGeometry(.21,.07,.05),'#10161a',mx(0,y+.79,z+.19));addGeo(A,new THREE.BoxGeometry(.27,.04,.29),helm,mx(0,y+.91,z+.05));addGeo(A,new THREE.BoxGeometry(.09,.07,.09),skin,mx(0,y+.6,z+.05));for(const sd of [-1,1])addGeo(A,new THREE.BoxGeometry(.1,.1,.1),skin,mx(sd*.21,y+.34,z+.4));if(!pol&&!tra)addGeo(A,new THREE.BoxGeometry(.3,.4,.12),pants,mx(0,y+.32,z-.17,.18*f,0,0));
   const g=toGeo(A);RG.set(key,g);return g}
 function mergeG(list){const A=B();list.forEach(g=>addGeo(A,g,'#fff'));const g=toGeo(A);g.deleteAttribute('color');return g}
 const sirenMat=[new THREE.MeshBasicMaterial({color:0xff2a1a}),new THREE.MeshBasicMaterial({color:0x2a5bff})];
