@@ -101,7 +101,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114c"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261115a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -3249,8 +3249,112 @@ function fruitCart(x,z,yaw){if(!onLand(x,z)||solidAt(x,z))return;const g=new THR
   add(new THREE.CylinderGeometry(.03,.03,1.6,6),mat('#ddd'),0,1.7,0);const um=add(new THREE.ConeGeometry(1.1,.45,8,1,true),new THREE.MeshLambertMaterial({color:pick(['#e4572e','#1f9aa6','#f0b429']),side:THREE.DoubleSide}),0,2.6,0);
   addSolidPoly([x-.9,z-.9,x+.9,z-.9,x+.9,z+.9,x-.9,z+.9]);CARTS.push(g);stayAt('vendor',x+Math.cos(yaw)*1.2,z-Math.sin(yaw)*1.2,yaw+Math.PI/2,'cooler')}
 ['Plaza Santo Domingo','Plaza de los Coches','Parque Flanagan','Plaza de la Trinidad','Parque Centenario','Plaza de San Diego','Plaza de Bolívar','India Catalina'].forEach(n=>{const l=LM.byName(n);if(l)fruitCart(l.mx+rr(-10,10),l.mz+rr(-10,10),rr(0,TAU))});
-// beach vendors and bathers along Bocagrande
-for(let k=0;k<40;k++){for(let t=0;t<20;t++){const x=rr(-1500,-500),z=rr(1600,3200);const i=Math.floor((x-MK.x0)/MK.cell),j=Math.floor((z-MK.z0)/MK.cell);if(!wAt(i,j)&&(wAt(i-4,j)||wAt(i-3,j-3))&&!solidAt(x,z)){stayAt(rand()<.45?'vendor':'tourist',x,z,rr(0,TAU),rand()<.3?'cooler':'');break}}}
+/* ---------- playas: Bocagrande, El Laguito, Castillogrande, Marbella, Crespo, El Cabrero, La Boquilla, Cielo Mar y las del Centro.
+   En la arena, frente al mar abierto: filas de carpas de colores con sus sillas plásticas blancas y su mesita, asoleadoras con
+   sombrilla, torres de salvavidas; gente en las sillas, tomando el sol, bañándose con el agua a la cintura, nadando y niños
+   jugando en la orilla; vendedores, palenqueras y turistas caminando por la arena. De noche y con aguacero la playa se vacía. ---------- */
+const BEACH=(function(){
+  const ZONAS=/^(La Boquilla|El Laguito|Bocagrande|Castillogrande|Crespo|Marbella|El Cabrero|Centro Histórico|San Diego|Cielo Mar)$/;
+  const inner=(x,z)=>{const i=Math.floor((x-MK.x0)/MK.cell),j=Math.floor((z-MK.z0)/MK.cell);return i>=12&&j>=12&&i<MW-12&&j<MH-12?[i,j]:null};
+  // la misma regla que pinta la arena en el suelo: agua abierta hacia el oeste / noroeste a menos de ~40 m
+  function sand(x,z){if(isWater(x,z))return false;const c=inner(x,z);
+    if(c){const [i,j]=c;for(let s=1;s<=5;s++)if(wAt(i-s,j)&&wAt(i-s-3,j)&&wAt(i-s-6,j)||wAt(i-s,j-s)&&wAt(i-s-3,j-s-3))return true;return false}
+    if(isWater(x-40,z)||isWater(x-28,z-28)||isWater(x,z-40)||isWater(x+40,z)||isWater(x,z+40)){if(CD.inPolyA(CD.CIENAGA,x+40,z)||CD.inPolyA(CD.CIENAGA,x,z-40)||CD.inPolyA(CD.CIENAGA,x-40,z)||CD.inPolyA(CD.CIENAGA,x,z+40))return false;return z<0||x>4000}return false}
+  const free=(x,z,m)=>onLand(x,z)&&!solidAt(x,z)&&roadClear(x,z,m)&&sand(x,z);
+  // la orilla: celdas de arena junto al agua, con el mar abierto enfrente (no los caños ni las lagunas)
+  const shore=[],seen=new Map(),sk=(x,z)=>Math.floor(x/6)*100000+Math.floor(z/6);
+  for(let z=WB[1]+4;z<WB[3];z+=8)for(let x=WB[0]+4;x<WB[2];x+=8){if(isWater(x,z)||!(isWater(x-8,z)||isWater(x+8,z)||isWater(x,z-8)||isWater(x,z+8))||!sand(x,z))continue;
+    let nx=0,nz=0;for(let k=0;k<16;k++){const a=k/16*TAU,dx=Math.sin(a),dz=Math.cos(a);for(const r of [10,20])if(isWater(x+dx*r,z+dz*r)){nx+=dx;nz+=dz}}const l=Math.hypot(nx,nz);if(l<2)continue;nx/=l;nz/=l;
+    if(!(isWater(x+nx*50,z+nz*50)&&isWater(x+nx*90,z+nz*90)&&isWater(x+nx*140,z+nz*140)))continue;if(!ZONAS.test(zoneName(x,z)))continue;
+    // a ~6 m una de otra
+    let near=false;const a0=Math.floor(x/6),b0=Math.floor(z/6);for(let a=a0-1;a<=a0+1&&!near;a++)for(let b=b0-1;b<=b0+1;b++){const q=seen.get(a*100000+b);if(q&&Math.hypot(q.x-x,q.z-z)<6){near=true;break}}if(near)continue;
+    // el borde del agua exacto (la celda es de 8 m) y el ancho de la arena hasta la calle o los edificios
+    let ex=x,ez=z;for(let s=0;s<10&&!isWater(ex+nx,ez+nz);s++){ex+=nx;ez+=nz}
+    let depth=0;for(let d=2;d<=60;d+=2){const px=ex-nx*d,pz=ez-nz*d;if(!onLand(px,pz)||solidAt(px,pz)||!roadClear(px,pz,1.2)||!sand(px,pz))break;depth=d}
+    if(!ZONAS.test(zoneName(ex,ez))||CD.inPolyA(CD.CIENAGA,ex+nx*60,ez+nz*60))continue;   // la Ciénaga de la Virgen no es playa
+    const p={x:ex,z:ez,nx,nz,depth,h:hash(Math.round(ex),Math.round(ez))};shore.push(p);seen.set(sk(x,z),p)}
+  // ---- geometría (en lotes por baldosa: lo lejano no se dibuja) ----
+  const M=new THREE.Matrix4(),R=new THREE.Matrix4();
+  const put=(geo,col,x,y,z,yaw,rx)=>{M.makeRotationY(yaw||0);if(rx){R.makeRotationX(rx);M.multiply(R)}M.setPosition(x,y,z);geoInto('plain',geo,colObj(col),M)};
+  const CARPA=['#1565c0','#d32f2f','#f9a825','#2e7d32','#1f9aa6','#ffffff','#e4572e','#7b1fa2'];
+  const fw=(x,z,yaw,a,b)=>[x+Math.cos(yaw)*a+Math.sin(yaw)*b,z-Math.sin(yaw)*a+Math.cos(yaw)*b];   // a: a la derecha, b: hacia adelante
+  // silla plástica blanca: asiento, espaldar y las patas como dos paneles
+  function chair(x,z,yaw,c){const y=ground(x,z);c=c||'#f4f4f0';put(new THREE.BoxGeometry(.46,.05,.44),c,x,y+.44,z,yaw);const bk=fw(x,z,yaw,0,-.21);put(new THREE.BoxGeometry(.46,.46,.04),c,bk[0],y+.69,bk[1],yaw,-.16);
+    for(const a of [-.2,.2]){const q=fw(x,z,yaw,a,0);put(new THREE.BoxGeometry(.04,.44,.4),c,q[0],y+.22,q[1],yaw)}}
+  function table(x,z){const y=ground(x,z);put(new THREE.CylinderGeometry(.38,.38,.04,12),'#f4f4f0',x,y+.7,z);put(new THREE.CylinderGeometry(.04,.06,.7,6),'#f4f4f0',x,y+.35,z)}
+  function lounger(x,z,yaw,c){const y=ground(x,z);put(new THREE.BoxGeometry(.66,.07,1.25),c,...(()=>{const q=fw(x,z,yaw,0,.25);return[q[0],y+.32,q[1]]})(),yaw);
+    const h=fw(x,z,yaw,0,-.62);put(new THREE.BoxGeometry(.66,.07,.75),c,h[0],y+.55,h[1],yaw,-.75);
+    for(const b of [.8,-.5]){const q=fw(x,z,yaw,0,b);put(new THREE.BoxGeometry(.6,.3,.05),'#d9d9d9',q[0],y+.15,q[1],yaw)}}
+  function umbrella(x,z,c){const y=ground(x,z);put(new THREE.CylinderGeometry(.03,.03,2.3,5),'#e8e4dc',x,y+1.15,z);put(new THREE.ConeGeometry(1.35,.5,8,1,true),c,x,y+2.35,z)}
+  function carpa(x,z,yaw,c){const y=ground(x,z),H=2.3;for(const [a,b] of [[-1.45,1.45],[1.45,1.45],[-1.45,-1.45],[1.45,-1.45]]){const q=fw(x,z,yaw,a,b);put(new THREE.BoxGeometry(.07,H,.07),'#cfcfcf',q[0],y+H/2,q[1],yaw)}
+    put(new THREE.BoxGeometry(3.05,.05,3.05),c,x,y+H,z,yaw);const v=c==='#ffffff'?'#1565c0':'#ffffff';
+    for(const [a,b,ry] of [[0,1.52,0],[0,-1.52,0],[1.52,0,Math.PI/2],[-1.52,0,Math.PI/2]]){const q=fw(x,z,yaw,a,b);put(new THREE.BoxGeometry(3.05,.32,.03),v,q[0],y+H-.16,q[1],yaw+ry)}
+    put(new THREE.ConeGeometry(2.15,.65,4,1),c,x,y+H+.34,z,yaw+Math.PI/4)}
+  function tower(x,z,yaw){const y=ground(x,z);for(const [a,b] of [[-.7,.7],[.7,.7],[-.7,-.7],[.7,-.7]]){const q=fw(x,z,yaw,a,b);put(new THREE.BoxGeometry(.12,2.4,.12),'#f2f2f2',q[0],y+1.2,q[1],yaw)}
+    put(new THREE.BoxGeometry(1.7,.12,1.7),'#d32f2f',x,y+2.45,z,yaw);put(new THREE.BoxGeometry(1.7,.6,.08),'#f9a825',...fw(x,z,yaw,0,.85).flatMap((v,i)=>i?[y+2.8,v]:[v]),yaw);
+    put(new THREE.BoxGeometry(1.9,.08,1.9),'#d32f2f',x,y+4.1,z,yaw);for(const [a,b] of [[-.8,.8],[.8,.8],[-.8,-.8],[.8,-.8]]){const q=fw(x,z,yaw,a,b);put(new THREE.BoxGeometry(.06,1.6,.06),'#f2f2f2',q[0],y+3.3,q[1],yaw)}
+    put(new THREE.CylinderGeometry(.03,.03,2.2,5),'#cfcfcf',x,y+5.2,z);put(new THREE.BoxGeometry(.03,.5,.8),'#d32f2f',...fw(x,z,yaw,0,.4).flatMap((v,i)=>i?[y+6,v]:[v]),yaw);
+    const q=fw(x,z,yaw,0,-1.6);for(let k=0;k<6;k++)put(new THREE.BoxGeometry(.5,.05,.25),'#f2f2f2',q[0]+Math.sin(yaw)*k*.25,y+.2+k*.4,q[1]+Math.cos(yaw)*k*.25,yaw)}
+  // ---- lo que va en la arena y los puestos de la gente ----
+  const SP=[],SPG=new Map(),SG=40;const addSpot=s=>{SP.push(s);const k=Math.floor(s.x/SG)*100000+Math.floor(s.z/SG);let l=SPG.get(k);if(!l){l=[];SPG.set(k,l)}l.push(s)};
+  const stand=[];let lastTower=-1e9,nCarpa=0;
+  shore.forEach((p,i)=>{const yawSea=Math.atan2(p.nx,p.nz),tx=-p.nz,tz=p.nx,h=p.h,h2=hash(i,7),h3=hash(i,13);const at=(d,l)=>[p.x-p.nx*d+tx*l,p.z-p.nz*d+tz*l];
+    // en el agua: bañistas con el agua a la cintura y nadadores un poco más afuera
+    if(h<.55){const q=[p.x+p.nx*rr(4,9)+tx*rr(-2.5,2.5),p.z+p.nz*rr(4,9)+tz*rr(-2.5,2.5)];if(isWater(q[0],q[1]))addSpot({x:q[0],z:q[1],t:'bath',yaw:yawSea+Math.PI+rr(-.8,.8)})}
+    if(h2<.3){const q=[p.x+p.nx*rr(11,20)+tx*rr(-3,3),p.z+p.nz*rr(11,20)+tz*rr(-3,3)];if(isWater(q[0],q[1]))addSpot({x:q[0],z:q[1],t:'swim',yaw:rr(0,TAU)})}
+    // la orilla mojada: niños jugando, gente parada mirando el mar
+    if(h3<.35){const q=at(rr(1.2,3.5),rr(-2,2));if(free(q[0],q[1],.5))addSpot({x:q[0],z:q[1],t:h3<.17?'play':'shore',yaw:yawSea+rr(-.6,.6),tx,tz})}
+    if(p.depth<9)return;
+    // asoleadoras de a dos con su sombrilla, mirando al mar
+    if(h<.34){const d=Math.min(8,p.depth*.4),c=h<.16?'#f4f4f0':h<.25?'#1565c0':'#f9a825';let ok=0;
+      for(const l of [-.55,.55]){const q=at(d+.8,l+(h2-.5)*1.5);if(free(q[0],q[1],1)){lounger(q[0],q[1],yawSea,c);ok++;addSpot({x:q[0],z:q[1],t:'lie',yaw:yawSea})}}
+      const u=at(d+2.2,(h2-.5)*1.5);if(ok&&free(u[0],u[1],1))umbrella(u[0],u[1],pick(CARPA))}
+    // las carpas: filas más atrás, donde la arena alcanza; sillas plásticas y mesita debajo
+    if(p.depth>=17&&h3>.12&&hash(Math.floor(i/6),11)<.55)for(const row of p.depth>=28&&h>.45?[0,4.4]:[0]){const d=Math.min(p.depth-4,14+h*3)+row,q=at(d,0);
+      if(d<=p.depth-3&&free(q[0],q[1],2)&&free(...at(d+1.6,0),1)&&free(...at(d-1.6,0),1)){carpa(q[0],q[1],yawSea,CARPA[Math.floor(hash(Math.floor(i/3)+row,3)*CARPA.length)]);nCarpa++;
+        addSolidPoly(rectPts(q[0],q[1],.4,.4,yawSea));table(...at(d-.3,.2));const n=h2<.6?2:3;
+        for(let k=0;k<n;k++){const a=(k/n-.5)*2.2,cq=at(d+.15-Math.abs(a)*.25,a+.1);chair(cq[0],cq[1],yawSea+a*.25);addSpot({x:cq[0],z:cq[1],t:'chair',yaw:yawSea+a*.25})}
+        if(h<.3){const cq=at(d-.9,-.9);put(new THREE.BoxGeometry(.55,.4,.38),'#f7f7f2',cq[0],ground(cq[0],cq[1])+.2,cq[1],yawSea)}}}   // la nevera de icopor
+    // torre de salvavidas cada ~300 m de playa
+    if(p.depth>=14&&h2>.97&&Math.hypot(p.x-(lastTower%1e6),p.z-Math.floor(lastTower/1e6))>250){const q=at(6,3);if(free(q[0],q[1],1.5)){tower(q[0],q[1],yawSea);lastTower=Math.round(p.z)*1e6+Math.round(p.x)}}
+    // vendedores, palenqueras y turistas parados en la arena (los de la calle de la playa)
+    if(stand.length<800&&h2<.22){const q=at(rr(4,Math.max(5,p.depth-2)),rr(-2,2));if(free(q[0],q[1],.6))stand.push([q[0],q[1],yawSea+rr(-1.5,1.5),h2])}});
+  flushBatches();
+  for(const [x,z,yaw,r] of stand){const r2=r/.22;const k=r2<.3?'vendor':r2<.48?'palenquera':r2<.75?'tourist':r2<.88?'nino':'local';const p=stayAt(k,x,z,yaw,k==='vendor'?'cooler':k==='palenquera'?'bowl':k==='tourist'?'talk':'');if(p)p.beach=true}
+  // ---- la gente de la playa: un grupo de personas en traje de baño que se acomoda en los puestos cercanos al jugador ----
+  const SWIM=['#d32f2f','#1565c0','#f9a825','#2e7d32','#1f9aa6','#111111','#e4572e','#7b1fa2','#ff6fa5','#ffffff'];
+  function beachSpec(kid){const sp=archetype(kid?'nino':rand()<.35?'tourist':'local');const c=pick(SWIM);
+    Object.assign(sp,{shorts:true,sleeve:2,shoes:sp.skin,backpack:null,cooler:false,skirt:null,skirtC:null,topReg:null,pat:null,patC:null,longSleeve:false,jeans:false,glasses:rand()<.3,beard:sp.sex==='M'&&rand()<.25});
+    if(sp.hat==='vueltiao'||sp.hat==='police')sp.hat=null;if(rand()<.6)sp.hat=null;
+    if(sp.sex==='M'){sp.top=rand()<.75?sp.skin:pick(['#ffffff','#f9a825','#1f9aa6']);sp.bottom=c}else{sp.top=c;sp.bottom=c}
+    if(kid){sp.top=rand()<.5?sp.skin:c;sp.bottom=c}return sp}
+  const POOL=[],NPOOL=LOWEND?18:40;
+  for(let i=0;i<NPOOL;i++){const kid=i%5===4,ch=buildCharacter(beachSpec(kid));ch.mesh.visible=false;ch.mesh.rotation.order='YXZ';scene.add(ch.mesh);POOL.push({ch,kid,s:null,ph:rand()*10})}
+  let T=0;const taken=new Set();
+  function near(x,z,r){const out=[],n=Math.ceil(r/SG),a0=Math.floor(x/SG),b0=Math.floor(z/SG);for(let a=a0-n;a<=a0+n;a++)for(let b=b0-n;b<=b0+n;b++){const l=SPG.get(a*100000+b);if(l)for(const s of l)out.push(s)}return out}
+  function update(dt,t){const night=NIGHT.value>.55,rain=RAIN.w>.35,empty=night||rain||EX.inside;
+    // de noche y con aguacero los que están parados en la arena también se van
+    if((T-=dt)<=0){T=.6;for(const p of STAY)if(p.beach)p.gone=empty;
+      const R=Q.grp?Math.max(70,Q.grp+15):110;
+      for(const b of POOL){if(b.s&&(empty||dist2(b.s.x,b.s.z,player.x,player.z)>R+30)){taken.delete(b.s);b.s=null;b.ch.mesh.visible=false}}
+      if(!empty){const free=POOL.filter(b=>!b.s);if(free.length){const c=near(player.x,player.z,R).filter(s=>!taken.has(s)&&dist2(s.x,s.z,player.x,player.z)<R).sort((a,b)=>dist2(a.x,a.z,player.x,player.z)-dist2(b.x,b.z,player.x,player.z));
+        for(const b of free){// los niños a la orilla o al agua; los grandes donde toque
+          const i=c.findIndex(s=>b.kid?(s.t==='play'||s.t==='bath'||s.t==='shore'):s.t!=='play');if(i<0)break;const s=c.splice(i,1)[0];taken.add(s);b.s=s;b.a=rand()*TAU;b.r=rr(2.5,5);b.ch.mesh.visible=true}}}}
+    for(const b of POOL){const s=b.s;if(!s)continue;const ch=b.ch,m=ch.mesh,d=dist2(s.x,s.z,player.x,player.z),far=d>45;if(far&&(b.fr=(b.fr||0)+1)%3)continue;const sdt=far?dt*3:dt;b.ph+=sdt;
+      if(s.t==='chair'){m.position.set(s.x,ground(s.x,s.z)+.56-(ch.model==='f'?.93:1.0),s.z);m.rotation.set(0,s.yaw,0);animate(ch,0,sdt,'sit')}
+      else if(s.t==='lie'){// boca arriba en la asoleadora: los pies hacia el mar y la cabeza en el espaldar
+        const f=fw(s.x,s.z,s.yaw,0,.88);m.position.set(f[0],ground(s.x,s.z)+.4,f[1]);m.rotation.set(-Math.PI/2+.32,s.yaw,0);animate(ch,0,sdt,'')}
+      else if(s.t==='bath'){const wd=b.kid?.55:.95;m.position.set(s.x,-.7-wd+Math.sin(b.ph*1.7)*.06,s.z);m.rotation.set(0,s.yaw+Math.sin(b.ph*.3)*.6,0);animate(ch,0,sdt,Math.sin(b.ph*.4)>.85?'wave':'')}
+      else if(s.t==='swim'){b.a+=sdt*.9/b.r;const x=s.x+Math.sin(b.a)*b.r,z=s.z+Math.cos(b.a)*b.r;m.position.set(x,-.8+Math.sin(b.ph*3)*.04,z);m.rotation.set(Math.PI/2-.2,b.a+Math.PI/2,0);animate(ch,1.5,sdt,'')}
+      else if(s.t==='play'){// corren de un lado a otro en la orilla
+        const o=Math.sin(b.ph*.55)*3.5,v=Math.cos(b.ph*.55)*3.5*.55;m.position.set(s.x+s.tx*o,ground(s.x,s.z),s.z+s.tz*o);m.rotation.set(0,Math.atan2(s.tx*v,s.tz*v),0);animate(ch,Math.abs(v)*1.2,sdt,'')}
+      else{m.position.set(s.x,ground(s.x,s.z),s.z);m.rotation.set(0,s.yaw,0);animate(ch,0,sdt,'hips')}}}
+  // el jugador también se puede meter al mar frente a la playa: hasta ~14 m el agua le va subiendo, más adentro nada (hasta ~32 m de la orilla)
+  const SHG=new Map(),SHC=30;for(const p of shore){const k=Math.floor(p.x/SHC)*100000+Math.floor(p.z/SHC);let l=SHG.get(k);if(!l){l=[];SHG.set(k,l)}l.push(p)}
+  function sea(x,z){if(!isWater(x,z))return -1;let best=null,bd=35*35;const a0=Math.floor(x/SHC),b0=Math.floor(z/SHC);
+    for(let a=a0-2;a<=a0+2;a++)for(let b=b0-2;b<=b0+2;b++){const l=SHG.get(a*100000+b);if(l)for(const p of l){const d=(p.x-x)**2+(p.z-z)**2;if(d<bd){bd=d;best=p}}}
+    if(!best)return -1;const d=(x-best.x)*best.nx+(z-best.z)*best.nz;if(d<-2||d>32)return -1;return clamp(d/14,.08,1)*1.35}
+  return{update,sea,shore,spots:SP,carpas:()=>nCarpa,stand:stand.length}})();
 const ALLP=peds.concat(STAY,RES);
 // level of detail: every 0.25 s the closest people (and anyone knocked down or chasing) get the skinned model; the rest are crowd figures
 let lodT=0,copFootNear=false;
@@ -3800,10 +3904,16 @@ function act(){if(!started||rideOpen()||tcOpen()||PAUSE.open||BIG.open)return;if
     player.car=null;unseat(player.ch);scene.add(player.mesh);player.mesh.visible=true;player.yaw=v.yaw;EX.exitCar(v,{quick:Math.abs(v.speed)>3},()=>{})}}
 function updateFoot(dt,inp){const f=[Math.sin(player.cy),Math.cos(player.cy)],r=[-f[1],f[0]];
   let mx=f[0]*inp.iz+r[0]*inp.ix,mz=f[1]*inp.iz+r[1]*inp.ix;const m=Math.hypot(mx,mz);let sp=0;
-  if(m>.08){sp=(keys.KeyC?1.5:inp.run&&EX.canSprint()?7.6:4.4)*Math.min(1,m);if(m<.45)sp=Math.min(sp,1.6);mx/=m;mz/=m;const ox=player.x,oz=player.z;moveOnLand(player,player.x+mx*sp*dt,player.z+mz*sp*dt);collide(player,.4);
+  const sea0=BEACH.sea(player.x,player.z);
+  if(m>.08){sp=(keys.KeyC?1.5:inp.run&&EX.canSprint()?7.6:4.4)*Math.min(1,m);if(m<.45)sp=Math.min(sp,1.6);if(sea0>=0)sp*=sea0>1.1?.45:sea0>.5?.6:.8;mx/=m;mz/=m;const ox=player.x,oz=player.z;
+    // en la playa se puede entrar al agua; en el resto, el agua sigue siendo el borde
+    const tx=player.x+mx*sp*dt,tz=player.z+mz*sp*dt;if(isWater(tx,tz)&&BEACH.sea(tx,tz)>=0){player.x=tx;player.z=tz}else moveOnLand(player,tx,tz);collide(player,.4);
     sp=Math.min(sp,dist2(ox,oz,player.x,player.z)/Math.max(dt,1e-3));player.yaw=angLerp(player.yaw,Math.atan2(mx,mz),Math.min(1,dt*12))}
-  player.spd=lerp(player.spd,sp,Math.min(1,dt*8));if(player.waveT>0)player.waveT-=dt;animate(player.ch,player.spd,dt,player.waveT>0&&player.spd<1.2?'wave':'');
-  player.mesh.position.set(player.x,standY(player.x,player.z),player.z);player.mesh.rotation.y=player.yaw;EX.footPost(dt,inp)}
+  player.spd=lerp(player.spd,sp,Math.min(1,dt*8));if(player.waveT>0)player.waveT-=dt;const sea=BEACH.sea(player.x,player.z);player.sea=sea;player.mesh.rotation.order='YXZ';
+  if(sea>1.1){// nadando: boca abajo en la superficie, pataleando
+    animate(player.ch,Math.max(1.3,player.spd*2.2),dt,'');player.mesh.position.set(player.x,-.8+Math.sin(simT*3)*.04,player.z);player.mesh.rotation.set(Math.PI/2-.2,player.yaw,0)}
+  else{animate(player.ch,player.spd,dt,player.waveT>0&&player.spd<1.2?'wave':'');player.mesh.position.set(player.x,sea>=0?-.7-sea+Math.sin(simT*1.7)*.03:standY(player.x,player.z),player.z);player.mesh.rotation.set(0,player.yaw,0)}
+  EX.footPost(dt,inp)}
 function updateDriven(v,dt,inp){const thr=inp.iz,hb=inp.run,S=v.spec,top=S.top*(v.hp>0?1:.15);
   if(thr>.05)v.speed+=(v.speed<-.5?30:S.acc*(1-Math.max(0,v.speed)/(top+6)))*thr*dt;
   else if(thr<-.05){if(v.speed>.5)v.speed-=30*-thr*dt;else v.speed+=9*thr*dt*(1+v.speed/-14)}
@@ -3832,7 +3942,7 @@ function updateParked(v,dt){if(Math.abs(v.speed)<.05){v.speed=0;return}v.speed*=
 
 /* ---------- camera ---------- */
 let camD=7.5,camTy=null,camFrom=null,camBlend=0;
-function updateCamera(dt){const car=player.car||player.ride;const tx=player.x,tz=player.z,gy=ground(tx,tz),tyT=gy+(car?(car.bus?2.6:1.3):1.7);
+function updateCamera(dt){const car=player.car||player.ride;const tx=player.x,tz=player.z,gy=!car&&player.sea>=0?(player.sea>1.1?-1.4:-.7-player.sea):ground(tx,tz),tyT=gy+(car?(car.bus?2.6:1.3):1.7);
   // smooth height and distance so getting in / out of vehicles glides instead of snapping
   camTy=camTy===null?tyT:lerp(camTy,tyT,1-Math.exp(-dt*5));const ty=camTy;
   if(car&&performance.now()-lastDrag>1800&&Math.abs(car.speed)>2)player.cy=angLerp(player.cy,car.yaw+(car.speed<0?Math.PI:0),Math.min(1,dt*2.4));
@@ -4444,7 +4554,7 @@ function step(dt,now){simT+=dt;
     if(player.car)updateDriven(player.car,dt,inp);else if(TC.board){}else if(EX.tween(dt)){}else if(player.ride){player.x=player.ride.x;player.z=player.ride.z}else updateFoot(dt,inp);EX.update(dt,now/1000);ANI.update();
     buildVG();let aiN=0,vi=0;for(const v of vehicles){vi++;if(v===player.car)continue;if(v.ai){if(!v.hail&&v.type!=='police'&&aiN++>=Q.cars){v.off=true;continue}v.off=false;
       if(!v.hail&&!v.chase&&Math.abs(v.x-player.x)+Math.abs(v.z-player.z)>360){if((vi+frameNo)%3)continue;updateAI(v,Math.min(.15,dt*3));continue}updateAI(v,dt)}else updateParked(v,dt)}
-    updateChunks(player.x,player.z,4);trafficUpkeep(dt);updateTransito(dt);updateCrash(dt);updateLightAgents(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
+    updateChunks(player.x,player.z,4);trafficUpkeep(dt);updateTransito(dt);updateCrash(dt);updateLightAgents(dt);updateLights(dt);updatePolice(dt);updateService(dt);updateTC(dt);updatePax(dt);updateSmoke(dt);updateAmbient(dt);updatePeds(dt);BEACH.update(dt,simT);updateMission(dt);updateHud(dt);updateCamera(dt);if(frameNo%3===0)drawMini()}
   else{orbit+=dt*.08;const gy=standY(player.x,player.z);player.mesh.position.set(player.x,gy,player.z);animate(player.ch,0,dt,'');camera.position.set(player.x+Math.sin(orbit)*60,gy+38,player.z+Math.cos(orbit)*60);camera.lookAt(player.x,gy+6,player.z);
     updateChunks(player.x,player.z,4);buildVG();for(const v of vehicles)if(v.ai)updateAI(v,dt);updatePeds(dt);hudT-=dt;if(hudT<=0){hudT=.5;updateTiles(player.x,player.z);for(const l of LM)l.sprite.visible=dist2(l.x,l.z,player.x,player.z)<420}}
   for(const v of vehicles)v.mesh.visible=!v.off&&dist2(v.x,v.z,player.x,player.z)<(v.tc?Q.vd*1.6:Q.vd);
