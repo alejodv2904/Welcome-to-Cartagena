@@ -49,17 +49,30 @@ function imgOf(tex){return tex&&tex.image}
 function avgColor(img){const c=document.createElement('canvas');c.width=c.height=8;const g=c.getContext('2d');g.drawImage(img,0,0,8,8);const d=g.getImageData(0,0,8,8).data;let r=0,gg=0,b=0,n=0;for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;r+=d[i];gg+=d[i+1];b+=d[i+2];n++}return[r/n,gg/n,b/n]}
 function partOfMesh(name){name=name.toLowerCase();if(name.includes('eye')||name.includes('teeth'))return 6;if(name.includes('beard'))return 7;if(name.includes('hair'))return 5;if(name.includes('outfit_top'))return 1;if(name.includes('outfit_bottom'))return 2;if(name.includes('footwear'))return 3;if(name==='mesh'||name.includes('headwear'))return 4;return 0}
 function mergeSkinned(list,keepTri,size){// list: [{mesh,part,reg}]; keepTri(it,u,v) decides per triangle (atlas uv of its centre)
-  const P=[],N=[],U=[],SI=[],SW=[],I=[];let base=0;
+  const P=[],N=[],U=[],SI=[],SW=[],I=[],SH=[];let base=0;
   for(const it of list){const g=it.mesh.geometry;const p=g.attributes.position,nn=g.attributes.normal,uv=g.attributes.uv,si=g.attributes.skinIndex,sw=g.attributes.skinWeight;const r=it.reg;
     for(let i=0;i<p.count;i++){P.push(p.getX(i),p.getY(i),p.getZ(i));N.push(nn.getX(i),nn.getY(i),nn.getZ(i));
       let u=uv?uv.getX(i):.5,v=uv?uv.getY(i):.5;u=Math.min(.999,Math.max(.001,u-Math.floor(u)));v=Math.min(.999,Math.max(.001,v-Math.floor(v)));
-      U.push((r[0]+1+u*(r[2]-2))/size,(r[1]+1+v*(r[3]-2))/size);SI.push(si.getX(i),si.getY(i),si.getZ(i),si.getW(i));SW.push(sw.getX(i),sw.getY(i),sw.getZ(i),sw.getW(i))}
+      SH.push(it.vsh?it.vsh[i]:0);U.push((r[0]+1+u*(r[2]-2))/size,(r[1]+1+v*(r[3]-2))/size);SI.push(si.getX(i),si.getY(i),si.getZ(i),si.getW(i));SW.push(sw.getX(i),sw.getY(i),sw.getZ(i),sw.getW(i))}
     const idx=g.index?Array.from(g.index.array):[...Array(p.count).keys()];
-    for(let i=0;i<idx.length;i+=3){const a=idx[i],b=idx[i+1],c=idx[i+2];if(keepTri){const u=(U[(base+a)*2]+U[(base+b)*2]+U[(base+c)*2])/3,v=(U[(base+a)*2+1]+U[(base+b)*2+1]+U[(base+c)*2+1])/3;const C=[0,1,2].map(k=>(P[(base+a)*3+k]+P[(base+b)*3+k]+P[(base+c)*3+k])/3);if(!keepTri(it,u,v,C))continue}I.push(base+a,base+b,base+c)}
+    for(let i=0;i<idx.length;i+=3){const a=idx[i],b=idx[i+1],c=idx[i+2];if(keepTri){const u=(U[(base+a)*2]+U[(base+b)*2]+U[(base+c)*2])/3,v=(U[(base+a)*2+1]+U[(base+b)*2+1]+U[(base+c)*2+1])/3;const C=[0,1,2].map(k=>(P[(base+a)*3+k]+P[(base+b)*3+k]+P[(base+c)*3+k])/3);if(!keepTri(it,u,v,C,i/3))continue}I.push(base+a,base+b,base+c)}
     base+=p.count}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
-  g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(SI,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(SW,4));g.setIndex(I);g.computeBoundingSphere();return g}
+  g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(SI,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(SW,4));g.setAttribute('aShirt',new THREE.Float32BufferAttribute(SH,1));g.setIndex(I);g.computeBoundingSphere();return g}
 
+// la prenda original del modelo masculino es un frac con chaleco, corbatín, flor y botones: se separa por piezas (islas de triángulos),
+// se quitan los faldones, el corbatín, la flor y los botones, y se marcan las piezas de camisa (cuello y pechera) para poder vestir de traje
+const TOP_HEM=.84;
+function analyseTop(mesh){const g=mesh.geometry,P=g.attributes.position,I=g.index.array,nT=I.length/3;const key=new Map(),par=[];const find=x=>{while(par[x]!==x){par[x]=par[par[x]];x=par[x]}return x};
+  const vid=new Array(P.count);for(let i=0;i<P.count;i++){const k=Math.round(P.getX(i)*1000)+','+Math.round(P.getY(i)*1000)+','+Math.round(P.getZ(i)*1000);if(!key.has(k)){key.set(k,par.length);par.push(par.length)}vid[i]=key.get(k)}
+  for(let i=0;i<I.length;i+=3){const a=find(vid[I[i]]);par[find(vid[I[i+1]])]=a;par[find(vid[I[i+2]])]=a}
+  const comp=new Map();for(let t=0;t<nT;t++){const r=find(vid[I[t*3]]);let c=comp.get(r);if(!c){c={n:0,miny:9,maxy:-9};comp.set(r,c)}c.n++;for(let k=0;k<3;k++){const y=P.getY(I[t*3+k]);c.miny=Math.min(c.miny,y);c.maxy=Math.max(c.maxy,y)}}
+  let big=null;for(const [r,c] of comp)if(!big||c.n>comp.get(big).n)big=r;
+  const kill=new Uint8Array(nT),vsh=new Uint8Array(P.count);
+  for(let t=0;t<nT;t++){const r=find(vid[I[t*3]]),c=comp.get(r);
+    if(c.n<40||(c.n<=200&&c.n!==117&&c.miny>1.3&&c.maxy<1.6))kill[t]=1;   // botones, corbatín, flor
+    if(r!==big)for(let k=0;k<3;k++)vsh[I[t*3+k]]=1}                      // todo lo que no es el saco: camisa
+  return{kill,vsh}}
 function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(true);const skinned=[];scene.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o)});
   const SZ=1024;const atlas=document.createElement('canvas');atlas.width=atlas.height=SZ;const ag=atlas.getContext('2d');
   const mask=document.createElement('canvas');mask.width=mask.height=SZ;const mg=mask.getContext('2d');
@@ -91,9 +104,10 @@ function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(tru
     const teeth=items.filter(i=>/teeth/i.test(i.mesh.name));items.forEach(i=>{if(/teeth/i.test(i.mesh.name))i.reg=[L[6][0]+8,L[6][1]+8,8,8]});
     {const hp=items.find(i=>i.mesh.name==='Wolf3D_Head').mesh.geometry.attributes.position;const b=[1e9,-1e9,1e9,-1e9,1e9,-1e9];for(let i=0;i<hp.count;i++){const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);b[0]=Math.min(b[0],x);b[1]=Math.max(b[1],x);b[2]=Math.min(b[2],y);b[3]=Math.max(b[3],y);b[4]=Math.min(b[4],z);b[5]=Math.max(b[5],z)}headBox=b}
     let hc=[0,0,0],hn=0,htop=-9;{const hp=items.find(i=>i.mesh.name==='Wolf3D_Head').mesh.geometry.attributes.position;for(let i=0;i<hp.count;i++){hc[0]+=hp.getX(i);hc[2]+=hp.getZ(i);hn++;htop=Math.max(htop,hp.getY(i))}hc[0]/=hn;hc[2]/=hn}
+    {const ti=items.find(i=>i.mesh.name==='Wolf3D_Outfit_Top');if(ti){const a=analyseTop(ti.mesh);ti.kill=a.kill;ti.vsh=a.vsh}}
     const mk=mg.getImageData(0,0,SZ,SZ).data;const partAt=(u,v)=>Math.floor(mk[(Math.min(SZ-1,Math.floor(v*SZ))*SZ+Math.min(SZ-1,Math.floor(u*SZ)))*4]/32);
     for(const withHat of [true,false])for(const beard of [true,false]){const use=items.filter(i=>beard||i.part!==7);
-      variants[(withHat?'hat':'nohat')+(beard?'B':'')]=mergeSkinned(use,(it,u,v,c)=>withHat||it.part!==4||partAt(u,v)!==4&&c[1]<htop+.005&&Math.hypot(c[0]-hc[0],c[2]-hc[2])<.12,SZ)}
+      variants[(withHat?'hat':'nohat')+(beard?'B':'')]=mergeSkinned(use,(it,u,v,c,tri)=>{if(it.part===1&&(c[1]<TOP_HEM||it.kill&&it.kill[tri]))return false;return withHat||it.part!==4||partAt(u,v)!==4&&c[1]<htop+.005&&Math.hypot(c[0]-hc[0],c[2]-hc[2])<.12},SZ)}
   }else{
     // single-texture model: classify texels into parts (yellow trousers → bottom, skin, dark hair/top)
     const m=skinned[0];const img=imgOf(m.material.map);ag.drawImage(img,0,0,SZ,SZ);
@@ -133,7 +147,7 @@ function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(tru
 /* ---------- shader: per-part recolouring, one draw call per person ---------- */
 const FRAG=`
 uniform sampler2D partMask;uniform vec3 pc[${NP}];uniform float pm[${NP}];uniform float pl[${NP}];
-uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uPatS,uSleeve,uShorts;uniform vec3 uSkinA;uniform vec4 uTh;varying vec3 vBind;
+uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uPatS,uSleeve,uShorts,uSuit,uHem,uJersey,uBelt;uniform vec3 uSkinA,uShirtC,uBeltC;uniform vec4 uTh;varying vec3 vBind;varying float vShirtV;
 `;
 const WHITE=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1,THREE.RGBAFormat);WHITE.needsUpdate=true;
 // tejido: ruido fino de hilos que se repite sobre toda la ropa, para que la tela no se vea plana
@@ -141,22 +155,33 @@ const WEAVE=(function(){const S=64,c=document.createElement('canvas');c.width=c.
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t})();
 function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMaterial({map:M.tex,skinning:true,shininess:14,specular:0x1c1a18});
   const U={partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uPatS:{value:M.kind==='m'?14:26},
-    uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
-  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBind=position;');
+    uSuit:{value:X.suit?1:0},uShirtC:{value:col(X.shirtC||'#f4f2ee')},uHem:{value:X.hem!==undefined?X.hem:(M.kind==='m'?.84:-1e9)},uJersey:{value:X.jersey?1:0},uBelt:{value:X.belt&&M.kind==='m'?1:0},uBeltC:{value:col(X.beltC||'#3b2416')},uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBind=position;vShirtV=aShirt;');
     s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
     float pid=floor(texture2D(partMask,vUv).r*255.0/32.0+0.02);vec3 tc=diffuseColor.rgb;float lum=dot(tc,vec3(.299,.587,.114));
     vec3 pcol=vec3(1.0);float mode=0.0;float al=0.5;
     if(pid<0.5){pcol=pc[0];mode=pm[0];al=pl[0];}else if(pid<1.5){pcol=pc[1];mode=pm[1];al=pl[1];}else if(pid<2.5){pcol=pc[2];mode=pm[2];al=pl[2];}else if(pid<3.5){pcol=pc[3];mode=pm[3];al=pl[3];}
     else if(pid<4.5){pcol=pc[4];mode=pm[4];al=pl[4];}else if(pid<5.5){pcol=pc[5];mode=pm[5];al=pl[5];}else if(pid>6.5){pcol=pc[7];mode=pm[7];al=pl[7];}
+    bool isTop=pid>0.5&&pid<1.5;
+    if(isTop&&vBind.y<uHem)discard;
+    if(isTop&&uSuit>0.5&&vShirtV>0.5){pcol=uShirtC;mode=2.0;}
+    float lr=lum/al;if(isTop)lr=mix(1.0,lr,0.18);
     bool bare=false;float ax=abs(vBind.x);
-    if(pid>0.5&&pid<1.5&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>mix(uTh.x,uTh.y,0.45)))bare=true;
+    float cutX=mix(uTh.x,uTh.y,0.7);
+    if(isTop&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>cutX))bare=true;
     if(pid>1.5&&pid<2.5&&uShorts>0.5&&vBind.y<mix(uTh.w,uTh.z,0.2))bare=true;
-    if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lum/al,0.0,1.3);
-    else if(uPatOn>0.5&&pid>0.5&&pid<1.5)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lum/al,0.0,1.5);
-    else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv*uPatS*0.8).rgb*clamp(0.3+0.7*lum/al,0.0,1.5);
-    else if(mode>1.5)diffuseColor.rgb=pcol*clamp(0.25+0.75*lum/al,0.0,1.6);else if(mode>0.5)diffuseColor.rgb=tc*pcol;
-    if(!bare&&pid>0.5&&pid<2.5)diffuseColor.rgb*=0.84+0.32*texture2D(uWeave,vUv*uPatS*5.0).r;`)};
-  m.customProgramCacheKey=()=>'gente3';return m}
+    if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lr,0.0,1.3);
+    else if(uPatOn>0.5&&isTop)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lr,0.0,1.5);
+    else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv*uPatS*0.8).rgb*clamp(0.3+0.7*lr,0.0,1.5);
+    else if(mode>1.5)diffuseColor.rgb=pcol*clamp(0.25+0.75*lr,0.0,1.6);else if(mode>0.5)diffuseColor.rgb=tc*pcol;
+    if(!bare&&isTop&&uJersey>0.5){float sx=abs(vBind.x);vec3 bl=vec3(0.0,0.22,0.58),rd=vec3(0.81,0.07,0.15);
+      if(vBind.y>1.54)diffuseColor.rgb=bl;
+      else if(vBind.y>1.40&&sx>0.12&&abs(vBind.z)<0.024)diffuseColor.rgb=abs(vBind.z)<0.01?rd:bl;
+      if(uSleeve<1.5&&uSleeve>0.5&&ax>cutX-0.04&&ax<=cutX)diffuseColor.rgb=bl;
+      if(vBind.z>0.04){vec2 d=vec2(vBind.x-0.1,vBind.y-1.27);float r=length(d);if(r<0.036)diffuseColor.rgb=r<0.012?bl:(r<0.026?vec3(0.99,0.82,0.09):rd);}}
+    if(pid>1.5&&pid<2.5&&uBelt>0.5&&!bare&&vBind.y>1.035&&vBind.y<1.082){diffuseColor.rgb=uBeltC*(0.7+0.5*lum);if(abs(vBind.x)<0.022&&vBind.z>0.08)diffuseColor.rgb=vec3(0.78,0.78,0.74);}
+    if(!bare&&pid>0.5&&pid<2.5)diffuseColor.rgb*=0.92+0.16*texture2D(uWeave,vUv*uPatS*5.0).r;`)};
+  m.customProgramCacheKey=()=>'gente4';return m}
 
 const models={m:prepModel(G.hombre,'m'),f:prepModel(G.mujer,'f')};
 // clips: walk/run/idle from one capture set, talking gestures from another
@@ -175,7 +200,7 @@ function create(sp){const M=models[sp.model||'m'];const T=M.tpl[(sp.hat&&M.kind=
   const cols=[skinRatio,col(sp.top||'#ffffff'),col(sp.bottom||'#333333'),col(sp.shoes||'#222222'),col(sp.hatC||(M.kind==='f'?'#141414':'#e9dcb0')),col(sp.hairC||'#1b1310'),col('#ffffff'),col(sp.hairC||'#1b1310')];
   const modes=[1,sp.top?2:0,sp.bottom?2:0,sp.shoes?2:0,2,M.kind==='m'?2:(sp.hairC?2:0),0,2];
   if(M.kind==='f'){modes[1]=sp.top?1:0;cols[1]=col(sp.top||'#ffffff').multiplyScalar(4)}// the dark top only takes a hint of colour
-  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,patB:sp.patB,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
+  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,patB:sp.patB,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin,suit:sp.suit,shirtC:sp.shirtC,hem:sp.hem,jersey:sp.jersey,belt:sp.belt,beltC:sp.beltC});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
   const bones=bonesOf(root);
   const mixer=new THREE.AnimationMixer(root);const A={};for(const k in M.clips){A[k]=mixer.clipAction(M.clips[k]);A[k].play();A[k].setEffectiveWeight(0)}
   A.idle.setEffectiveWeight(1);
