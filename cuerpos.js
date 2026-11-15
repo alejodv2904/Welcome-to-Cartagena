@@ -63,21 +63,23 @@ function toGeo(A){const g=new THREE.BufferGeometry();g.setAttribute('position',n
 const PART={skin:0,top:1,bottom:2,shoes:3,hat:4,hair:5,eyes:6,beard:7,shirt:8,belt:9};
 /* ---------- medidas del cuerpo ---------- */
 function torsoTable(kind){// [y, rx, rz] de abajo hacia arriba
-  if(kind==='m')return[[.8,.165,.105],[.94,.172,.106],[1.04,.158,.1],[1.16,.147,.095],[1.26,.168,.105],[1.34,.192,.108],[1.41,.205,.102],[1.455,.15,.084],[1.485,.085,.064],[1.5,.058,.058]];
-  const k=SC.f.y;return[[.8*k,.152,.098],[.94*k,.182,.104],[1.04*k,.158,.092],[1.16*k,.124,.084],[1.25*k,.152,.114],[1.31*k,.148,.104],[1.4*k,.172,.098],[1.455*k,.128,.078],[1.485*k,.078,.058],[1.5*k,.052,.052]]}
+  if(kind==='m')return[[.8,.165,.105],[.94,.172,.106],[1.04,.158,.1],[1.16,.147,.095],[1.26,.168,.105],[1.34,.192,.108],[1.41,.205,.102],[1.45,.196,.096],[1.475,.15,.082],[1.49,.07,.06],[1.5,.056,.056]];
+  const k=SC.f.y;return[[.8*k,.152,.098],[.94*k,.182,.104],[1.04*k,.158,.092],[1.16*k,.124,.084],[1.25*k,.152,.114],[1.31*k,.15,.104],[1.36*k,.162,.1],[1.41*k,.168,.094],[1.445*k,.152,.084],[1.47*k,.118,.072],[1.488*k,.072,.056],[1.5*k,.048,.048]]}
 function torsoR(kind,y){const T=torsoTable(kind);if(y<=T[0][0])return[T[0][1],T[0][2]];for(let i=1;i<T.length;i++)if(y<=T[i][0]){const a=T[i-1],b=T[i],t=(y-a[0])/(b[0]-a[0]);return[a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]}const e=T[T.length-1];return[e[1],e[2]]}
 const LEG=[[.99,.095,.095],[.82,.09,.09],[.66,.075,.076],[.52,.058,.062],[.38,.057,.06],[.2,.043,.046],[.1,.04,.042]];
-const ARM=[[.08,.074,.08],[.15,.07,.072],[.22,.063,.065],[.34,.052,.056],[.47,.043,.046],[.6,.038,.04],[.7,.03,.032]];
+const ARM=[[.08,.06,.08],[.15,.057,.072],[.22,.056,.065],[.34,.051,.056],[.47,.043,.046],[.6,.038,.04],[.7,.03,.032]];
 function legR(kind,y){const k=SC[kind],T=LEG;const yy=y/k.y;if(yy>=T[0][0])return[T[0][1]*k.r,T[0][2]*k.r];for(let i=1;i<T.length;i++)if(yy>=T[i][0]){const a=T[i-1],b=T[i],t=(yy-a[0])/(b[0]-a[0]);return[(a[1]+(b[1]-a[1])*t)*k.r,(a[2]+(b[2]-a[2])*t)*k.r]}const e=T[T.length-1];return[e[1]*k.r,e[2]*k.r]}
 function legX(kind,y,sd){const k=SC[kind];return sd*(.088+.012*(1-Math.min(1,y/(.95*k.y))))*k.x}
 function armR(kind,x){const k=SC[kind],T=ARM;const xx=x/k.x;if(xx<=T[0][0])return[T[0][1]*k.r,T[0][2]*k.r];for(let i=1;i<T.length;i++)if(xx<=T[i][0]){const a=T[i-1],b=T[i],t=(xx-a[0])/(b[0]-a[0]);return[(a[1]+(b[1]-a[1])*t)*k.r,(a[2]+(b[2]-a[2])*t)*k.r]}const e=T[T.length-1];return[e[1]*k.r,e[2]*k.r]}
+// la raíz del brazo (y de la manga) se aplana hacia arriba al meterse en el torso, para que no salga por encima del hombro
+const rootK=x=>.55+.45*smooth(.06,.17,x);
 /* ---------- pesos por zona ---------- */
 function weights(kind){const k=SC[kind];
   return{
     torso:chainW(['Hips','Spine','Spine1','Spine2'],[1.06*k.y,1.17*k.y,1.29*k.y],.05),
     neck:chainW(['Spine2','Neck','Head'],[1.46*k.y,1.56*k.y],.04),
     leg:s=>chainW(['Foot','Leg','UpLeg'].map(n=>s+n),[.125*k.y,.52*k.y],.05),
-    arm:s=>chainW(['Spine2',s+'Arm',s+'ForeArm',s+'Hand'],[.15*k.x,.47*k.x,.7*k.x],.05),
+    arm:s=>chainW(['Spine2',s+'Arm',s+'ForeArm',s+'Hand'],[.2*k.x,.47*k.x,.7*k.x],.045),
     foot:s=>[[IDX[s+'Foot'],1]],head:[[IDX.Head,1]],hand:s=>[[IDX[s+'Hand'],1]]}}
 const lookup=(W,side)=>W; // (los lados se resuelven con el prefijo en cada uso)
 /* ---------- cuerpo ---------- */
@@ -85,11 +87,11 @@ function bodyParts(A,kind,sk){const k=SC[kind],W=weights(kind),T=torsoTable(kind
   // torso
   tube(A,{nodes:T.map(r=>({p:[0,r[0],0],a:r[1],b:r[2],w:W.torso})),axis:'y',part:SKIN,n:16,capA:true});
   // cuello (se mete en la cabeza, un poco más delgado que el cuello de la cabeza para que no se peleen)
-  const nr=.05*k.r;tube(A,{nodes:[[1.44*k.y,nr*1.15],[1.49*k.y,nr*.92],[1.62*k.y,nr*.78]].map(r=>({p:[0,r[0],0],a:r[1],b:r[1]*1.05,w:W.neck})),axis:'y',part:SKIN,n:12});
+  const nr=.05*k.r;tube(A,{nodes:[[1.44*k.y,nr*1.15],[1.49*k.y,nr*.84],[1.62*k.y,nr*.64]].map(r=>({p:[0,r[0],-.004],a:r[1],b:r[1]*1.05,w:W.neck})),axis:'y',part:SKIN,n:12});
   // piernas y brazos de cada lado
   for(const sd of [1,-1]){const s=sd>0?'Left':'Right';
     tube(A,{nodes:LEG.map(r=>{const y=r[0]*k.y;return{p:[legX(kind,y,sd),y,.004],a:r[1]*k.r,b:r[2]*k.r,w:W.leg(s)}}),axis:'y',part:SKIN,n:12,capB:true,capA:true});
-    tube(A,{nodes:ARM.map(r=>({p:[r[0]*k.x*sd,1.45*k.y,r[0]>.4?-.008:0],a:r[1]*k.r,b:r[2]*k.r,w:W.arm(s)})),axis:'x',part:SKIN,n:12,capA:true});
+    tube(A,{nodes:ARM.map(r=>({p:[r[0]*k.x*sd,1.45*k.y,r[0]>.4?-.008:0],a:r[1]*k.r*rootK(r[0]),b:r[2]*k.r,w:W.arm(s)})),axis:'x',part:SKIN,n:12,capA:true});
     // mano: palma, cuatro dedos y pulgar
     const hx=sd*k.x,hy=1.45*k.y,hw=W.hand(s),r=k.r;
     tube(A,{nodes:[[.7,.03,.032],[.735,.024,.042],[.785,.018,.046]].map(q=>({p:[q[0]*hx,hy,0],a:q[1]*r,b:q[2]*r,w:hw})),axis:'x',part:SKIN,n:8,step:0});
@@ -105,6 +107,7 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
   // camiseta / camisa / saco: torso + mangas + cuello
   if(o.top){const jacket=o.top==='jacket',shirt=o.top==='shirt'||jacket,hem=o.hem!==undefined?o.hem:(kind==='m'?.86:.9);const loose=jacket?.034:o.top==='tee'?.016:.014,sl=o.sleeve;
     const ys=[];const top=TOPY;const N=12;for(let i=0;i<=N;i++)ys.push(hem+(top-hem)*i/N);
+    for(let y=1.38*k.y;y<top-.004;y+=.01*k.y)if(y>hem)ys.push(y);ys.sort((a,b)=>a-b); // anillos seguidos en el hombro para que el cuerpo no se asome entre ellos
     const noSleeveless=sl===2;
     const nodes=ys.map((y,i)=>{let [rx,rz]=torsoR(kind,y);const f=1+loose/ .1;const tuck=hem>=.98*k.y&&!jacket&&y<1.12*k.y;let ax=tuck?rx+.005:rx+loose*(y<1.15*k.y?(jacket?1.1:1.5):1),az=tuck?rz+.005:rz+loose*(y<1.15*k.y?(jacket?1.1:1.5):1);
       if(noSleeveless&&y>1.38*k.y){ax*=.82}
@@ -121,13 +124,13 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
     if(sl<2){for(const sd of [1,-1]){const s=sd>0?'Left':'Right';const cut=(sl===1?.34:.67)*k.x;const arr=[];
       for(let x=.075*k.x;x<cut;x+=.06*k.x)arr.push(x);arr.push(cut); // la manga nace adentro del hombro para taparlo
       const flare=jacket?.03:o.top==='tee'?.018:.014;
-      const nd=arr.map((x,i)=>{const r=armR(kind,x);const lf=flare*(i/(arr.length-1)>.5?1.4:1);return{p:[x*sd,1.45*k.y,x>.4*k.x?-.008:0],a:r[0]+lf+(x<.1*k.x?0:i<3?.008:0),b:r[1]+lf+(x<.1*k.x?0:i<3?.008:0),w:W.arm(s)}});
+      const nd=arr.map((x,i)=>{const r=armR(kind,x);const lf=flare*(i/(arr.length-1)>.5?1.4:1);return{p:[x*sd,1.45*k.y,x>.4*k.x?-.008:0],a:(r[0]+lf+(x<.1*k.x?0:i<3?.008:0))*rootK(x/k.x),b:r[1]+lf+(x<.1*k.x?0:i<3?.008:0),w:W.arm(s)}});
       tube(A,{nodes:nd,axis:'x',part:PART.top,n:14,fn:()=>null});
       const e=nd[nd.length-1];tube(A,{nodes:[e,{...e,a:e.a-.012,b:e.b-.012},{...e,p:[e.p[0]-sd*.03,e.p[1],e.p[2]],a:e.a-.012,b:e.b-.012}],axis:'x',part:PART.top,n:14});
       if(shirt&&sl===0){const wr=armR(kind,.68*k.x);tube(A,{nodes:[{p:[.62*k.x*sd,1.45*k.y,-.008],a:wr[0]+.014,b:wr[1]+.014,w:W.arm(s)},{p:[.7*k.x*sd,1.45*k.y,0],a:wr[0]+.012,b:wr[1]+.012,w:W.arm(s)}],axis:'x',part:jacket?PART.shirt:PART.top,n:14})}}}
-    // cuello: de camisa (o de camiseta redondo)
-    if(shirt||o.collar){const cr=.058*k.r;tube(A,{nodes:[{p:[0,1.48*k.y,0],a:cr+.016,b:cr+.016,w:W.neck},{p:[0,1.535*k.y,0],a:cr+.012,b:cr+.012,w:W.neck},{p:[0,1.538*k.y,0],a:cr+.003,b:cr+.003,w:W.neck}],axis:'y',part:jacket?PART.shirt:PART.top,n:14})}
-    else if(o.neck!=='v'&&o.neck!=='scoop'){const cr=.058*k.r;tube(A,{nodes:[{p:[0,1.485*k.y,0],a:cr+.012,b:cr+.012,w:W.neck},{p:[0,1.52*k.y,0],a:cr+.008,b:cr+.008,w:W.neck}],axis:'y',part:PART.top,n:14})}}
+    // cuello: de camisa (o de camiseta redondo); se mueve con el torso para no despegarse de la tela
+    if(shirt||o.collar){const cr=.058*k.r;tube(A,{nodes:[{p:[0,1.476*k.y,0],a:cr+.026,b:cr+.024,w:W.torso},{p:[0,1.535*k.y,0],a:cr+.012,b:cr+.012,w:W.torso},{p:[0,1.538*k.y,0],a:cr+.003,b:cr+.003,w:W.torso}],axis:'y',part:jacket?PART.shirt:PART.top,n:14})}
+    else if(o.neck!=='v'&&o.neck!=='scoop'){const cr=.058*k.r;tube(A,{nodes:[{p:[0,1.472*k.y,0],a:cr+.026,b:cr+.024,w:W.torso},{p:[0,1.52*k.y,0],a:cr+.008,b:cr+.008,w:W.torso}],axis:'y',part:PART.top,n:14})}}
   // pantalón / pantaloneta
   if(o.bottom){const short=o.bottom==='shorts',waist=1.07*k.y;const T=[[waist,0],[.98*k.y,0],[.86*k.y,0],[.78*k.y,0]];
     tube(A,{nodes:T.map(r=>{const q=torsoR(kind,r[0]);return{p:[0,r[0],0],a:q[0]+.014,b:q[1]+.014,w:W.torso}}),axis:'y',part:PART.bottom,n:16,capB:true});

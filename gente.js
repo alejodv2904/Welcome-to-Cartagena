@@ -68,13 +68,15 @@ function femMorph(x,y,z){const lo=smooth(1.71,1.6,y);x*=1-.12*lo;z-=.007*lo*smoo
   z-=.004*Math.exp(-Math.pow((y-1.75)/.012,2))*smooth(.09,.12,z);
   const nz=smooth(.122,.142,z)*Math.exp(-Math.pow((y-1.7)/.025,2));z-=(z-.122)*.35*nz;return[x,y,z]}
 function toBody(x,y,z,kind){if(kind==='f'){[x,y,z]=femMorph(x,y,z)}x*=HSC;y*=HSC;z*=HSC;if(kind==='f'){x*=FM[0];z*=FM[1];y=(y-1.585)*FM[2]+1.505}return[x,y,z]}
-function faceGeo(mesh,kind){const g=mesh.geometry.clone();g.morphAttributes={};const P=g.attributes.position;const raw=new Float32Array(P.count*3);
-  for(let i=0;i<P.count;i++){const x=P.getX(i),y=P.getY(i),z=P.getZ(i);raw[i*3]=x;raw[i*3+1]=y;raw[i*3+2]=z;const q=toBody(x,y,z,kind);P.setXYZ(i,q[0],q[1],q[2])}
+function faceGeo(mesh,kind,neck){const g=mesh.geometry.clone();g.morphAttributes={};const P=g.attributes.position;const raw=new Float32Array(P.count*3);
+  for(let i=0;i<P.count;i++){let x=P.getX(i),y=P.getY(i),z=P.getZ(i);
+    // la base del cuello de la cabeza trae solapas anchas que se salían por el cuello de la camiseta: se recogen al grueso del cuello
+    if(neck&&y<1.578){const r=Math.hypot(x,z+.006),rm=.056;if(r>rm){const k=1-smooth(1.578,1.548,y)*(1-rm/r);x*=k;z=-.006+(z+.006)*k}}raw[i*3]=x;raw[i*3+1]=y;raw[i*3+2]=z;const q=toBody(x,y,z,kind);P.setXYZ(i,q[0],q[1],q[2])}
   // pesos propios: del cuello hacia arriba la cabeza se mueve rígida (los pesos originales apuntan a huesos que el esqueleto nuevo no tiene)
   const nw=CB.neckW(kind),SI=new Uint16Array(P.count*4),SW=new Float32Array(P.count*4);
   for(let i=0;i<P.count;i++){const w=nw(P.getY(i));for(let j=0;j<Math.min(4,w.length);j++){SI[i*4+j]=w[j][0];SW[i*4+j]=w[j][1]}let t=0;for(let j=0;j<4;j++)t+=SW[i*4+j];if(t<=0){SI[i*4]=CB.IDX.Head;SW[i*4]=1;t=1}for(let j=0;j<4;j++)SW[i*4+j]/=t}
   g.setAttribute('skinIndex',new THREE.BufferAttribute(SI,4));g.setAttribute('skinWeight',new THREE.BufferAttribute(SW,4));
-  g.computeVertexNormals();g.computeBoundingSphere();g.boundingSphere.radius*=2;g.userData.raw=raw;return g}
+  g.computeBoundingSphere();g.boundingSphere.radius*=2;g.userData.raw=raw;return g}
 // textura lineal (el resto del juego pinta sin corrección de gamma: así la cara queda del mismo tono que el cuerpo)
 function linTex(img){const t=new THREE.Texture(img);t.flipY=false;t.encoding=THREE.LinearEncoding;t.anisotropy=4;t.needsUpdate=true;return t}
 // textura de la cara repintada: cejas nuevas (las originales eran rayas verdosas), y en la mujer pestañas, labios y rubor
@@ -106,9 +108,8 @@ const FACE={};
   const base=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.drawImage(img,0,0,64,64);let r=0,gg=0,b=0,n=0;
     for(const [x,y] of [[256,70],[256,100],[200,110],[312,110],[170,200],[342,200],[200,280],[312,280],[256,300]]){const d=g.getImageData(Math.round(x/8),Math.round(y/8),1,1).data;r+=d[0];gg+=d[1];b+=d[2];n++}return[r/n/255,gg/n/255,b/n/255]})();
   for(const kind of ['m','f']){const F={parts:[],base};
-    F.parts.push({geo:faceGeo(head,kind),map:faceTex(img,kind==='f'),skin:true});
+    F.parts.push({geo:faceGeo(head,kind,true),map:faceTex(img,kind==='f'),skin:true});
     for(const n of ['EyeLeft','EyeRight','Wolf3D_Teeth']){const m=get(n);if(m)F.parts.push({geo:faceGeo(m,kind),map:linTex(m.material.map.image),skin:false})}
-    F.stache=get('Wolf3D_Beard')?faceGeo(get('Wolf3D_Beard'),kind):null;
     FACE[kind]=F}}
 // materiales de la cara compartidos por tono de piel
 const FMAT={};
@@ -159,16 +160,17 @@ const CURLTEX={};function curlTex(c){if(CURLTEX[c])return CURLTEX[c];const S=128
 function tab(T,a){if(a<=T[0][0])return T[0][1];for(let i=1;i<T.length;i++)if(a<=T[i][0]){const p=T[i-1],q=T[i];return p[1]+(q[1]-p[1])*(a-p[0])/(q[0]-p[0])}return T[T.length-1][1]}
 // línea del pelo según el ángulo alrededor de la cabeza (0 = frente, PI = nuca), en la altura de la cabeza original
 const HLINE={
-  m:[[0,1.799],[.35,1.802],[.6,1.797],[.85,1.786],[1.05,1.774],[1.25,1.768],[1.31,1.712],[1.43,1.71],[1.49,1.748],[1.82,1.748],[1.95,1.702],[2.4,1.662],[Math.PI,1.645]],
+  m:[[0,1.799],[.35,1.802],[.6,1.797],[.85,1.786],[1.05,1.773],[1.18,1.762],[1.27,1.738],[1.33,1.716],[1.43,1.71],[1.49,1.748],[1.82,1.748],[1.95,1.702],[2.4,1.662],[Math.PI,1.645]],
   f:[[0,1.797],[.35,1.8],[.6,1.794],[.9,1.776],[1.15,1.745],[1.35,1.70],[1.6,1.66],[2.2,1.63],[Math.PI,1.615]]};
 // máscaras (en metros, positivo = hay pelo) calculadas sobre la cabeza original
 function hairMask(kind,x,y,z){const a=Math.abs(Math.atan2(x,z-.02));let m=y-tab(HLINE[kind],a);if(kind==='m')m=Math.min(m,Math.max(.079-Math.abs(x),y-1.75));return m}
-const BEARD={full:1,goatee:1};
-function beardMask(kind,x,y,z){const a=Math.abs(Math.atan2(x,z-.02));
-  const top=tab([[0,1.681],[.18,1.677],[.42,1.684],[.8,1.695],[1.1,1.705],[1.3,1.72],[1.42,1.73]],a)-y;
-  const bot=y-(1.586+Math.max(0,a-.85)*.1);const back=(1.42-a)*.06;
+// barba (kind: full = completa, goatee = candado, stache = bigote); mejillas en diagonal de la patilla a la comisura
+function beardMask(kind,x,y,z){const a=Math.abs(Math.atan2(x,z-.02)),ax=Math.abs(x);
+  const top=tab([[0,1.681],[.18,1.677],[.42,1.683],[.8,1.689],[1.05,1.697],[1.18,1.716],[1.27,1.738],[1.43,1.742]],a)-y;
   const lips=(Math.hypot(x/.028,(y-1.657)/.0088)-1)*.009+(z<.095?1:0);
-  const m=Math.min(top,bot,back,lips);if(kind==='goatee')return Math.min(m,.034-Math.abs(x));return m}
+  if(kind==='stache')return Math.min(top,y-(1.6668-Math.max(0,ax-.021)*.55),.034-ax,z-.1);
+  const bot=y-(1.586+Math.max(0,a-.85)*.1);const back=(1.43-a)*.06;let m=Math.min(top,bot,back,lips);
+  if(kind==='goatee')m=Math.min(m,.034-ax,z-.085,y-1.597);return m}
 // normales suavizadas sobre los vértices que comparten posición (la malla de la cabeza viene cortada por las costuras de la textura)
 function weldNormals(geo){const P=geo.attributes.position,N=geo.attributes.normal,acc=new Map(),key=i=>Math.round(P.getX(i)*2000)+','+Math.round(P.getY(i)*2000)+','+Math.round(P.getZ(i)*2000);
   for(let i=0;i<P.count;i++){const k=key(i);const v=acc.get(k)||[0,0,0];v[0]+=N.getX(i);v[1]+=N.getY(i);v[2]+=N.getZ(i);acc.set(k,v)}
@@ -225,16 +227,21 @@ function makeHair(root,bones,kind,hair,beard,hairC,out){
     if(st==='afro'){// volumen redondo que nace en la línea del pelo
       const T=f?.055:.04;put(shell(kind,'afro',hm,(m,x,y)=>.0015+T*smooth(0,.028,m)*(.85+.15*smooth(1.72,1.84,y)),m=>smooth(0,.03,m)),hairMat(c,true))}
     else if(st!=='none'){
-      if(f)put(shell(kind,'long',hm,(m,x,y)=>.0015+.01*smooth(0,.015,m)),hairMat(c));
-      else put(shell(kind,'short',hm,(m,x,y)=>.0012+(.0035+.008*smooth(1.75,1.82,y))*smooth(0,.012,m)),hairMat(c));
+      if(f){const tied=st==='bun'||st==='bunLow'||st==='ponytail';
+        // recogido: deja las orejas al aire; suelto: tapa las orejas con una forma lisa (sin bultos)
+        if(tied)put(shell(kind,'tied',(x,y,z)=>Math.min(hm(x,y,z),Math.max(.079-Math.abs(x),y-1.748)),(m,x,y)=>.0013+.0075*smooth(0,.012,m)),hairMat(c));
+        else put(shell(kind,'long',hm,(m,x,y)=>.0015+(.011+.007*smooth(1.79,1.68,y))*smooth(0,.015,m),m=>smooth(0,.02,m)),hairMat(c))}
+      else{// corte de hombre: desvanecido, rapado o con copete (al azar)
+        const cut=hair.cut||['fade','fade','rapado','copete'][Math.floor(Math.random()*4)];
+        const th=cut==='rapado'?(m=>.0011+.0022*smooth(0,.006,m)):cut==='copete'?((m,x,y,z)=>.0012+(.003+.016*smooth(1.76,1.83,y)*smooth(-.02,.06,z))*smooth(0,.012,m)):((m,x,y)=>.0012+(.0035+.008*smooth(1.75,1.82,y))*smooth(0,.012,m));
+        put(shell(kind,'short-'+cut,hm,th),hairMat(c))}
       const sph=new THREE.SphereGeometry(1,16,12);sph.setAttribute('aM',new THREE.Float32BufferAttribute(new Float32Array(sph.attributes.position.count).fill(1),1));
       if(st==='bun'){const b=put(sph,hairMat(c));b.position.set(0,H.top-.005,H.zc-H.rz*.7);b.scale.set(.052,.046,.052)}
       if(st==='bunLow'){const b=put(sph,hairMat(c));b.position.set(0,H.top-.11,H.zc-H.rz*1.05);b.scale.set(.054,.048,.05)}
-      if(st==='ponytail'){const g2=new THREE.CylinderGeometry(.026,.012,.26,10,4);g2.translate(0,-.13,0);g2.setAttribute('aM',new THREE.Float32BufferAttribute(new Float32Array(g2.attributes.position.count).fill(1),1));const p=put(g2,hairMat(c));p.position.set(0,H.top-.07,H.zc-H.rz*1.0);p.rotation.x=.35}
+      if(st==='ponytail'){const g2=new THREE.CylinderGeometry(.024,.01,.24,10,4);g2.translate(0,-.12,0);g2.setAttribute('aM',new THREE.Float32BufferAttribute(new Float32Array(g2.attributes.position.count).fill(1),1));const p=put(g2,hairMat(c));p.position.set(0,H.top-.06,H.zc-H.rz*1.02);p.rotation.x=.12}
       if(st==='long')put(drapeGeo(kind),hairMat(c,false,THREE.DoubleSide))}}
   if(beard&&!f){const v=typeof beard==='string'?beard:'full',bc=new THREE.Color(c).offsetHSL(0,0,.02).getStyle();
-    if(v==='stache'&&FACE[kind].stache){const m=new THREE.SkinnedMesh(FACE[kind].stache,new THREE.MeshLambertMaterial({color:bc,skinning:true}));m.name='bigote';out.stache=m}
-    else put(shell(kind,'beard-'+v,(x,y,z)=>beardMask(v,x,y,z),(m)=>.0012+(v==='full'?.0042:.0035)*smooth(0,.006,m)),hairMat(bc))}
+    put(shell(kind,'beard-'+v,(x,y,z)=>beardMask(v,x,y,z),(m)=>.0012+(v==='full'?.0042:.0036)*smooth(0,.006,m)),hairMat(bc))}
   return out.props[0]||null}
 /* ---------- instancias ---------- */
 function create(sp){const kind=sp.model||'m';const M=models[kind];const O=outfit(sp,kind);const key=kind+JSON.stringify(O);let geo=GEO.get(key);if(!geo){geo=CB.build(kind,O);GEO.set(key,geo)}
@@ -250,7 +257,7 @@ function create(sp){const kind=sp.model||'m';const M=models[kind];const O=outfit
   const rest={};for(const n in bones)rest[n]=bones[n].quaternion.clone();
   // barba: completa, candado o bigote (si no viene dicha, se escoge al azar)
   const br=Math.random(),bv=sp.beard&&kind==='m'?(typeof sp.beard==='string'?sp.beard:br<.6?'full':br<.88?'goatee':'stache'):null;
-  const ch0={props:[]};const hm=makeHair(root,bones,kind,sp.hair,bv,hairC,ch0);if(ch0.stache){root.add(ch0.stache);ch0.stache.frustumCulled=true;ch0.stache.bind(skel,new THREE.Matrix4())}
+  const ch0={props:[]};const hm=makeHair(root,bones,kind,sp.hair,bv,hairC,ch0);
   return{mesh:g,root,skin:mesh,mixer,A,bones,rest,sp,model:kind,hairMesh:hm,phase:Math.random()*10,talk:0,talkT:0,w:{idle:1,walk:0,run:0},props:[]}}
 
 
