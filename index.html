@@ -99,7 +99,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="ciudad.js?v=20261115b"></script>
 <script src="modelos.js?v=20261114a"></script>
 <script src="carga.js?v=20261114a"></script>
-<script src="cuerpos.js?v=20261116g"></script><script src="gente.js?v=20261116b"></script>
+<script src="cuerpos.js?v=20261117b"></script><script src="gente.js?v=20261117a"></script>
 <script src="lugares.js?v=20261114a"></script>
 <script src="vehiculos.js?v=20261115a"></script><script src="extra.js?v=20261115b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
@@ -3169,7 +3169,7 @@ function modelSpec(sp){if(sp.sex==='F'&&(sp.hairStyle==='bun'||sp.vestMesh||sp.h
   if(sp.hairStyle!=='none'&&!(!f&&(sp.hat==='vueltiao'||sp.hat==='sun'))){let st=sp.hairStyle||'short';if(sp.tied)st=(sp.helmet||sp.hat==='police')?'bunLow':'bun';else if(f&&st==='short')st='long';spec.hair={style:st,c:sp.hairC||'#1b1310'}}
   spec.topReg=sp.topReg;spec.noBottom=!!sp.skirt;
   if(sp.topReg==='guaya'||sp.topReg==='blouse')spec.top='#f4f1ea';
-  if(sp.skirt)spec.bottom=sp.skirtC||spec.bottom;MSPEC.set(sp,spec);return spec}
+  if(sp.skirt)spec.bottom=sp.skirtC||spec.bottom;if(sp.skirt&&sp.skirtPat)spec.patB=patTex(sp.skirtPat,sp.skirtPatC);spec.skirt=sp.skirt;spec.skirtReg=sp.skirtReg;MSPEC.set(sp,spec);return spec}
 // reflective vests: Policía (verde neón, franjas grises) and Tránsito (azul oscuro con franjas neón)
 const VESTT={};function vestTex(k){if(VESTT[k])return VESTT[k];const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');const pol=k==='policia';
   g.fillStyle=pol?'#c6f432':'#1d2a4a';g.fillRect(0,0,256,128);g.fillStyle=pol?'#b9bec2':'#c6f432';g.fillRect(0,70,256,12);g.fillRect(0,96,256,12);if(!pol){g.fillRect(40,0,14,70);g.fillRect(74,0,14,70);g.fillRect(168,0,14,70);g.fillRect(202,0,14,70)}
@@ -3192,7 +3192,7 @@ function buildCharacter(sp){const f=sp.sex==='F';
   if(sp.bowl){const g=new THREE.Group();const b=new THREE.Mesh(new THREE.CylinderGeometry(.27,.16,.1,18,1,true),new THREE.MeshPhongMaterial({color:'#c0c4c8',shininess:80,side:THREE.DoubleSide}));g.add(b);
     const fr=new THREE.Mesh(new THREE.SphereGeometry(.25,14,7,0,TAU,0,Math.PI/2),new THREE.MeshLambertMaterial({map:ATL.tex}));fr.scale.set(1,.6,1);fr.position.y=.03;
     {const uv=fr.geometry.attributes.uv,r=ATL.R.fruit;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2],r[1]+uv.getY(i)*r[3])}g.add(fr);g.scale.setScalar(.82);A('Head',g,0,ht.y+.05,ht.z)}
-  if(sp.skirt){const L=sp.skirt==='long',h=L?.9:.45;const prof=[[.16,0],[.2,-.06],[.235,-.22],[.27,-.46],[.31,-.72],[.34,-.9]].filter(q=>-q[1]<=h+.01).map(q=>new THREE.Vector2(q[0]*(L?1:.95),q[1]));
+  if(sp.skirt&&sp.skirtReg==='skirt'){const L=sp.skirt==='long',h=L?.9:.45;const prof=[[.16,0],[.2,-.06],[.235,-.22],[.27,-.46],[.31,-.72],[.34,-.9]].filter(q=>-q[1]<=h+.01).map(q=>new THREE.Vector2(q[0]*(L?1:.95),q[1]));
     const geo=new THREE.LatheGeometry(prof,22);let m;if(sp.skirtPat){const t=patTex(sp.skirtPat,sp.skirtPatC).clone();t.needsUpdate=true;t.repeat.set(4,2);m=new THREE.MeshLambertMaterial({map:t,side:THREE.DoubleSide})}else if(sp.skirtReg==='skirt'){const uv=geo.attributes.uv,r=ATL.R.skirt;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2]*.999,r[1]+(1-uv.getY(i))*r[3]*.999);m=new THREE.MeshLambertMaterial({map:ATL.tex,side:THREE.DoubleSide})}
     else m=new THREE.MeshLambertMaterial({color:sp.skirtC||'#e4572e',side:THREE.DoubleSide});const sk=new THREE.Mesh(geo,m);
     const hy=ch.bones.Hips.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(hy);A('Hips',sk,0,hy.y-.04,hy.z)}

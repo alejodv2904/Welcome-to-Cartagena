@@ -83,8 +83,9 @@ function outfit(sp,kind){const f=kind==='f',ky=CB.SC[kind].y;let top='tee',neck=
   if(sp.suit)top=(sp.hem!==undefined&&sp.hem>.95)?'shirt':'jacket';else if(sp.topReg==='guaya'||sp.sleeve===0&&sp.top&&!sp.jersey&&!sp.pat)top='shirt';
   if(sp.jersey)neck='v';else if(sp.fem===2||sp.topReg==='blouse')neck='scoop';
   let sleeve=sp.sleeve===undefined?1:sp.sleeve;if(sp.fem===2)sleeve=2;
-  const hem=sp.hem!==undefined?sp.hem*ky:undefined;const effHem=hem!==undefined?hem:(f?.9:.86);
-  const bottom=sp.noBottom||sp.fem===2?null:(sp.shorts?'shorts':'long');
+  const skirt=sp.skirt&&sp.skirtReg!=='skirt'?'skirt-'+(sp.skirt==='long'?'long':'short'):null;
+  const hem=sp.hem!==undefined?sp.hem*ky:(skirt?1.08*ky:undefined);const effHem=hem!==undefined?hem:(f?.9:.86);
+  const bottom=skirt||(sp.noBottom||sp.fem===2?null:(sp.shorts?'shorts':'long'));
   return{top,neck,sleeve,hem,bottom,belt:!!sp.belt&&!f&&effHem>.98*ky&&!!bottom,shoes:true}}
 /* ---------- cabello, barba ---------- */
 const HAIRTEX={};function hairTex(c){if(HAIRTEX[c])return HAIRTEX[c];const S=64,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');g.fillStyle=c;g.fillRect(0,0,S,S);
