@@ -152,6 +152,6 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
   return A}
 /* ---------- construcción de la malla para una combinación de ropa ---------- */
 function build(kind,o){const A=Acc();bodyParts(A,kind);garments(A,kind,o);return toGeo(A)}
-function headInfo(kind){return kind==='m'?{c:[0,1.665,.015],r:[.099,.118,.108]}:{c:[0,1.565,.0],r:[.098,.115,.108]}}
+function headInfo(kind){return kind==='m'?{c:[0,1.665,.015],r:[.099,.118,.108]}:{c:[0,1.508,.013],r:[.093,.111,.101]}}
 function neckW(kind){return weights(kind).neck}
 return{makeRig,build,NAMES,IDX,PART,restPos,SC,headInfo,neckW}};
