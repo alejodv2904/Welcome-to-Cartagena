@@ -455,7 +455,7 @@ function ribbonP(P,w,lift,mkey,col,off,uScale,joints){if(P.length<2)return;const
   if(joints)for(let i=1;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);const y=ground(P[i][0],P[i][1])+lift;const c=[P[i][0],y,P[i][1]];const gp=(x,z)=>[x,ground(x,z)+lift,z];for(let k=0;k<8;k++){const a0=k/8*TAU,a1=(k+1)/8*TAU;triW(b,c,gp(P[i][0]+Math.cos(a1)*h,P[i][1]+Math.sin(a1)*h),gp(P[i][0]+Math.cos(a0)*h,P[i][1]+Math.sin(a0)*h),8,col)}}}
 const GRAPH={nodes:[],edges:[],idx:new Map()};
 function gnode(x,z){const k=Math.round(x*10)+','+Math.round(z*10);let n=GRAPH.idx.get(k);if(n===undefined){n=GRAPH.nodes.length;GRAPH.nodes.push({x,z,out:[]});GRAPH.idx.set(k,n)}return n}
-function gedge(a,b,ty,two,name){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
+function gedge(a,b,ty,two,name,w){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,hw:(w||RW[ty])/2,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
 // how many street segments meet at each vertex (to keep sidewalks and paint out of junctions)
 const vdeg=new Map();const vk=(x,z)=>Math.round(x*10)+','+Math.round(z*10);
 MAP.roads.forEach(r=>{if(r[0]>5)return;const p=r[5];for(let i=0;i<p.length;i+=2){const k=vk(p[i],p[i+1]);vdeg.set(k,(vdeg.get(k)||0)+((i===0||i===p.length-2)?1:2))}});
@@ -493,11 +493,11 @@ function roadGeo(ty,ow,w,pts){const P=densify(pts);
 MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);roadGeo(ty,ow,w,pts);
   if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,outerAv:r[6]===1});
   else for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,walk:true});
-  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name);if(ow<=0)gedge(b,a,ty,two,name)}}});
+  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name,w);if(ow<=0)gedge(b,a,ty,two,name,w)}}});
 // streets of the generated barrios: in the street index and the traffic graph now; their pavement and houses are built near the player
 // (con ciudad-osm.js son las calles reales: respetan el sentido único y las de servicio no llevan tránsito)
 const GSEGS=GEN.segs;for(const s of GSEGS){s.w=s.pl?roadW(s.ty,s.ow,s.lanes,s.name):RW[s.ty];s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);
-  if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name);if(two)gedge(b,a,s.ty,two,s.name)}
+  if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name,s.w);if(two)gedge(b,a,s.ty,two,s.name,s.w)}
 /* ---------- Transcaribe: exclusive two-way busway down the middle of Avenida Pedro de Heredia, with raised stations ---------- */
 const TCW={path:null,S:null,L:0,stations:[]};
 (function(){const segs=CD.OSM
@@ -3263,10 +3263,21 @@ function edgeAround(r0,r1){const a=rand()*TAU,r=Math.sqrt(rr(r0*r0,r1*r1)),x=pla
 function placeAI(v,near){const r0=near==='mid'?170:near?30:240,r1=near?420:620;for(let t=0;t<60;t++){const ei=v.type==='coche'?pick(centroEdges):edgeAround(r0,r1);if(ei<0)continue;const e=GRAPH.edges[ei],A=GRAPH.nodes[e.a];if(v.type==='bus'&&e.ty>2)continue;const d=dist2(A.x,A.z,player.x,player.z);
     if(d<r0||d>r1)continue;v.pe=-1;v.e=ei;v.t=rr(0,e.len);v.pax=v.type==='mototaxi'&&!v.hail&&rand()<.7;v.cruise=CRUISE[e.ty]*rr(.8,1.05)*v.spec.cruise;v.speed=v.cruise*.7;v.next=-1;aiPos(v,0);return true}return false}
 // how far a car can pull over towards the kerb (to pick up or drop off a passenger)
-function pullRoom(e,v){return Math.max(0,RW[e.ty]/2-1.05-laneOf(e,v))}
-function aiLane(e,v){return laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*2.7}
+// half width of the pavement of an edge (the real drawn width, not just the street type) and of the vehicle
+const roadHW=e=>e.hw||RW[e.ty]/2,vehHW=v=>(v&&v.rig&&v.rig.wid||1.6)/2;
+function pullRoom(e,v){return Math.max(0,roadHW(e)-vehHW(v)-.25-laneOf(e,v))}
+// the lateral position always keeps the whole vehicle on the pavement (no wheels on the sidewalk when pulling over or going around)
+function aiLane(e,v){const m=Math.max(0,roadHW(e)-vehHW(v)-.15);return clamp(laneOf(e,v)+(v.pull||0)*pullRoom(e,v)-(v.dodge||0)*Math.min(2.7,roadHW(e)),-m,m)}
 // how far before and after a junction the turn is drawn as a curve (none when going straight or turning back)
-function turnR(pe,ne){const dot=pe.dx*ne.dx+pe.dz*ne.dz;if(dot>.985||dot<-.35)return 0;return Math.min(clamp(3+(1-dot)*5.5,3,10),pe.len*.45,ne.len*.45)}
+// on a turn towards the kerb side the curve bulges into the inner corner: the radius is capped so the vehicle stays on the pavement of the two streets
+// (the corner between the two streets is sidewalk, so the curve has to fit in the margin between the lane and the kerb)
+function turnR(pe,ne,v){const dot=pe.dx*ne.dx+pe.dz*ne.dz;if(dot>.985||dot<-.35)return 0;let R=Math.min(clamp(3+(1-dot)*5.5,3,10),pe.len*.45,ne.len*.45);
+  const sn=Math.abs(pe.dx*ne.dz-pe.dz*ne.dx),l1=aiLane(pe,v),l2=aiLane(ne,v);
+  // turning towards the side of the lane offset (right turn) or any turn on a one-way street (lane in the middle)
+  const toward=(ne.dx*-pe.dz+ne.dz*pe.dx)*(l1>=0?1:-1)>0||Math.abs(l1)<.5;
+  if(toward&&sn>.05){const hv=vehHW(v)+.2,M1=Math.max(.05,roadHW(pe)-Math.abs(l1)-hv),M2=Math.max(.05,roadHW(ne)-Math.abs(l2)-hv);
+    const T=(Math.sqrt(M1)+Math.sqrt(M2))**2/sn*.9;R=Math.min(R,Math.max(1.2,T+Math.min(Math.abs(l1),Math.abs(l2))*sn))}
+  return R}
 // position and heading on the curve that joins the lane of edge pe with the lane of edge ne (quadratic Bézier through the corner)
 function turnPt(v,pe,ne,R,s){const A=GRAPH.nodes[pe.a],B=GRAPH.nodes[ne.a],l1=aiLane(pe,v),l2=aiLane(ne,v);
   const p0x=A.x+pe.dx*(pe.len-R)-pe.dz*l1,p0z=A.z+pe.dz*(pe.len-R)+pe.dx*l1,p2x=B.x+ne.dx*R-ne.dz*l2,p2z=B.z+ne.dz*R+ne.dx*l2;
@@ -3277,8 +3288,8 @@ function turnPt(v,pe,ne,R,s){const A=GRAPH.nodes[pe.a],B=GRAPH.nodes[ne.a],l1=ai
   return{x,z,yaw:Math.atan2(tx,tz)}}
 function aiPos(v,dt){const e=GRAPH.edges[v.e],A=GRAPH.nodes[e.a];if(dt>0){v.pull=lerp(v.pull||0,v.pullT||0,Math.min(1,dt*1.4));v.dodge=lerp(v.dodge||0,v.dodgeT||0,Math.min(1,dt*1.3))}const ln=aiLane(e,v);let tx=A.x+e.dx*v.t-e.dz*ln,tz=A.z+e.dz*v.t+e.dx*ln,ty=Math.atan2(e.dx,e.dz);
   // turning: follow a curve through the junction instead of pivoting on the corner
-  {const pe=v.pe>=0?GRAPH.edges[v.pe]:null;let C=null;if(pe&&pe.b===e.a){const R=turnR(pe,e);if(R&&v.t<R)C=turnPt(v,pe,e,R,.5+v.t/(2*R))}
-    if(!C&&v.next>=0){const ne=GRAPH.edges[v.next];if(ne.a===e.b){const R=turnR(e,ne);if(R&&e.len-v.t<R)C=turnPt(v,e,ne,R,(v.t-(e.len-R))/(2*R))}}
+  {const pe=v.pe>=0?GRAPH.edges[v.pe]:null;let C=null;if(pe&&pe.b===e.a){const R=turnR(pe,e,v);if(R&&v.t<R)C=turnPt(v,pe,e,R,.5+v.t/(2*R))}
+    if(!C&&v.next>=0){const ne=GRAPH.edges[v.next];if(ne.a===e.b){const R=turnR(e,ne,v);if(R&&e.len-v.t<R)C=turnPt(v,e,ne,R,(v.t-(e.len-R))/(2*R))}}
     if(C){tx=C.x;tz=C.z;ty=C.yaw}}
   if(dt>0&&dist2(tx,tz,v.x,v.z)<6){v.x=lerp(v.x,tx,Math.min(1,dt*8));v.z=lerp(v.z,tz,Math.min(1,dt*8))}else{v.x=tx;v.z=tz}
   v.yaw=dt>0?angLerp(v.yaw,ty,Math.min(1,dt*9)):ty;syncCar(v)}
@@ -3318,15 +3329,25 @@ const VG=new Map(),VGC=24,VNB=[];
 function buildVG(){VG.clear();for(const o of vehicles){if(o.off)continue;const k=(Math.floor(o.x/VGC)+600)*4000+Math.floor(o.z/VGC)+600;let a=VG.get(k);if(!a){a=[];VG.set(k,a)}a.push(o)}}
 function nearV(x,z){VNB.length=0;const ci=Math.floor(x/VGC)+600,cj=Math.floor(z/VGC)+600;for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=VG.get(i*4000+j);if(a)for(const o of a)VNB.push(o)}return VNB}
 const JN=new Map();let simT=0;
+// glorietas (Rotonda de Chambacú, Rotonda El Prado, Glorieta ENAP…): los que ya van dando la vuelta tienen la vía; los que llegan ceden el paso
+const RB_E=new Set(),RB_N=new Set(),RBQ=new Map();
+GRAPH.edges.forEach((e,i)=>{if(!e.moto&&/^(Rotonda|Glorieta)\b/i.test(e.name||'')){RB_E.add(i);RB_N.add(e.a);RB_N.add(e.b)}});
 function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(v.next<0)v.next=chooseNext(v);
   let tgt=v.cruise;const left=e.len-v.t;
   if(v.next>=0){const n=GRAPH.edges[v.next];const dot=n.dx*e.dx+n.dz*e.dz;if(dot<.7&&left<18)tgt=Math.min(tgt,dot<0?3:5.5)}else if(left<10)tgt=Math.min(tgt,2);
   // junctions without traffic lights: one street at a time (a short line of cars from the same street may follow), so cars never cross through each other
   {const now=simT;if(v.jn>=0){const J=JN.get(v.jn);if(!J||J.vid!==v.vid)v.jn=-1;else if(v.e!==J.e&&v.t>7||now>J.until){JN.delete(v.jn);v.jn=-1}}
-    const nb=e.b;if(!(v.clearT>0)&&!v.ghost&&!isRebel(v)&&v.next>=0&&left<v.len/2+9&&v.jn!==nb&&(PADJ.get(nb)||[]).length>=3&&!EX.tlAt(nb)){const J=JN.get(nb);
-      if(!J||J.until<now||J.e===v.e&&J.cnt<3){if(v.jn>=0&&JN.get(v.jn)&&JN.get(v.jn).vid===v.vid)JN.delete(v.jn);JN.set(nb,{vid:v.vid,e:v.e,until:now+6,cnt:J&&J.e===v.e&&J.until>=now?J.cnt+1:1});v.jn=nb}
-      else tgt=Math.min(tgt,Math.max(0,(left-v.len/2-6)*.8))}}
+    const nb=e.b;
+    if(RB_E.has(v.e)){// dando la vuelta: avisa a la entrada que viene adelante (y a la que acaba de pasar) para que los de afuera esperen
+      if(v.speed>.3){let ee=e,d=left;for(let k=0;k<5&&d<16;k++){RBQ.set(ee.b,now+.5);const o=GRAPH.nodes[ee.b].out.find(i=>RB_E.has(i));if(o===undefined)break;ee=GRAPH.edges[o];d+=ee.len}}
+      if(v.t<v.len/2+3)RBQ.set(e.a,now+.4)}
+    else if(RB_N.has(nb)){// llegando a la glorieta: cede el paso a los que vienen por el anillo (si espera demasiado, entra con cuidado)
+      if(!(v.clearT>0)&&!v.ghost&&left<v.len/2+12){const busy=(RBQ.get(nb)||0)>now;if(busy&&!(v.yw>7)){v.yw=(v.yw||0)+dt;tgt=Math.min(tgt,Math.max(0,(left-v.len/2-2.5)*.8))}else if(!busy)v.yw=0}}
+    else if(!(v.clearT>0)&&!v.ghost&&!isRebel(v)&&v.next>=0&&left<v.len/2+9&&v.jn!==nb&&(PADJ.get(nb)||[]).length>=3&&!EX.tlAt(nb)){const J=JN.get(nb);
+      // after waiting too long for its turn (a car holding the junction that does not move), it takes the junction anyway
+      if(!J||J.until<now||J.e===v.e&&J.cnt<3||v.jw>9){if(v.jn>=0&&JN.get(v.jn)&&JN.get(v.jn).vid===v.vid)JN.delete(v.jn);JN.set(nb,{vid:v.vid,e:v.e,until:now+6,cnt:J&&J.e===v.e&&J.until>=now?J.cnt+1:1});v.jn=nb;v.jw=0}
+      else{tgt=Math.min(tgt,Math.max(0,(left-v.len/2-6)*.8));v.jw=(v.jw||0)+dt}}}
   // red and yellow lights: stop at the line (a car already too close to stop on yellow goes through)
   {const L=lightAhead(v,e,left);if(L&&L.c!=='G'&&L.d>-.8&&L.d<60){if(isRebel(v)&&v.runRed){tgt=Math.min(tgt,Math.max(5,L.d*.5));v.tlStop=false}else if(L.c==='R'||v.tlStop||L.d>v.speed*.55){v.tlStop=true;tgt=Math.min(tgt,Math.max(0,L.d*.75))}}else v.tlStop=false}
   // a hailed taxi / buseta: pull over and stop where the passenger waits (or at the destination)
@@ -3358,7 +3379,7 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
   if(!free)for(const p of peds){if(!p.vis)continue;const rx=p.x-v.x,rz=p.z-v.z;if(Math.abs(rx)>10||Math.abs(rz)>10)continue;const al=rx*sy+rz*cy;if(al>0&&al<8&&Math.abs(rx*cy-rz*sy)<1.8)tgt=Math.min(tgt,Math.max(0,al-3.5))}
   v.speed=lerp(v.speed,tgt,Math.min(1,dt*(tgt<v.speed?4:1.4)));
   v.t+=v.speed*dt;if(H&&H.stop&&!H.halt&&v.e===H.stop.e&&v.t>H.stop.t)v.t=H.stop.t;
-  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.pe=v.e;v.e=v.next;v.next=-1;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise*(isRebel(v)?1.18:1);v.runRed=rand()<.6}
+  while(v.t>=GRAPH.edges[v.e].len){v.t-=GRAPH.edges[v.e].len;if(v.next<0){placeAI(v,false);return}const ne=GRAPH.edges[v.next];v.pe=v.e;v.e=v.next;v.next=-1;v.yw=0;v.jw=0;v.cruise=CRUISE[ne.ty]*rr(.8,1.05)*v.spec.cruise*(isRebel(v)?1.18:1);v.runRed=rand()<.6}
   aiPos(v,dt)}
 // wheels, steering, suspension and level of detail for every visible vehicle
 function updateRigs(dt){const nd=Q.view>600?100:Q.view>450?75:60;const night=NIGHT.value>.5;

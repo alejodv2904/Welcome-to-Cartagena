@@ -834,6 +834,8 @@ const TL={mats:[],t:0};
 (function trafficLights(){const G=C.GRAPH;const deg=new Map();G.edges.forEach((e,i)=>{for(const n of [e.a,e.b]){let l=deg.get(n);if(!l){l=[];deg.set(n,l)}l.push(i)}});
   const groups=[[],[]];const housing=[],poles=[];let count=0;TL.nodes=new Map();const zeb=new Map(),zseen=new Set();
   for(const [n,list] of deg){if(count>3200)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
+    // en las glorietas no hay semáforo dentro del anillo: los que entran ceden el paso a los que ya van dando la vuelta
+    if(list.some(i=>/^(Rotonda|Glorieta)\b/i.test(G.edges[i].name||'')))continue;
     // in the generated barrios only where avenues cross or an avenue meets a main street (not at every corner)
     if(C.outer&&C.outer(N.x,N.z)&&!list.some(i=>G.edges[i].ty===3)&&main.length<6)continue;
     let wInt=0;for(const i of list)wInt=Math.max(wInt,C.RW[G.edges[i].ty]/2);
