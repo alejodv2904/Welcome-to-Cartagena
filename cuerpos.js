@@ -97,26 +97,6 @@ function bodyParts(A,kind,sk){const k=SC[kind],W=weights(kind),T=torsoTable(kind
       tube(A,{nodes:[{p:[x0,hy,z],a:rad*1.15,b:rad*1.15,w:hw},{p:[x0+sd*len*.55,hy-.002,z],a:rad,b:rad,w:hw},{p:[x0+sd*len,hy-.006,z],a:rad*.75,b:rad*.75,w:hw}],axis:'x',part:SKIN,n:6,capB:true,step:0})});
     tube(A,{nodes:[0,1,2].map(i=>({p:[(.73+i*.012)*hx,hy-.004,(.03+i*.026)*r],a:(.0105-.0012*i)*r,b:(.0105-.0012*i)*r,w:hw})),axis:'z',part:SKIN,n:6,capB:true,step:0});
   }
-  // cabeza con cara
-  const hc=[0,(kind==='m'?1.665:1.552),0],hr=kind==='m'?[.092,.115,.1]:[.086,.108,.094];
-  const seg=[20,14],base=A.P.length/3;
-  for(let j=0;j<=seg[1];j++){const ph=j/seg[1]*Math.PI,cy=Math.cos(ph),sy=Math.sin(ph);for(let i=0;i<=seg[0];i++){const th=i/seg[0]*TAU;
-    const jaw=1-(kind==='m'?.2:.28)*smooth(-.15,-1,cy);// el mentón se afina
-    let x=Math.cos(th)*sy*hr[0]*jaw,y=cy*hr[1],z=Math.sin(th)*sy*hr[2]*(cy<-.3?1-.18*(-cy-.3):1);
-    pushVert(A,hc[0]+x,hc[1]+y,hc[2]+z,i/seg[0],j/seg[1],[1,1,1],SKIN,W.head)}}
-  {const Wd=seg[0]+1;for(let j=0;j<seg[1];j++)for(let i=0;i<seg[0];i++){const a=base+j*Wd+i,b=a+1,c=a+Wd,d=c+1;A.I.push(a,c,b,b,c,d)}}
-  const m=kind==='m',ey=hc[1]+.019*(m?1:.9),ez=hr[2]*.86,ex=.034*(m?1:.93);
-  for(const sd of [1,-1]){ell(A,[sd*ex,ey,ez],[.0185,.0128,.0105],PART.eyes,[1,1,1],W.head,[10,7]);ell(A,[sd*ex,ey,ez+.0075],[.0092,.0092,.0045],PART.eyes,[.12,.08,.05],W.head,[8,6]);
-    ell(A,[sd*ex,ey+.0105,ez-.002],[.02,.006,.011],SKIN,[.97,.95,.93],W.head,[8,5]);// párpado
-    ell(A,[sd*ex,ey+.032,ez-.006],[.031,.0058,.009],PART.hair,[1,1,1],W.head,[6,4]);// cejas
-    ell(A,[sd*(hr[0]*1.0),hc[1]-.008,-.002],[.0115,.03,.021],SKIN,[1,.92,.9],W.head,[6,5]);// orejas
-    ell(A,[sd*hr[0]*.7,hc[1]-.045,hr[2]*.7],[.02,.014,.02],SKIN,[1,.97,.96],W.head,[6,5])}// pómulos
-  ell(A,[0,hc[1]-.008,hr[2]*.92],[.0085,.024,.013],SKIN,[1,.97,.96],W.head,[6,5]);// puente de la nariz
-  ell(A,[0,hc[1]-.034,hr[2]*.94],[.012,.011,.013],SKIN,[1,.95,.93],W.head,[8,6]);// punta
-  for(const sd of [1,-1])ell(A,[sd*.0105,hc[1]-.036,hr[2]*.9],[.0075,.009,.009],SKIN,[.96,.9,.88],W.head,[6,4]);// aletas
-  ell(A,[0,hc[1]-.069,hr[2]*.87],[.026,.0048,.0095],SKIN,[.8,.48,.46],W.head,[8,4]);// labio superior
-  ell(A,[0,hc[1]-.0765,hr[2]*.86],[.0225,.0058,.0105],SKIN,[.84,.52,.5],W.head,[8,4]);// labio inferior
-  ell(A,[0,hc[1]-.1,hr[2]*.78],[.027,.021,.025],SKIN,[1,.98,.97],W.head,[8,6]);// mentón
   return A}
 /* ---------- ropa ---------- */
 const off=(y,hem,v)=>v;
@@ -126,7 +106,7 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
   if(o.top){const jacket=o.top==='jacket',shirt=o.top==='shirt'||jacket,hem=o.hem!==undefined?o.hem:(kind==='m'?.86:.9);const loose=jacket?.034:o.top==='tee'?.016:.014,sl=o.sleeve;
     const ys=[];const top=TOPY;const N=12;for(let i=0;i<=N;i++)ys.push(hem+(top-hem)*i/N);
     const noSleeveless=sl===2;
-    const nodes=ys.map((y,i)=>{let [rx,rz]=torsoR(kind,y);const f=1+loose/ .1;let ax=rx+loose*(y<1.15*k.y?(jacket?1.1:1.5):1),az=rz+loose*(y<1.15*k.y?(jacket?1.1:1.5):1);
+    const nodes=ys.map((y,i)=>{let [rx,rz]=torsoR(kind,y);const f=1+loose/ .1;const tuck=hem>=.98*k.y&&!jacket&&y<1.12*k.y;let ax=tuck?rx+.005:rx+loose*(y<1.15*k.y?(jacket?1.1:1.5):1),az=tuck?rz+.005:rz+loose*(y<1.15*k.y?(jacket?1.1:1.5):1);
       if(noSleeveless&&y>1.38*k.y){ax*=.82}
       if(y>1.46*k.y){const t=smooth(1.44*k.y,TOPY,y);ax=ax*(1-t)+(.058*k.r+.014)*t;az=az*(1-t)+(.058*k.r+.014)*t}
       return{p:[0,y,0],a:ax,b:az,w:W.torso}});
@@ -172,5 +152,6 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
   return A}
 /* ---------- construcción de la malla para una combinación de ropa ---------- */
 function build(kind,o){const A=Acc();bodyParts(A,kind);garments(A,kind,o);return toGeo(A)}
-function headInfo(kind){return kind==='m'?{c:[0,1.665,0],r:[.092,.115,.1]}:{c:[0,1.552,0],r:[.086,.108,.094]}}
-return{makeRig,build,NAMES,IDX,PART,restPos,SC,headInfo}};
+function headInfo(kind){return kind==='m'?{c:[0,1.665,.015],r:[.099,.118,.108]}:{c:[0,1.552,.015],r:[.088,.108,.1]}}
+function neckW(kind){return weights(kind).neck}
+return{makeRig,build,NAMES,IDX,PART,restPos,SC,headInfo,neckW}};
