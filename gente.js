@@ -158,11 +158,12 @@ function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMateria
   const AR=M.arm&&M.kind==='m'?M.arm:null,V3=a=>a.clone();
   const U={uArmK:{value:AR?.66:1},uArmA:{value:AR?V3(AR[0]):new THREE.Vector3()},uArmE:{value:AR?V3(AR[1]):new THREE.Vector3()},uArmW:{value:AR?V3(AR[2]):new THREE.Vector3()},partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uPatS:{value:M.kind==='m'?14:26},
     uSuit:{value:X.suit?1:0},uShirtC:{value:col(X.shirtC||'#f4f2ee')},uHem:{value:X.hem!==undefined?X.hem:(M.kind==='m'?.84:-1e9)},uJersey:{value:X.jersey?1:0},uBelt:{value:X.belt&&M.kind==='m'?1:0},uBeltC:{value:col(X.beltC||'#3b2416')},uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
-  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;uniform float uSleeve,uArmK;uniform vec4 uTh;uniform vec3 uArmA,uArmE,uArmW;\n'+s.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;uniform float uSleeve,uArmK,uSuit;uniform vec4 uTh;uniform vec3 uArmA,uArmE,uArmW;\n'+s.vertexShader.replace('#include <beginnormal_vertex>',`#include <beginnormal_vertex>
+if(aShirt>0.5&&uSuit<0.5&&abs(position.x)<0.2&&position.y<1.56)objectNormal=normalize(vec3(position.x,0.0,position.z+0.01));`).replace('#include <begin_vertex>',`#include <begin_vertex>
 vBind=position;vShirtV=aShirt;
-if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float cut=uSleeve>1.5?uTh.x*1.04:mix(uTh.x,uTh.y,0.7);float w=smoothstep(cut,cut+0.05,abs(position.x));
+if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float cut=uSleeve>1.5?uTh.x*1.04:mix(uTh.x,uTh.y,0.88);float w=smoothstep(cut-0.006,cut+0.012,abs(position.x));
   if(w>0.0){vec3 A=uArmA*vec3(sg,1.0,1.0),E=uArmE*vec3(sg,1.0,1.0),Wr=uArmW*vec3(sg,1.0,1.0);vec3 a=A,b=E;if(dot(position-E,E-A)>0.0){a=E;b=Wr;}
-    vec3 d=b-a;float t=clamp(dot(position-a,d)/dot(d,d),0.0,1.0);vec3 c=a+d*t;transformed=c+(position-c)*mix(1.0,uArmK,w);}}`);
+    vec3 d=b-a;float t=clamp(dot(position-a,d)/dot(d,d),0.0,1.0);vec3 c=a+d*t;float kk=aShirt<1.5?uArmK*0.6:uArmK;transformed=c+(position-c)*mix(1.0,kk,w);}}`);
     s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
     float pid=floor(texture2D(partMask,vUv).r*255.0/32.0+0.02);vec3 tc=diffuseColor.rgb;float lum=dot(tc,vec3(.299,.587,.114));
     vec3 pcol=vec3(1.0);float mode=0.0;float al=0.5;
@@ -172,11 +173,11 @@ if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float c
     if(isTop&&vBind.y<uHem)discard;
     if(isTop&&uSuit>0.5&&vShirtV>0.5&&vShirtV<1.5){pcol=uShirtC;mode=2.0;}
     float lr=lum/al;if(isTop)lr=mix(1.0,lr,0.18);
-    bool bare=false;float ax=abs(vBind.x);
-    float cutX=mix(uTh.x,uTh.y,0.7);
+    bool bare=false;float hemF=1.0;float ax=abs(vBind.x);
+    float cutX=mix(uTh.x,uTh.y,0.88);
     if(isTop&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>cutX))bare=true;
     if(pid>1.5&&pid<2.5&&uShorts>0.5&&vBind.y<mix(uTh.w,uTh.z,0.2))bare=true;
-    if(bare&&vShirtV>0.5&&vShirtV<1.5)discard;
+    if(isTop&&!bare&&uSleeve>0.5&&uSleeve<1.5&&ax>cutX-0.02)hemF=0.78;
     if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lr,0.0,1.3);
     else if(uPatOn>0.5&&isTop)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lr,0.0,1.5);
     else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv*uPatS*0.8).rgb*clamp(0.3+0.7*lr,0.0,1.5);
@@ -187,6 +188,7 @@ if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float c
       if(uSleeve<1.5&&uSleeve>0.5&&ax>cutX-0.04&&ax<=cutX)diffuseColor.rgb=bl;
       if(vBind.z>0.04){vec2 d=vec2(vBind.x-0.1,vBind.y-1.27);float r=length(d);if(r<0.036)diffuseColor.rgb=r<0.012?bl:(r<0.026?vec3(0.99,0.82,0.09):rd);}}
     if(pid>1.5&&pid<2.5&&uBelt>0.5&&!bare&&vBind.y>1.035&&vBind.y<1.082){diffuseColor.rgb=uBeltC*(0.7+0.5*lum);if(abs(vBind.x)<0.022&&vBind.z>0.08)diffuseColor.rgb=vec3(0.78,0.78,0.74);}
+    diffuseColor.rgb*=hemF;
     if(!bare&&pid>0.5&&pid<2.5)diffuseColor.rgb*=0.92+0.16*texture2D(uWeave,vUv*uPatS*5.0).r;`)};
   m.customProgramCacheKey=()=>'gente4';return m}
 
