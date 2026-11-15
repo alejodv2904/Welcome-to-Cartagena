@@ -69,6 +69,13 @@ function faceGeo(mesh,sc,keepTri,kind){const g=mesh.geometry.clone();g.morphAttr
   g.setAttribute('skinIndex',new THREE.BufferAttribute(SI,4));g.setAttribute('skinWeight',new THREE.BufferAttribute(SW,4));
   if(keepTri&&g.index){const I=g.index.array,out=[];for(let t=0;t<I.length;t+=3){const a=I[t],b=I[t+1],c=I[t+2];const cx=(P.getX(a)+P.getX(b)+P.getX(c))/3,cy=(P.getY(a)+P.getY(b)+P.getY(c))/3;if(keepTri(cx,cy,g.attributes.uv.getX(a),g.attributes.uv.getY(a),t))out.push(a,b,c)}g.setIndex(out)}
   g.computeBoundingSphere();g.boundingSphere.radius*=2;return g}
+// quita de la cabeza de la mujer los audífonos y las gafas (son piezas sueltas de la malla): se separan por islas de triángulos
+function dropAccessories(g){const P=g.attributes.position,I=g.index.array;const key=new Map(),par=[];const find=x=>{while(par[x]!==x){par[x]=par[par[x]];x=par[x]}return x};
+  const vid=new Array(P.count);for(let i=0;i<P.count;i++){const k=Math.round(P.getX(i)*1000)+','+Math.round(P.getY(i)*1000)+','+Math.round(P.getZ(i)*1000);if(!key.has(k)){key.set(k,par.length);par.push(par.length)}vid[i]=key.get(k)}
+  for(let i=0;i<I.length;i+=3){const a=find(vid[I[i]]);par[find(vid[I[i+1]])]=a;par[find(vid[I[i+2]])]=a}
+  const comp=new Map();for(let t=0;t<I.length;t+=3){const r=find(vid[I[t]]);let c=comp.get(r);if(!c){c={n:0,mn:[9,9,9],mx:[-9,-9,-9]};comp.set(r,c)}c.n++;for(let k=0;k<3;k++){const j=I[t+k];const v=[P.getX(j),P.getY(j),P.getZ(j)];for(let q=0;q<3;q++){c.mn[q]=Math.min(c.mn[q],v[q]);c.mx[q]=Math.max(c.mx[q],v[q])}}}
+  const bad=new Set();for(const [r,c] of comp){if(c.mx[0]-c.mn[0]>.2||c.mn[0]>.105||c.mx[0]<-.105||(c.n<=80&&c.mn[1]>1.4&&c.mx[2]>.045))bad.add(r)}
+  const out=[];for(let t=0;t<I.length;t+=3)if(!bad.has(find(vid[I[t]])))out.push(I[t],I[t+1],I[t+2]);g.setIndex(out)}
 const FACE={};
 {const sm=G.hombre.scene,get=n=>{let r=null;sm.traverse(o=>{if(o.isSkinnedMesh&&o.name===n)r=o});return r};
   const head=get('Wolf3D_Head'),sc=1.78/1.83;const F={parts:[],sc};
@@ -80,8 +87,26 @@ const FACE={};
     if(h>8&&h<40&&sa>.22&&sa<.8&&mx>80&&mx<215){sr+=r;sg+=g;sb+=b;sn++}}
   const dark=(u,v)=>{u-=Math.floor(u);v-=Math.floor(v);const i=(Math.min(SZ-1,Math.floor(v*SZ))*SZ+Math.min(SZ-1,Math.floor(u*SZ)))*4;return Math.max(px[i],px[i+1],px[i+2])<80};
   const F={parts:[],sc:1,avg:sn?[sr/sn,sg/sn,sb/sn]:[150,100,80]};
-  F.parts.push({geo:faceGeo(mesh,1,(cx,cy,u,v)=>cy>1.345&&Math.abs(cx)<.16&&!(cy>1.42&&Math.abs(cx)>.075&&dark(u,v)),'f'),map:mesh.material.map,skin:true,cls:true});FACE.f=F}
-function faceMat(part,ratio){const m=part.skin?new THREE.MeshPhongMaterial({map:part.map,skinning:true,shininess:14,specular:0x1c1a18}):new THREE.MeshLambertMaterial({map:part.map,skinning:true});
+  const fg=faceGeo(mesh,1,(cx,cy,u,v)=>cy>1.345&&Math.abs(cx)<.16&&!(cy>1.42&&Math.abs(cx)>.075&&dark(u,v)),'f');dropAccessories(fg);
+  {const P=fg.attributes.position,uv=new Float32Array(P.count*2);for(let i=0;i<P.count;i++){const front=P.getZ(i)>-.005;uv[i*2]=front?(P.getX(i)+.1)/.2:.002;uv[i*2+1]=front?(1.6-P.getY(i))/.27:.002}fg.setAttribute('uv',new THREE.BufferAttribute(uv,2))}
+  {const P=fg.attributes.position;for(let i=0;i<P.count;i++)P.setXYZ(i,P.getX(i)*1.12,1.33+(P.getY(i)-1.33)*1.12+.04,P.getZ(i)*1.12);fg.computeBoundingSphere();fg.boundingSphere.radius*=2}
+  F.parts.push({geo:fg,plain:true});FACE.f=F}
+// cara de mujer lisa: piel del tono de cada persona con cejas, ojos y labios sencillos (la textura original era una máscara con gafas)
+const FTEX={};
+function femFaceTex(hex){if(FTEX[hex])return FTEX[hex];const S=256,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');const sk=new THREE.Color(hex);const rgb=(c,k)=>'rgb('+[c.r,c.g,c.b].map(v=>Math.round(Math.min(1,v*k)*255)).join(',')+')';
+  g.fillStyle=rgb(sk,1);g.fillRect(0,0,S,S);
+  const X=x=>(x+.1)/.2*S,Y=y=>(1.6-y)/.27*S,R=r=>r/.2*S;
+  const lip=new THREE.Color(sk).lerp(new THREE.Color('#a8505a'),.5);
+  g.fillStyle='rgba(0,0,0,.12)';for(const sd of [1,-1]){g.beginPath();g.ellipse(X(sd*.034),Y(1.462),R(.019),R(.011),0,0,TAU);g.fill()}// sombra del párpado
+  for(const sd of [1,-1]){const cx=X(sd*.034),cy=Y(1.457);g.fillStyle='#f3eee6';g.beginPath();g.ellipse(cx,cy,R(.0135),R(.0075),0,0,TAU);g.fill();
+    g.fillStyle='#3a281c';g.beginPath();g.arc(cx,cy,R(.0068),0,TAU);g.fill();g.fillStyle='#0c0806';g.beginPath();g.arc(cx,cy,R(.0033),0,TAU);g.fill();
+    g.strokeStyle='#1c120c';g.lineWidth=2;g.beginPath();g.ellipse(cx,cy,R(.0138),R(.0078),0,Math.PI*1.05,Math.PI*1.95);g.stroke();
+    g.strokeStyle='#2a1a12';g.lineWidth=2.4;g.beginPath();g.moveTo(X(sd*.016),Y(1.492));g.quadraticCurveTo(X(sd*.036),Y(1.503),X(sd*.054),Y(1.49));g.stroke()}
+  g.fillStyle=rgb(lip,1);g.beginPath();g.ellipse(X(0),Y(1.3785),R(.0205),R(.0042),0,0,TAU);g.fill();g.fillStyle=rgb(lip,1.1);g.beginPath();g.ellipse(X(0),Y(1.3705),R(.0165),R(.0045),0,0,TAU);g.fill();
+  g.strokeStyle='rgba(40,12,12,.7)';g.lineWidth=1.4;g.beginPath();g.moveTo(X(-.019),Y(1.3745));g.lineTo(X(.019),Y(1.3745));g.stroke();
+  g.fillStyle='rgba(0,0,0,.35)';for(const sd of [1,-1]){g.beginPath();g.ellipse(X(sd*.0085),Y(1.4135),R(.0028),R(.0018),0,0,TAU);g.fill()}
+  const t=new THREE.CanvasTexture(cv);t.flipY=false;t.anisotropy=4;FTEX[hex]=t;return t}
+function faceMat(part,ratio){if(part.plain)return new THREE.MeshPhongMaterial({map:femFaceTex(ratio),skinning:true,shininess:14,specular:0x1c1a18});if(false)return new THREE.MeshPhongMaterial({color:0xaaaaaa,skinning:true});const m=part.skin?new THREE.MeshPhongMaterial({map:part.map,skinning:true,shininess:14,specular:0x1c1a18}):new THREE.MeshLambertMaterial({map:part.map,skinning:true});
   if(part.skin){const R=ratio,cls=part.cls;m.onBeforeCompile=s=>{s.uniforms.uSkinR={value:R};s.fragmentShader='uniform vec3 uSkinR;\n'+s.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n'+(cls?`vec3 cs=pow(max(diffuseColor.rgb,vec3(0.0)),vec3(0.4545));float mx=max(cs.r,max(cs.g,cs.b)),mn=min(cs.r,min(cs.g,cs.b));float sat=mx>0.0?(mx-mn)/mx:0.0;float hh=0.0;
       if(mx>mn){if(mx==cs.r)hh=mod((cs.g-cs.b)/(mx-mn),6.0);else if(mx==cs.g)hh=(cs.b-cs.r)/(mx-mn)+2.0;else hh=(cs.r-cs.g)/(mx-mn)+4.0;hh*=60.0;}
       if(hh>8.0&&hh<40.0&&sat>0.22&&sat<0.8&&mx>0.31&&mx<0.84)diffuseColor.rgb*=uSkinR;`:'diffuseColor.rgb*=uSkinR;'))};m.customProgramCacheKey=()=>'cara'+(cls?'f':'m')}
@@ -140,7 +165,7 @@ function create(sp){const kind=sp.model||'m';const M=models[kind];const O=outfit
   const mat=makeMaterial(cols,{pat:sp.pat,patB:sp.patB,jersey:sp.jersey,kx:CB.SC[kind].x,ty:1.49*CB.SC[kind].y});
   const mesh=new THREE.SkinnedMesh(geo,mat);mesh.name='cuerpo';root.add(mesh);root.updateMatrixWorld(true);mesh.bind(skel,new THREE.Matrix4());mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
   {const F=FACE[kind],sa=F.avg,ratio=new THREE.Color(sk.r*255/sa[0],sk.g*255/sa[1],sk.b*255/sa[2]);
-    for(const part of F.parts){const fm=new THREE.SkinnedMesh(part.geo,faceMat(part,ratio));fm.name='cara';root.add(fm);fm.frustumCulled=true;fm.bind(skel,new THREE.Matrix4())}}
+    for(const part of F.parts){const fm=new THREE.SkinnedMesh(part.geo,faceMat(part,part.plain?(sp.skin||'#8d5a3b'):ratio));fm.name='cara';root.add(fm);fm.frustumCulled=true;fm.bind(skel,new THREE.Matrix4())}}
   const mixer=new THREE.AnimationMixer(root);const A={};for(const k in M.clips){A[k]=mixer.clipAction(M.clips[k]);A[k].play();A[k].setEffectiveWeight(0)}
   A.idle.setEffectiveWeight(1);
   const g=new THREE.Group();g.add(root);const s=sp.scale||1;root.scale.multiplyScalar(s);
