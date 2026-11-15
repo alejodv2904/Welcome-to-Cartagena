@@ -101,7 +101,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261114c"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261115a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -668,6 +668,9 @@ const SIT_SKIP=[];for(const s of SIT){if(s.p&&/^(fuerte|hospital|toros|futbol|cl
     CHURCH_NAMES['Iglesia de Santo Domingo']=[-347.8,-185.1,ground(-347.8,-185.1)+40]}}
 // Iglesia de la Santísima Trinidad (Getsemaní): su planta de mapa.js, frente a la Plaza de la Trinidad; el modelo (y el de la plaza) está en construirSitios
 {const b=MAP.buildings.find(b=>b[2]==='Iglesia de la Trinidad');if(b){SIT.push({n:'Iglesia de la Trinidad',k:'trinidad',x:394,z:234,p:b[3]});SIT_SKIP.push(b[3])}}
+// La Serrezuela (San Diego): su manzana de mapa.js, entre la Calle de la Serrezuela y la Reculada del Ovejo, contra la muralla; el tambor,
+// la portada, el espejo de agua y el hotel (modelo en construirSitios) reemplazan el bloque genérico; el interior redondo está en extra.js
+{const b=MAP.buildings.find(b=>inPoly(b[3],356,-645)&&Math.abs(signedArea(b[3]))>3000);if(b){SIT.push({n:'Centro Comercial La Serrezuela',k:'serrezuela',x:353,z:-648,p:b[3]});SIT_SKIP.push(b[3])}}
 // supermercados Ara, D1 y Olímpica en su lugar real (tiendas.js, OpenStreetMap): en su edificio va el modelo de la marca (en construirSitios)
 // y el edificio genérico que estaba ahí no se construye; en las casas coloniales y los locales chicos queda la casa, con el aviso de la marca
 const TIENDAS_N={};
@@ -2119,6 +2122,178 @@ function construirSitios(){
     addSpecial(scl(P,cx,cz,1.06));
     const f=snap(...(()=>{const p=pS(rE+6,0,0);return[p[0],p[2]]})());addLM(s.n,cx,cz,yG+HA+2,1,f[0],f[1]);icon('bull',cx,cz,s.n);
     window.__toros={cx,cz,R0,th,Y0,yG,Hb,rE}}
+  /* La Serrezuela (San Diego, contra la muralla): la vieja plaza de toros de madera, hoy centro comercial y teatro, modelada a partir de fotos
+     sobre su manzana real de mapa.js. El tambor redondo: planta baja de vidrio detrás de columnas de madera con sus riostras, anillo alto de
+     celosía de madera oscura con dos hileras de ventanas, cornisa blanca gruesa y techo blanco que sube hasta la claraboya de vidrio con nervios.
+     Adelante, sobre la Calle de la Serrezuela, la portada blanca con su arco de abanico y la reja; detrás el espejo de agua negro partido por el
+     puente de la entrada y al lado la terraza con parasoles. A la izquierda el hotel crema con las cajas de vidrio oscuro y la azotea con palmeras,
+     pérgola y piscina; atrás el bloque de servicio, y la tapia blanca con enredaderas por la Reculada del Ovejo */
+  function serrezuela(s,P){
+    const cx=353,cz=-648,R=20.5,maxG=p=>{let g=-1e9;for(let i=0;i<p.length;i+=2)g=Math.max(g,ground(p[i],p[i+1]));return g},TA=TAU,UP=[0,1,0],DN=[0,-1,0],N=72;
+    const WD='#4a2c1c',WH='#f3f1eb',CREAM='#ebe1cb',GREEN='#3f7a35';
+    // el tambor se asienta a la altura del suelo en su puerta (la manzana sube hacia el oeste ~1 m)
+    const gy=ground(cx,cz+R+1),pt=(r,a,y)=>[cx+Math.cos(a)*r,gy+y,cz+Math.sin(a)*r];
+    const F=(mk,a,b,c,d,col,n,sc)=>{const ax=b[0]-a[0],ay=b[1]-a[1],az=b[2]-a[2],bx=c[0]-a[0],by=c[1]-a[1],bz=c[2]-a[2];
+      const nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx,bk=bucket(mk,(a[0]+c[0])/2,(a[2]+c[2])/2),C=typeof col==='string'?colObj(col):col;
+      if(nx*n[0]+ny*n[1]+nz*n[2]<0)quadW(bk,a,d,c,b,sc||4,C);else quadW(bk,a,b,c,d,sc||4,C)};
+    const around=fn=>{for(let i=0;i<N;i++){const a0=i/N*TA,a1=(i+1)/N*TA;fn(a0,a1,(a0+a1)/2,i)}};
+    const wallC=(r,y0,y1,col,o)=>around((a0,a1,am)=>F('plain',pt(r,a0,y0),pt(r,a0,y1),pt(r,a1,y1),pt(r,a1,y0),col,o?[Math.cos(am),0,Math.sin(am)]:[-Math.cos(am),0,-Math.sin(am)]));
+    const annul=(r0,r1,y,col,n)=>around((a0,a1)=>F('plain',pt(r0,a0,y),pt(r1,a0,y),pt(r1,a1,y),pt(r0,a1,y),col,n||UP));
+    // viga de a a b (puntos del mundo) de grosor t
+    const seg=(a,b,t,col)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length();if(L<.01)return;
+      const m=new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2),new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()),new THREE.Vector3(1,1,1));
+      geoInto('plain',new THREE.BoxGeometry(t,L,t),colObj(col),m)};
+    const nmat=(t,e,extra)=>{const m=new THREE.MeshLambertMaterial(Object.assign({map:t,emissiveMap:e,emissive:0x000000},extra||{}));SUPER_FX.push(m);return m};
+    const tcyl=(r,y0,y1,mat,rep)=>{const g=new THREE.CylinderGeometry(r,r,y1-y0,N*2,1,true);const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,uv.getX(i)*rep);
+      const m=new THREE.Mesh(g,mat);m.position.set(cx,gy+(y0+y1)/2,cz);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m};
+    const bush=(x,z,r,y,col)=>{const g=new THREE.IcosahedronGeometry(r,1);g.scale(1.2,.75,1.2);geoInto('plain',g,colObj(col||'#4f8a3c'),place(x,(y===undefined?ground(x,z):y)+r*.55,z))};
+    // palmera chica de azotea o de matera (las de la calle van en XPALMS)
+    const palm=(x,y,z,h)=>{const lean=hash(Math.round(x*7),Math.round(z*7))*.5-.25,top=[x+lean,y+h,z+lean*.6];seg([x,y,z],top,.24,'#8a7558');
+      for(let k=0;k<9;k++){const a=k/9*TA+lean,L=2.3,tip=[top[0]+Math.cos(a)*L,top[1]-.7-(k%2)*.3,top[2]+Math.sin(a)*L],mid=[top[0]+Math.cos(a)*L*.5,top[1]+.25,top[2]+Math.sin(a)*L*.5];
+        const lf=(p,q)=>{const d=new THREE.Vector3(q[0]-p[0],q[1]-p[1],q[2]-p[2]),Lq=d.length();d.normalize();const sd=new THREE.Vector3().crossVectors(d,new THREE.Vector3(0,1,0));if(sd.lengthSq()<1e-4)sd.set(1,0,0);sd.normalize();
+          const m=new THREE.Matrix4().makeBasis(sd,d,new THREE.Vector3().crossVectors(sd,d)).setPosition((p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2);geoInto('plain',new THREE.BoxGeometry(.7,Lq,.05),colObj(k%2?'#4e8a34':'#5f9a3c'),m)};
+        lf(top,mid);lf(mid,tip)}
+      geoInto('plain',new THREE.SphereGeometry(.35,6,4),colObj('#6b5a3a'),place(top[0],top[1]-.1,top[2]))};
+
+    // el piso de la manzana: losa clara (los edificios van encima)
+    flatPoly(P,'plain',.06,3.2,colObj('#d9d3c6'));addSpecial(P);
+
+    /* ---------- el tambor ---------- */
+    // planta baja: vidrio con travesaño y montantes de madera; de noche se ven los locales prendidos
+    const glassT=ctex(256,512,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#8ea3aa');gr.addColorStop(.55,'#5d737b');gr.addColorStop(1,'#3e4f56');g.fillStyle=gr;g.fillRect(0,0,w,h);
+      for(let k=0;k<5;k++){g.fillStyle=['rgba(240,214,170,.22)','rgba(255,255,255,.12)','rgba(190,140,90,.2)'][k%3];g.fillRect(20+k*45,h*.62+(k%2)*20,38,h*.38)}
+      g.fillStyle='rgba(255,255,255,.16)';g.beginPath();g.moveTo(0,h*.55);g.lineTo(w*.7,0);g.lineTo(w,0);g.lineTo(0,h*.75);g.fill();
+      g.fillStyle='#3b2416';g.fillRect(0,0,w,10);g.fillRect(0,h-8,w,8);g.fillRect(0,0,12,h);g.fillRect(w/2-4,h*.3,8,h*.7);g.fillRect(0,h*.3-5,w,10)},true);
+    const glassE=ctex(256,512,(g,w,h)=>{g.fillStyle='#000';g.fillRect(0,0,w,h);const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#5a3a1c');gr.addColorStop(1,'#ffcf8a');g.fillStyle=gr;g.fillRect(14,h*.3+6,w-18,h*.7-14);
+      g.fillStyle='#000';g.fillRect(w/2-4,h*.3,8,h*.7);g.fillStyle='#4a3420';g.fillRect(14,12,w-18,h*.3-18)},true);
+    const glassM=nmat(glassT,glassE,{color:'#ffffff'});
+    // anillo alto: celosía de madera oscura con dos hileras de ventanas de listones
+    const latT=ctex(256,512,(g,w,h)=>{g.fillStyle='#3a2216';g.fillRect(0,0,w,h);
+      for(const [y0,y1] of [[.07,.46],[.54,.93]]){const a=h*y0,b=h*y1;g.fillStyle='#22292c';g.fillRect(16,a,w-32,b-a);
+        for(let x=22;x<w-22;x+=15){g.fillStyle='#6b4429';g.fillRect(x,a,8,b-a);g.fillStyle='rgba(255,220,170,.18)';g.fillRect(x,a,2,b-a)}
+        g.fillStyle='#51311f';g.fillRect(16,a,w-32,9);g.fillRect(16,b-9,w-32,9);g.fillRect(w/2-5,a,10,b-a)}
+      g.fillStyle='#2c1a10';g.fillRect(0,h*.475,w,h*.05);g.fillStyle='#4a2c1c';g.fillRect(0,0,8,h);g.fillRect(w-8,0,8,h)},true);
+    const latE=ctex(256,512,(g,w,h)=>{g.fillStyle='#000';g.fillRect(0,0,w,h);for(const [y0,y1] of [[.07,.46],[.54,.93]]){g.fillStyle='#b97a3c';g.fillRect(16,h*y0+9,w-32,h*(y1-y0)-18);
+      g.fillStyle='#000';for(let x=22;x<w-22;x+=15)g.fillRect(x,h*y0,8,h*(y1-y0));g.fillRect(w/2-5,h*y0,10,h*(y1-y0))}},true);
+    const latM=nmat(latT,latE);
+    const RG=R-1.4,YB=6.4,YL=7.1,YT=13.3;
+    tcyl(RG,0,YB,glassM,40);
+    // zócalo de piedra y columnas de madera con sus riostras en V (la del frente queda libre para la puerta)
+    annul(RG-.2,R+.45,.16,'#cfc9bd');wallC(R+.45,-1.6,.16,'#bdb7aa',true);
+    const NC=40;for(let i=0;i<NC;i++){const a=(i+.5)/NC*TA,tx=-Math.sin(a),tz=Math.cos(a),r=R-.3,b=pt(r,a,0),t=pt(r,a,YB);
+      seg(b,t,.42,WD);seg([b[0],b[1]+.16,b[2]],[b[0],b[1]+.55,b[2]],.6,'#3a2418');
+      for(const sd of [-1,1])seg([b[0],gy+4.7,b[2]],[b[0]+tx*sd*.95,gy+YB,b[2]+tz*sd*.95],.18,WD)}
+    // viga corrida y su plafón
+    wallC(R+.15,YB,YL,WD,true);annul(RG,R+.15,YB,'#3c2418',DN);
+    tcyl(R,YL,YT,latM,50);
+    // remate: banda de madera, cornisa blanca gruesa, techo blanco que sube y la claraboya de vidrio con nervios
+    wallC(R+.12,YT,YT+.6,'#3e2517',true);annul(R,R+.12,YT,'#3e2517',DN);
+    const YC=YT+.6,YR=YC+2.1,RS=7.8,YS=YR+1.7;
+    wallC(R+.8,YC,YR,WH,true);annul(R,R+.8,YC,'#dedbd2',DN);annul(R-.45,R+.8,YR,WH);wallC(R-.45,YR-.7,YR,'#e6e3dc',false);
+    around((a0,a1)=>F('plain',pt(R-.45,a0,YR-.7),pt(RS+.6,a0,YS),pt(RS+.6,a1,YS),pt(R-.45,a1,YR-.7),'#ecebe6',UP));
+    wallC(RS+.6,YS,YS+.6,WH,true);annul(RS,RS+.6,YS+.6,WH);wallC(RS,YS,YS+.6,'#dcd9d2',false);
+    {const hD=2,Rs=(RS*RS+hD*hD)/(2*hD),th=Math.asin(RS/Rs),y0=gy+YS+.6+hD-Rs;
+      const dome=new THREE.Mesh(new THREE.SphereGeometry(Rs,64,8,0,TA,0,th),new THREE.MeshPhongMaterial({color:'#9cbfcb',specular:'#ffffff',shininess:90,emissive:'#1d2c33'}));
+      dome.position.set(cx,y0,cz);dome.receiveShadow=true;scene.add(dome);
+      const dp=(ph,a)=>[cx+Math.sin(ph)*(Rs+.06)*Math.cos(a),y0+Math.cos(ph)*(Rs+.06),cz+Math.sin(ph)*(Rs+.06)*Math.sin(a)];
+      for(let k=0;k<20;k++){const a=k/20*TA;for(let j=0;j<4;j++)seg(dp(th*(1-j/4),a),dp(th*(1-(j+1)/4),a),.13,'#ecebe7')}
+      for(const f of [.45,.75]){const ph=th*f;for(let k=0;k<40;k++)seg(dp(ph,k/40*TA),dp(ph,(k+1)/40*TA),.11,'#ecebe7')}
+      geoInto('plain',new THREE.CylinderGeometry(.9,1,.35,16),colObj(WH),place(cx,y0+Rs+.15,cz));
+      XGLOW.push([cx,y0+Rs+.4,cz,0xfff0d0,.8])}
+    // la puerta del tambor, de frente a la portada (hacia la calle)
+    const aF=Math.PI/2,dW=pt(RG+.04,aF,0);
+    geoInto('plain',new THREE.PlaneGeometry(3.4,3.6),colObj('#1d2529'),place(dW[0],gy+1.8,dW[2]));
+    geoInto('plain',new THREE.PlaneGeometry(4.2,.35),colObj(WD),place(dW[0],gy+3.75,dW[2]+.02));
+    for(const sd of [-1,1])geoInto('plain',new THREE.BoxGeometry(.25,3.9,.25),colObj(WD),place(dW[0]+sd*1.85,gy+1.95,dW[2]+.1));
+    // luces que bañan las columnas de noche
+    for(let i=0;i<12;i++){const a=(i+.5)/12*TA,p=pt(R+.6,a,.5);XGLOW.push([p[0],p[1],p[2],0xffd49a,.55])}
+    // choque: el tambor
+    {const q=[];for(let i=0;i<48;i++){const a=-i/48*TA;q.push(cx+Math.cos(a)*(R+.4),cz+Math.sin(a)*(R+.4))}addSolidPoly(ccw(q))}
+
+    /* ---------- adelante: portada, espejo de agua, puente y terraza ---------- */
+    // la portada blanca sobre la Calle de la Serrezuela: s de oeste a este, o hacia la calle (+z)
+    const pW=10.6,pD=4.2,pH=6.2,x0=cx-pW/2,zF=-602.3,eP=fr(x0+pW,zF,x0,zF,null),gP=maxG([x0,zF,x0+pW,zF,x0,zF-pD,x0+pW,zF-pD]);
+    const door=[{c:pW/2,w:3.4,spring:3.4}];
+    fextr(eP,gP,arcade(0,pW,pH,door),-.55,0,WH);fbox(eP,gP,0,pW,-1,0,-pD,0,WH);fextr(eP,gP,arcade(0,pW,pH,door),-pD,-pD+.55,WH);
+    for(const [a,b] of [[0,.55],[pW-.55,pW]])fbox(eP,gP,a,b,-1,pH,-pD,0,WH);
+    fbox(eP,gP,-.2,pW+.2,pH,pH+.45,-pD-.2,.2,WH);fbox(eP,gP,-.3,pW+.3,pH+.45,pH+.62,-pD-.3,.3,'#e3e0d8');
+    fbox(eP,gP,.55,pW-.55,pH-.4,pH,-pD+.55,-.55,'#e9e6df');  // cielo raso del zaguán
+    for(const [a,b] of [[-.15,.75],[pW-.75,pW+.15]]){fbox(eP,gP,a,b,-.4,pH,-.2,.18,'#f7f6f2');fbox(eP,gP,a-.08,b+.08,-.4,.7,-.28,.26,'#dad6cc')}
+    // el arco de abanico sobre la cornisa
+    {const r=3.3,sh=new THREE.Shape();sh.moveTo(pW/2-r-.35,0);sh.lineTo(pW/2+r+.35,0);sh.absarc(pW/2,0,r+.35,0,Math.PI,false);sh.lineTo(pW/2-r-.35,0);
+      fextr(eP,gP+pH+.62,sh,-.6,.05,WH);
+      const fan=smat(ctex(512,256,(g,w,h)=>{g.fillStyle='#f4f2ec';g.fillRect(0,0,w,h);const c=[w/2,h];g.strokeStyle='#7d7a73';g.lineWidth=5;
+        for(let k=0;k<=16;k++){const a=Math.PI+k/16*Math.PI;g.beginPath();g.moveTo(c[0]+Math.cos(a)*34,c[1]+Math.sin(a)*34);g.lineTo(c[0]+Math.cos(a)*236,c[1]+Math.sin(a)*236);g.stroke()}
+        for(const rr of [34,120,236]){g.beginPath();g.arc(c[0],c[1],rr,Math.PI,0);g.stroke()}g.fillStyle='#5a5852';g.beginPath();g.arc(c[0],c[1],30,Math.PI,0);g.fill()}),{transparent:true,alphaTest:.5});
+      const g=new THREE.CircleGeometry(r-.2,24,0,Math.PI),uv=g.attributes.uv,pp=g.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,.5+pp.getX(i)/(2*(r-.2)),pp.getY(i)/(r-.2));
+      const m=new THREE.Mesh(g,fan);const p=fP(eP,pW/2,.08);m.position.set(p[0],gP+pH+.62,p[1]);m.rotation.y=eP.yaw;scene.add(m)}
+    // el letrero entre el arco de la puerta y la cornisa
+    fmesh(eP,gP,pW/2,pH-.55,.04,6.4,.62,smat(ctex(1024,100,(g,w,h)=>{g.fillStyle='#f3f1eb';g.fillRect(0,0,w,h);g.fillStyle='#2b2724';g.textAlign='center';g.textBaseline='middle';
+      let fs=72;g.font=`600 ${fs}px Georgia,serif`;while(g.measureText('LA  SERREZUELA').width>w-60&&fs>20){fs-=4;g.font=`600 ${fs}px Georgia,serif`}g.fillText('LA  SERREZUELA',w/2,h/2+3)})));
+    // la reja abierta contra los lados del arco, faroles y la placa
+    for(const sd of [-1,1]){const sx=pW/2+sd*1.62;fbox(eP,gP,sx-.04,sx+.04,0,3.3,-1.75,-.4,'#1b1b1b');for(let o=-1.65;o<-.45;o+=.18)fbox(eP,gP,sx-.02,sx+.02,0,3.3,o-.02,o+.02,'#1b1b1b');
+      const lx=pW/2+sd*2.6;fbox(eP,gP,lx-.16,lx+.16,3.2,3.75,.02,.34,'#1d1d1d');fpane(eP,gP,lx,3.45,.24,.4,.35,'#ffe2a6');const q=fP(eP,lx,.6);XGLOW.push([q[0],gP+3.45,q[1],0xffd28a,.7])}
+    fsolid(eP,-.2,pW/2-1.7,-pD,.2);fsolid(eP,pW/2+1.7,pW+.2,-pD,.2);
+    // la tapia blanca con enredaderas: a los lados de la portada y por la Reculada del Ovejo
+    const tapia=(a,b,h)=>{const e=fr(a[0],a[1],b[0],b[1],null),gt=Math.max(ground(a[0],a[1]),ground(b[0],b[1]));fbox(e,gt,0,e.L,-1.6,h,-.18,.18,WH);fbox(e,gt,-.05,e.L+.05,h,h+.14,-.26,.26,'#e2ded5');fsolid(e,0,e.L,-.25,.25);
+      for(let sv=.8;sv<e.L-.5;sv+=1.5){const k=hash(Math.round(sv*10),Math.round(a[0]+a[1]));if(k<.35)continue;for(const o of [-.3,.3]){const p=fP(e,sv,o);const g=new THREE.IcosahedronGeometry(.55+k*.5,1);g.scale(1.3,1.5+k,.45);
+        geoInto('plain',g,colObj(k>.7?'#2f6a2c':GREEN),place(p[0],gt+h-.4-k*.8,p[1],0,e.yaw,0))}}};
+    tapia([342.4,-602.3],[x0-.1,-602.3],3.3);tapia([x0+pW+.1,-602.4],[372.9,-603.6],3.3);tapia([372.9,-603.6],[379.7,-612.5],3.3);tapia([379.7,-612.5],[386.5,-620.7],3.3);tapia([386.5,-620.7],[374.4,-653.2],3.3);
+    // el espejo de agua: dos mitades negras a los lados del puente, con borde blanco
+    const pS0=cx-9.5,pZ0=-606.9,pL=12.3,eW=fr(pS0+19,pZ0,pS0,pZ0,null),waterM=new THREE.MeshPhongMaterial({color:'#0a0f12',specular:'#9fb3bc',shininess:120}),gW=maxG([pS0,pZ0,pS0+19,pZ0,pS0,pZ0-pL,pS0+19,pZ0-pL]);
+    for(const [a,b] of [[0,8.1],[10.9,19]]){fbox(eW,gW,a-.35,b+.35,-1.2,.38,-.35,0,'#ebe8e1');fbox(eW,gW,a-.35,b+.35,-1.2,.38,-pL,-pL-.35,'#ebe8e1');
+      fbox(eW,gW,a-.35,a,-1.2,.38,-pL-.35,0,'#ebe8e1');fbox(eW,gW,b,b+.35,-1.2,.38,-pL-.35,0,'#ebe8e1');
+      const g=new THREE.PlaneGeometry(b-a,pL);g.rotateX(-Math.PI/2);const w=new THREE.Mesh(g,waterM);const p=fP(eW,(a+b)/2,-pL/2);w.position.set(p[0],gW+.26,p[1]);w.rotation.y=eW.yaw;w.receiveShadow=true;scene.add(w);
+      fsolid(eW,a-.35,b+.35,-pL-.35,0)}
+    // el puente sigue el suelo (se camina por encima)
+    fflat(eW,8.1,10.9,-pL-.35,0,'plain',.1,3,'#d4cfc6');for(let o=-1;o>-pL;o-=1.5)fflat(eW,8.1,10.9,o-.03,o+.03,'plain',.11,3,'#aaa59c');
+    for(const a of [8.04,10.96])fflat(eW,a-.05,a+.05,-pL-.35,0,'plain',.11,3,'#8f8a82');
+    // la terraza del café, a la derecha del espejo de agua: mesas con parasoles cuadrados
+    const SEATS=[],WDc='#6b4a2e';
+    for(const [x,z] of [[367.5,-609.5],[374.2,-610.5],[367.5,-617.2],[375,-618]]){const y=ground(x,z);
+      for(const [lx,lz] of [[-.38,-.38],[.38,-.38],[.38,.38],[-.38,.38]])box(.05,.72,.05,'#2b2b2b',x+lx,y+.36,z+lz);box(1.02,.05,1.02,'#e9e5dc',x,y+.74,z);
+      for(let i=0;i<4;i++){const a=i*Math.PI/2,sa=Math.sin(a),ca=Math.cos(a),qx=x+sa*.8,qz=z+ca*.8;box(.46,.05,.44,WDc,qx,y+.46,qz,a);box(.46,.5,.05,WDc,qx+sa*.2,y+.74,qz+ca*.2,a);SEATS.push([qx,qz,a+Math.PI])}
+      cyl(.05,.05,2.6,'#3a3a3a',x,y+1.3,z,6);geoInto('plain',new THREE.ConeGeometry(2.4,.8,4,1,true),colObj('#8a7b6c'),place(x,y+2.85,z,0,Math.PI/4,0));
+      geoInto('plain',new THREE.ConeGeometry(2.4,.8,4,1,true),colObj('#6f6255'),place(x,y+2.84,z,0,Math.PI/4,0,-1,1,1));
+      addSolidPoly(rectPts(x,z,1.05,1.05,0))}
+    {let nd=0;for(const [qx,qz,ang] of SEATS){if(nd>=7||hash(Math.round(qx*7),Math.round(qz*7))>.55)continue;nd++;LATER.push(()=>{const p=stayAt(rand()<.6?'tourist':'local',qx,qz,ang,'sit');if(p){p.seat=.5;p.noFace=true}})}}
+    // materas con matas y palmas a la entrada del tambor y contra la tapia
+    for(const [x,z] of [[345.2,-622.4],[360.8,-622.4]]){const y=ground(x,z);box(2,1.2,2,'#e6e2d9',x,y,z);bush(x,z,.8,y+.6,'#4a8a3a');XPALMS.push([x,z]);addSolidPoly(rectPts(x,z,2,2,0))}
+    for(const [x,z] of [[380.6,-622],[379,-630],[377.6,-638],[381.5,-616.5]])bush(x,z,1+hash(Math.round(x),Math.round(z))*.6);
+    for(const [x,z] of [[344.4,-626.2],[338.6,-633.5],[366.5,-627.5],[371.5,-632]])bush(x,z,1.1,undefined,'#3f7d33');
+
+    /* ---------- el hotel a la izquierda: bloque del frente con cajas de vidrio oscuro y bloque de atrás con piscina en la azotea ---------- */
+    const glassBox=(e,gy,s0,s1,y0,y1,dep)=>{fbox(e,gy,s0-.14,s1+.14,y0-.14,y1+.14,0,dep,'#3a2f27');fpane(e,gy,(s0+s1)/2,(y0+y1)/2,s1-s0,y1-y0,dep+.02,'#2f3d44');
+      fbox(e,gy,(s0+s1)/2-.05,(s0+s1)/2+.05,y0,y1,dep,dep+.05,'#3a2f27');fbox(e,gy,s0,s1,(y0+y1)/2-.04,(y0+y1)/2+.04,dep,dep+.05,'#3a2f27')};
+    const A=ccw([330.6,-602.6,342.2,-602.6,342.2,-625.6,331.3,-625.6]),HA=11.2;{const gy=maxG(A);
+    band(A,minG(A)-1,gy+HA,'plain',colObj(CREAM),0,1,1,false);ring(A,gy+HA,gy+HA+1.1,0,colObj(CREAM),'plain');flatRoof(A,gy+HA+.2,'plain',colObj('#cdc6b8'),4);addSolidPoly(A);
+    {const eE=fr(342.2,-602.6,342.2,-625.6,A),eS=fr(330.6,-602.6,342.2,-602.6,A);
+      for(let f=0;f<3;f++){const y0=.7+f*3.6,y1=y0+(f?2.8:3.1);for(let sv=1.2;sv+2.8<eE.L;sv+=3.9)glassBox(eE,gy,sv,sv+2.8,y0,y1,.65);glassBox(eS,gy,1.4,eS.L-1.4,y0,y1,.65)}
+      // azotea: pérgola de madera, palmas en materas y parasol
+      const yR=gy+HA+.2,c=[336.4,-614];for(const [a,b] of [[-3,-6],[3,-6],[-3,-1],[3,-1]])seg([c[0]+a,yR,c[1]+b],[c[0]+a,yR+2.6,c[1]+b],.18,'#5a3a26');
+      for(let k=0;k<=8;k++){const z=c[1]-6.3+k*.7;seg([c[0]-3.4,yR+2.65,z],[c[0]+3.4,yR+2.65,z],.12,'#6a4630')}
+      for(const [x,z] of [[332.4,-605],[340.6,-605],[332.4,-623.5],[340.6,-623.5],[340.6,-612.5]]){box(1.1,.6,1.1,'#bfb6a6',x,yR+.3,z);palm(x,yR+.6,z,3.4+hash(Math.round(x),Math.round(z))*1.6)}
+      for(const [x,z] of [[334,-618],[338.8,-618.8]])bush(x,z,.7,yR,'#4a8a3a')}}
+    const B=ccw([329.6,-626.4,309.8,-628.6,321.9,-676.6,328.6,-675.6]),HB=14.6;{const gy=maxG(B);
+    band(B,minG(B)-1,gy+HB,'plain',colObj('#f2efe7'),0,1,1,false);ring(B,gy+HB,gy+HB+1.1,0,colObj('#f2efe7'),'plain');flatRoof(B,gy+HB+.2,'plain',colObj('#c9c4b9'),4);addSolidPoly(B);
+    {for(const e of fEdges(B)){if(e.L<6)continue;for(let f=0;f<4;f++){const y0=.8+f*3.5;for(let sv=1.5;sv+2<e.L-1;sv+=3.4){fpane(e,gy,sv+1,y0+1.2,2,2.2,.03,'#33424a');if(f)fbox(e,gy,sv-.2,sv+2.2,y0-.15,y0+.05,0,.9,'#e4e1da')}}}
+      // piscina de la azotea al lado del tambor, con asoleadoras y palmas
+      const yR=gy+HB+.2,eE=fr(329.6,-626.4,328.6,-675.6,B);
+      fbox(eE,yR,.8,eE.L-.8,0,.12,-5.8,-.6,'#d9cfbf');
+      {const g=new THREE.PlaneGeometry(eE.L-8,3.4);g.rotateX(-Math.PI/2);g.translate(eE.L/2,.2,-3.1);geoInto('plain',g,colObj('#3fb0d0'),fM(eE,yR))}
+      for(let sv=5;sv<eE.L-5;sv+=3.2){fbox(eE,yR,sv-.35,sv+.35,.12,.42,-7.4,-5.6,'#f4f2ec')}
+      for(const sv of [3,eE.L-3,eE.L/2]){const p=fP(eE,sv,-8.6);box(1,.6,1,'#bfb6a6',p[0],yR+.3,p[1]);palm(p[0],yR+.6,p[1],3.6)}}}
+    // el bloque de servicio de atrás
+    const Cb=ccw([374.9,-656,386.4,-676.5,391.7,-684.3,379.1,-692.2,349.7,-695.8,350.1,-674,362,-672,372,-662.5]),HC=7.6;{const gy=maxG(Cb);
+    band(Cb,minG(Cb)-1,gy+HC,'plain',colObj('#f1eee6'),0,1,1,false);ring(Cb,gy+HC,gy+HC+.8,0,colObj('#f1eee6'),'plain');flatRoof(Cb,gy+HC+.2,'plain',colObj('#bdb9b0'),4);addSolidPoly(Cb);
+    for(const e of fEdges(Cb)){if(e.L<5)continue;for(let sv=1.5;sv+1.6<e.L-1;sv+=3.2)for(const y of [1.6,5.2])fpane(e,gy,sv+.8,y,1.6,1.4,.03,'#3a474e')}
+    for(let i=0;i<9;i++){const p=[355+hash(i,71)*30,-690+hash(i,72)*14];if(inPoly(Cb,p[0],p[1]))box(1.8,1.1,1.3,'#b4b7b8',p[0],gy+HC+.75,p[1])}}
+
+    // la entrada a los locales: la puerta del tambor; el letrero del mapa y la llegada en taxi por la Calle de la Serrezuela
+    const wall=[cx,dW[2]],dr=[cx,dW[2]+2.4];
+    MALL_SHOPS.push({x:dr[0],z:dr[1],wx:wall[0],wz:wall[1],nx:0,nz:1,len:4,yaw:0,gy,type:'mall',name:s.n,mall:true,real:true,custom:true});
+    const st=snap(cx,-598.5);addLM(s.n,cx,cz,YS+3,1,st[0],st[1]);icon('mall',cx,cz,s.n);
+    window.__serrezuela={gy,cx,cz,R,door:dr}}
   const LOG={sitios:0};
   /* ---------- supermercados Ara, D1 y Olímpica (tiendas.js) vestidos a partir de fotos de las tiendas ----------
      Ara: fachada naranja, corona gris claro que sobresale, persianas grises arriba, el logo con la guacamaya, alero blanco en la entrada,
@@ -2478,6 +2653,7 @@ function construirSitios(){
     if(k==='huc'){hospitalCaribe(s,P);continue}
     if(k==='santodomingo'){plazaSantoDomingo(s,P);continue}
     if(k==='trinidad'){trinidad(s,P);continue}
+    if(k==='serrezuela'){serrezuela(s,P);continue}
     if(k==='mall'&&/El Castillo/.test(s.n)){mallPlazaCastillo(s,P);continue}
     if(k==='mall'){
       // centros comerciales: bloque blanco de tres pisos con su letrero hacia la calle y la entrada a los locales

@@ -154,6 +154,7 @@ function typeFor(zn){const r=rand();
   const addDoor=(x,z)=>{const k=dkey(x,z);let l=DG.get(k);if(!l){l=[];DG.set(k,l)}l.push([x,z])};
   for(const [cat,name,px,pz] of ((window.LUGARES&&LUGARES.lugares)||[])){
     if(cat==='cajero'||(cat!=='mall'&&!TYPES[cat]))continue;
+    if(cat==='mall'&&/La Serrezuela/.test(name))continue;   // La Serrezuela tiene modelo propio (index.html) e interior redondo (buildSerrezuela)
     if(window.TIENDAS&&window.MARCAS&&MARCAS.es(name))continue;   // Ara, D1 y Olímpica tienen su modelo de marca (tiendas.js, en index.html)if(cat==='mall'&&!/comercial|mall|plaza/i.test(name))continue;
     const cand=[],seen=new Set(),gx=Math.floor(px/BGc),gz=Math.floor(pz/BGc);
     for(let i=gx-1;i<=gx+1;i++)for(let j=gz-1;j<=gz+1;j++)for(const bi of BGI.get(i+','+j)||[]){if(seen.has(bi))continue;seen.add(bi);const p=B[bi][3];const d=C.inPoly(p,px,pz)?0:polyDist(p,px,pz);if(d<30)cand.push([d,bi])}
@@ -566,22 +567,124 @@ function buildMall(name){const grp=new THREE.Group();const col=[];const w=26,d=6
   const spots=[];for(let z=-d/2+9;z<d/2-4;z+=5)for(const x of [-5.5,-3,3,5.5])spots.push([x,z]);
   return{grp,col,R:{w,d,h},clerk:{x:0,z:-d/2+.3,yaw:0},buy:null,spots,seats,menus,exit:{x:0,z:d/2-.8},mall:true,camH:7}}
 
+/* La Serrezuela por dentro, a partir de fotos: la vieja plaza de toros redonda, toda de madera. En el ruedo el piso de piedra clara y brillante
+   con la estrella de madera y los chorros de agua donde juegan los niños; alrededor la planta baja de columnas de madera con los locales detrás
+   del vidrio; arriba la galería con su baranda de balaustres torneados, los tendidos escalonados de bancas de madera, la galería alta de arcos
+   con las ventanas al cielo y el techo de lona blanca con nervios oscuros que sube hasta la claraboya. El salón es un círculo de radio RC con la
+   salida al frente (+z) por un zaguán corto */
+function buildSerrezuela(name){const grp=new THREE.Group();const col=[];const TA=Math.PI*2;
+  const RC=21,RI=12,HG=5.2,RB0=13.4,RB1=18.8,NB=6,RISE=.52,HU=HG+NB*RISE+.3,HA=4.4,EW=2;
+  const P=(r,a)=>[Math.sin(a)*r,Math.cos(a)*r];   // a=0 mira a la salida (+z)
+  const WD=lm('#4a2c1c'),WD2=lm('#5e3a24'),WDL=lm('#7a5234');
+  const dbl=c=>new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});
+  const inst=(geo,mat,list)=>{const im=new THREE.InstancedMesh(geo,mat,list.length);const o=new THREE.Object3D();list.forEach((q,i)=>{o.position.set(q[0],q[1],q[2]);o.rotation.set(0,q[3]||0,0);o.scale.set(1,q[4]||1,1);o.updateMatrix();im.setMatrixAt(i,o.matrix)});grp.add(im);return im};
+  const band=(r,y0,y1,mat,a0,a1)=>{const g=new THREE.CylinderGeometry(r,r,y1-y0,96,1,true,a0||0,a1||TA);const m=new THREE.Mesh(g,mat);m.position.y=(y0+y1)/2;grp.add(m);return m};
+  const disc=(r0,r1,y,mat,down)=>{const g=new THREE.RingGeometry(r0,r1,96,1);g.rotateX(down?Math.PI/2:-Math.PI/2);const m=new THREE.Mesh(g,mat);m.position.y=y;grp.add(m);return m};
+  // el piso: piedra clara brillante, la estrella de madera en el centro y el anillo de rombos
+  const floorT=canvasTex(1024,1024,(g,w,h)=>{const c=w/2,S=c/(RC+.5);g.fillStyle='#dcc8a6';g.fillRect(0,0,w,h);
+    for(let k=0;k<2500;k++){g.fillStyle=`rgba(${k%2?255:90},${k%2?240:60},${k%2?220:30},.05)`;g.fillRect(Math.random()*w,Math.random()*h,4,4)}
+    g.save();g.translate(c,c);g.strokeStyle='rgba(110,70,40,.55)';g.lineWidth=3;
+    for(let r=6;r<RI;r+=1.5){g.beginPath();g.arc(0,0,r*S,0,TA);g.stroke()}for(let k=0;k<32;k++){const a=k/32*TA;g.beginPath();g.moveTo(Math.cos(a)*6*S,Math.sin(a)*6*S);g.lineTo(Math.cos(a)*RI*S,Math.sin(a)*RI*S);g.stroke()}
+    const star=(n,r0,r1,f)=>{g.fillStyle=f;g.beginPath();for(let k=0;k<n*2;k++){const a=k/(n*2)*TA,r=(k%2?r0:r1)*S;k?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r)}g.closePath();g.fill()};
+    g.fillStyle='#8a5a36';g.beginPath();g.arc(0,0,6*S,0,TA);g.fill();g.fillStyle='#e6d6ba';g.beginPath();g.arc(0,0,5.5*S,0,TA);g.fill();
+    star(8,2.3,5.4,'#9a6a42');star(8,1.4,3.6,'#c79c6c');g.fillStyle='#6e4528';g.beginPath();g.arc(0,0,1.1*S,0,TA);g.fill();
+    g.strokeStyle='#7b5032';g.lineWidth=10;g.beginPath();g.arc(0,0,(RI-.4)*S,0,TA);g.stroke();
+    // anillo de rombos bajo las galerías
+    g.lineWidth=3;g.strokeStyle='rgba(120,80,50,.5)';for(let k=0;k<64;k++){const a=k/64*TA,b=(k+.5)/64*TA,r0=RI*S,r1=(RI+4.5)*S,r2=RC*S;
+      g.beginPath();g.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);g.lineTo(Math.cos(b)*r1,Math.sin(b)*r1);g.lineTo(Math.cos(a+TA/64)*r0,Math.sin(a+TA/64)*r0);g.stroke();
+      g.beginPath();g.moveTo(Math.cos(b)*r1,Math.sin(b)*r1);g.lineTo(Math.cos(a+TA/64)*r2,Math.sin(a+TA/64)*r2);g.lineTo(Math.cos(b+TA/64)*r1,Math.sin(b+TA/64)*r1);g.stroke()}
+    g.restore()});
+  floorT.wrapS=floorT.wrapT=THREE.ClampToEdgeWrapping;
+  {const g=new THREE.CircleGeometry(RC+.5,128);g.rotateX(-Math.PI/2);const fl=new THREE.Mesh(g,new THREE.MeshPhongMaterial({map:floorT,shininess:70,specular:0x3a3530}));grp.add(fl);
+    const z=new THREE.Mesh(new THREE.PlaneGeometry(EW*2+.4,4),new THREE.MeshPhongMaterial({color:'#d4c09e',shininess:60}));z.rotation.x=-Math.PI/2;z.position.set(0,.005,RC+1.4);grp.add(z)}
+  // los chorros de agua: uno alto en el centro y dos anillos alrededor
+  const jets=[];{const jg=new THREE.CylinderGeometry(.025,.11,1,7,1,true);jg.translate(0,.5,0);const jm=new THREE.MeshBasicMaterial({color:'#eaf6ff',transparent:true,opacity:.6,depthWrite:false});
+    const sg=new THREE.SphereGeometry(.35,10,6);sg.scale(1,.3,1);const sm=new THREE.MeshBasicMaterial({color:'#f4fbff',transparent:true,opacity:.45,depthWrite:false});
+    const add=(x,z,h,ph)=>{const m=new THREE.Mesh(jg,jm);m.position.set(x,0,z);m.scale.y=h;grp.add(m);const s=new THREE.Mesh(sg,sm);s.position.set(x,.04,z);grp.add(s);
+      const gr=new THREE.Mesh(new THREE.CircleGeometry(.14,10),lm('#3b3b3b'));gr.rotation.x=-Math.PI/2;gr.position.set(x,.012,z);grp.add(gr);jets.push({m,h,ph})};
+    add(0,0,9,0);for(let k=0;k<10;k++){const [x,z]=P(2.6,k/10*TA);add(x,z,2.2,k*.9)}for(let k=0;k<14;k++){const [x,z]=P(4.6,(k+.5)/14*TA);add(x,z,1.2,k*1.7)}
+    // la lámina de agua que moja el piso
+    const wet=new THREE.Mesh(new THREE.CircleGeometry(5.3,48),new THREE.MeshPhongMaterial({color:'#c9d6d6',transparent:true,opacity:.25,shininess:120,depthWrite:false}));wet.rotation.x=-Math.PI/2;wet.position.y=.01;grp.add(wet)}
+  grp.userData.jets=jets;
+  /* planta baja: los locales detrás del vidrio, contra el muro; el zaguán de la salida queda libre */
+  const stores=[['ropa','Boutique La Serrezuela'],['recuerdos','Artesanías San Diego'],['joyeria','Esmeraldas de la Muralla'],['heladeria','Heladería La Brisa'],['restaurante','Restaurante El Ruedo'],
+    ['fritos','Plazoleta de comidas'],['drogueria','Droguería San Diego'],['panaderia','Panadería Pan de Coco'],['ropa','Moda Caribe'],['tienda','Tienda La Serrezuela']];
+  const menus=[],clerks=[],prod=[],NS=stores.length,gap=.38,span=(TA-2*gap)/NS;
+  {const g0=Math.asin((EW+.4)/RC);band(RC,0,HG,new THREE.MeshLambertMaterial({color:'#3d2618',side:THREE.BackSide}),g0,TA-2*g0)}
+  stores.forEach(([type,nm],i)=>{const T=TYPES[type],a0=gap+i*span,a1=a0+span,am=(a0+a1)/2;
+    // fondo del local, vidrio y marco de madera
+    const back=new THREE.Mesh(new THREE.CylinderGeometry(RC-.05,RC-.05,4.3,16,1,true,a0+.02,span-.04),new THREE.MeshLambertMaterial({color:T.wall||'#f3ead8',side:THREE.BackSide}));back.position.y=2.15;grp.add(back);
+    const gl=new THREE.Mesh(new THREE.CylinderGeometry(RC-1.4,RC-1.4,3.9,16,1,true,a0+.03,span-.06),new THREE.MeshPhongMaterial({color:'#bfe0ea',transparent:true,opacity:.22,shininess:100,side:THREE.DoubleSide,depthWrite:false}));gl.position.y=1.95;grp.add(gl);
+    for(const a of [a0,a1]){const [x,z]=P(RC-.9,a);boxAt(grp,.5,HG,.5,WD,x,0,z)}
+    const [sx,sz]=P(RC-1.38,am),sg=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(5.2,span*RC*.7),1.0),new THREE.MeshBasicMaterial({map:signTex(nm,T.label,T.bg,T.fg)}));sg.position.set(sx,4.4,sz);sg.rotation.y=am+Math.PI;grp.add(sg);
+    // mercancía detrás del vidrio y el mostrador
+    for(let k=-2;k<=2;k++){const a=am+k*span*.16,[x,z]=P(RC-.5,a);const h=1.2+((i+k)&1)*.5;boxAt(grp,.9,h,.5,lm(['#d9534f','#f0b429','#1f9aa6','#7b1fa2','#2e7d32','#f4f1ea'][(i+k+5)%6]),x,0,z).rotation.y=a}
+    {const [x,z]=P(RC-2.3,am);const c=boxAt(grp,2.4,1,.6,lm(T.bg),x,0,z);c.rotation.y=am;const t=boxAt(grp,2.5,.05,.7,lm('#e8e2d4'),x,1,z);t.rotation.y=am}
+    const [mx,mz]=P(RC-3.3,am),[kx,kz]=P(RC-1.75,am);
+    menus.push({at:{x:mx,z:mz},menu:type==='fritos'?'mall_comidas':type,label:nm});clerks.push({x:kx,z:kz,yaw:am+Math.PI});
+    {const [x,z]=P(RC-2.3,am);col.push({x0:x-1,x1:x+1,z0:z-1,z1:z+1})}});
+  // el muro del zaguán de la salida
+  for(const s of [-1,1]){boxAt(grp,.4,HG,3.6,WD2,s*(EW+.2),0,RC+1.4);const [x,z]=P(RC-.9,s*gap);boxAt(grp,.6,HG,.6,WD,x,0,z)}
+  {const d=new THREE.Mesh(new THREE.PlaneGeometry(EW*2,3.2),glow('#fff3cf'));d.position.set(0,1.6,RC+3.15);d.rotation.y=Math.PI;grp.add(d);boxAt(grp,EW*2+.8,HG-3.2,.3,WD2,0,3.2,RC+3.3);boxAt(grp,EW*2+.8,.3,3.8,lm('#4b3020'),0,HG-.3,RC+1.5)}
+  /* columnas del ruedo con sus riostras, la losa de la galería y su plafón con luces */
+  const NCOL=28,cols=[],brace=[];
+  for(let i=0;i<NCOL;i++){const a=(i+.5)/NCOL*TA,[x,z]=P(RI,a);cols.push([x,HG/2,z,-a]);col.push({x0:x-.3,x1:x+.3,z0:z-.3,z1:z+.3});
+    for(const sd of [-1,1]){const t=[Math.cos(a)*sd,-Math.sin(a)*sd];const b=new THREE.Mesh(new THREE.BoxGeometry(.16,1.9,.16),WD);b.position.set(x+t[0]*.45,HG-.8,z+t[1]*.45);
+      b.rotation.set(0,0,0);b.lookAt(x+t[0]*1.6,HG+1.0,z+t[1]*1.6);b.rotateX(Math.PI/2);grp.add(b)}}
+  inst(new THREE.BoxGeometry(.42,HG,.42),WD,cols);
+  disc(RI-.35,RC,HG,dbl('#6b4630'));disc(RI-.35,RC,HG-.02,lm('#4b3020'),true);band(RI-.35,HG-.55,HG+.05,WD2);
+  for(let i=0;i<NCOL;i++){const a=i/NCOL*TA,[x,z]=P((RI+RC)/2,a);const l=new THREE.Mesh(new THREE.BoxGeometry(.5,.05,.5),glow('#fff1cf'));l.position.set(x,HG-.06,z);grp.add(l)}
+  // baranda de balaustres torneados en el borde de la galería
+  const balu=(r,y,step)=>{const n=Math.round(TA*r/step),list=[];for(let i=0;i<n;i++){const [x,z]=P(r,i/n*TA);list.push([x,y+.5,z])}
+    const g=new THREE.CylinderGeometry(.05,.07,1,6);inst(g,WDL,list);for(const yy of [y+.03,y+1.02]){const t=new THREE.Mesh(new THREE.TorusGeometry(r,.07,5,128),WD2);t.rotation.x=Math.PI/2;t.position.y=yy;grp.add(t)}};
+  balu(RI-.15,HG+.05,.32);
+  // tendidos: bancas de madera oscura sobre gradas de piedra clara, subiendo hacia afuera
+  const rowD=(RB1-RB0)/NB;disc(RI-.35,RB0,HG+.06,lm('#cdb894'));
+  for(let i=0;i<NB;i++){const r0=RB0+i*rowD,y0=HG+i*RISE,y1=y0+RISE;band(r0,y0,y1,new THREE.MeshLambertMaterial({color:'#c4ad88',side:THREE.BackSide}));
+    disc(r0,r0+.42,y1,lm('#4b2d1c'));disc(r0+.42,r0+rowD,y1,lm('#d2bd98'));band(r0+.42,y1,y1+.05,new THREE.MeshLambertMaterial({color:'#3a2216',side:THREE.BackSide}))}
+  /* galería alta: piso, baranda, arcos de madera y las ventanas al cielo */
+  const yT=HG+NB*RISE;band(RB1,yT,HU,new THREE.MeshLambertMaterial({color:'#5e3a24',side:THREE.BackSide}));disc(RB1,RC,HU,lm('#6b4630'));
+  balu(RB1+.2,HU,.36);
+  const NA=44,posts=[],arcs=[];for(let i=0;i<NA;i++){const a=i/NA*TA,[x,z]=P(RB1+.25,a);posts.push([x,HU+HA/2,z,-a]);const b=(i+.5)/NA*TA,[ax,az]=P(RB1+.25,b);arcs.push([ax,HU+HA-1.25,az,b])}
+  inst(new THREE.BoxGeometry(.28,HA,.28),WD,posts);
+  {const w=TA*(RB1+.25)/NA-.28,g=new THREE.TorusGeometry(w/2,.1,5,12,Math.PI);g.rotateY(Math.PI/2);const im=new THREE.InstancedMesh(g,WD,arcs.length),o=new THREE.Object3D();
+    arcs.forEach((q,i)=>{o.position.set(q[0],q[1],q[2]);o.rotation.set(0,q[3]+Math.PI/2,0);o.updateMatrix();im.setMatrixAt(i,o.matrix)});grp.add(im)}
+  band(RB1+.25,HU+HA-.05,HU+HA+.5,new THREE.MeshLambertMaterial({color:'#4a2c1c',side:THREE.DoubleSide}));
+  {const wt=canvasTex(256,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#bfe4f7');gr.addColorStop(1,'#e9f6fb');g.fillStyle=gr;g.fillRect(0,0,w,h);g.fillStyle='#3a2216';
+      g.fillRect(0,0,w,14);g.fillRect(0,h-14,w,14);g.fillRect(0,0,12,h);g.fillRect(w-12,0,12,h);g.fillRect(w/2-5,0,10,h);g.fillRect(0,h*.55,w,8)});wt.repeat.set(NA,1);
+    band(RC-.02,HU,HU+HA+.4,new THREE.MeshBasicMaterial({map:wt,side:THREE.BackSide}))}
+  /* techo de lona blanca hasta la claraboya, con sus nervios */
+  const YR=HU+HA+.5,RK=4,HK=5.5,prof=[];for(let k=0;k<=14;k++){const t=k/14,r=RC+.3-(RC+.3-RK)*t;prof.push(new THREE.Vector2(r,YR+HK*Math.pow(t,1.7)))}
+  grp.add(new THREE.Mesh(new THREE.LatheGeometry(prof,96),new THREE.MeshLambertMaterial({color:'#f6f3ec',emissive:'#8a857a',side:THREE.DoubleSide})));
+  for(let k=0;k<8;k++){const a=k/8*TA;for(let j=0;j<prof.length-1;j++){const p0=prof[j],p1=prof[j+1],[x0,z0]=P(p0.x-.08,a),[x1,z1]=P(p1.x-.08,a);
+    const d=new THREE.Vector3(x1-x0,p1.y-p0.y,z1-z0),L=d.length();const b=new THREE.Mesh(new THREE.BoxGeometry(.18,.18,L),lm('#2b2a28'));b.position.set((x0+x1)/2,(p0.y+p1.y)/2-.1,(z0+z1)/2);b.lookAt(x1,p1.y-.1,z1);grp.add(b)}}
+  {const sk=new THREE.Mesh(new THREE.CircleGeometry(RK,48),glow('#d8eef9'));sk.rotation.x=Math.PI/2;sk.position.y=YR+HK+.02;grp.add(sk);
+    const t=new THREE.Mesh(new THREE.TorusGeometry(RK,.12,6,64),lm('#3a3835'));t.rotation.x=Math.PI/2;t.position.y=YR+HK;grp.add(t)}
+  /* mesas del café en la planta baja, entre las columnas y los locales */
+  const seats=[];for(const a of [Math.PI*.62,Math.PI*.78,Math.PI*1.22,Math.PI*1.38,Math.PI*.95,Math.PI*1.05]){const [x,z]=P((RI+RC)/2-.6,a);seats.push(...table(grp,col,x,z,4))}
+  // matas grandes en materas junto a las columnas
+  for(let k=0;k<8;k++){const a=(k+.25)/8*TA+.2,[x,z]=P(RI+1.2,a);if(Math.cos(a)>.9)continue;boxAt(grp,.9,.7,.9,lm('#e8e2d6'),x,0,z,col);const c=new THREE.Mesh(new THREE.IcosahedronGeometry(.85,1),lm('#3f7d3a'));c.scale.set(1,1.4,1);c.position.set(x,1.8,z);grp.add(c)}
+  products(grp,prod);
+  const spots=[];for(let r=3;r<RC-4;r+=3.2)for(let k=0;k<Math.round(TA*r/4.5);k++){const [x,z]=P(r,k/Math.round(TA*r/4.5)*TA+r);if(Math.abs(r-RI)>1)spots.push([x,z])}
+  return{grp,col,R:{w:RC*2,d:(RC+3.3)*2,h:YR+HK},circ:RC-1.5,exitHW:EW,clerk:null,clerks,buy:null,spots,seats,menus,exit:{x:0,z:RC+3.3-.8},mall:true,camH:7.5,light:1.45,
+    camHf:(x,z)=>Math.hypot(x,z)<RI-.6?8.5:HG-.6}}
+
 /* gente dentro: un grupo de personas reutilizado en cada interior */
 const IN=[];let inPool=null;
-function poolPeople(){if(inPool)return inPool;inPool=[];for(let i=0;i<18;i++){const ch=C.buildCharacter(C.archetype(i%5===0?'tourist':'local'));inPool.push(ch)}return inPool}
+function poolPeople(){if(inPool)return inPool;inPool=[];for(let i=0;i<24;i++){const ch=C.buildCharacter(C.archetype(i%5===0?'tourist':'local'));inPool.push(ch)}return inPool}
 const CUR={def:null,shop:null};const CACHE={};
 let inside=false,menuOpen=null;
-function enter(shop){const ck=shop.mall?shop.name:shop.marca?'super_'+shop.marca:shop.type;const def=CACHE[ck]||(CACHE[ck]=shop.home?buildHome():shop.mall?buildMall(shop.name):shop.marca?buildSuper(shop.marca):buildShop(shop.type));
+function enter(shop){const ck=shop.mall?shop.name:shop.marca?'super_'+shop.marca:shop.type;const def=CACHE[ck]||(CACHE[ck]=shop.home?buildHome():shop.mall?(/Serrezuela/.test(shop.name)?buildSerrezuela(shop.name):buildMall(shop.name)):shop.marca?buildSuper(shop.marca):buildShop(shop.type));
   // update the poster with this shop's name
   CUR.def=def;CUR.shop=shop;IS.add(def.grp);inside=true;P.cart=[];P.dance=false;
   if(!def.mall){const K=shopColors(shop);if(def.poster){const old=def.poster.material.map;def.poster.material.map=signTex(shop.name,K.label,K.bg,K.fg);def.poster.material.needsUpdate=true;if(old)old.dispose()}
     for(const m of def.menus)m.label=m.suffix?shop.name+' · '+m.suffix:shop.name}
-  ihemi.intensity=.56*(def.dim||1);isun.intensity=.3*(def.dim||1);IS.background.set(def.dim?'#07050a':'#1b1712');
+  ihemi.intensity=.56*(def.dim||def.light||1);isun.intensity=.3*(def.dim||def.light||1);IS.background.set(def.dim?'#07050a':'#1b1712');
   C.scene.remove(player.mesh);IS.add(player.mesh);player.ix=def.exit.x;player.iz=def.exit.z-1.2;freeSpot(def);player.yaw=Math.PI;player.cy=Math.PI;player.cp=.35;player.spd=0;
   // people
-  const pool=poolPeople();IN.length=0;let k=0;const nC=def.mall?15:def.floor?2:Math.min(4,def.spots.length);
+  const pool=poolPeople();IN.length=0;let k=0;const nC=def.mall?(def.clerks?pool.length-def.clerks.length-4:15):def.floor?2:Math.min(4,def.spots.length);
   if(def.clerk){const clerk=pool[k++];IS.add(clerk.mesh);clerk.mesh.position.set(def.clerk.x,0,def.clerk.z);clerk.mesh.rotation.y=0;IN.push({ch:clerk,kind:'clerk',x:def.clerk.x,z:def.clerk.z,yaw:0})}
-  if(def.mall)for(const m of def.menus.slice(0,-1)){if(k>=pool.length-4)break;const c=pool[k++];const s=m.at.x>0?1:-1;const x=s*(def.R.w/2-2.3);IS.add(c.mesh);IN.push({ch:c,kind:'clerk',x,z:m.at.z,yaw:-s*Math.PI/2})}
+  if(def.mall&&!def.clerks)for(const m of def.menus.slice(0,-1)){if(k>=pool.length-4)break;const c=pool[k++];const s=m.at.x>0?1:-1;const x=s*(def.R.w/2-2.3);IS.add(c.mesh);IN.push({ch:c,kind:'clerk',x,z:m.at.z,yaw:-s*Math.PI/2})}
   for(let i=0;i<nC&&k<pool.length;i++){const free=def.spots.filter(q=>Math.hypot(q[0]-def.exit.x,q[1]-def.exit.z)>2.6);const c=pool[k++];IS.add(c.mesh);const sp=free[i%free.length];IN.push({ch:c,kind:'walk',x:sp[0],z:sp[1],yaw:rr(0,TAU),tx:sp[0],tz:sp[1],wait:rr(0,3)})}
   for(const q of def.clerks||[]){if(k>=pool.length)break;const c=pool[k++];IS.add(c.mesh);IN.push({ch:c,kind:'clerk',x:q.x,z:q.z,yaw:q.yaw})}
   if(def.floor){const F=def.floor;for(let i=0;i<9&&k<pool.length;i++){const c=pool[k++];IS.add(c.mesh);IN.push({ch:c,kind:'dance',x:rr(F.x0+.5,F.x1-.5),z:rr(F.z0+.5,F.z1-.5),yaw:rr(0,TAU)})}}
@@ -593,7 +696,9 @@ function leave(){const def=CUR.def,shop=CUR.shop;closeMenu();P.dance=false;ihemi
   player.x=shop.x+shop.nx*.8;player.z=shop.z+shop.nz*.8;player.yaw=shop.yaw;player.cy=shop.yaw;player.mesh.position.set(player.x,C.standY(player.x,player.z),player.z);player.mesh.rotation.set(0,player.yaw,0)}
 // never leave the player standing inside furniture: step toward the nearest free spot
 function freeSpot(def){if(!blocked(def,player.ix,player.iz,.36))return;for(let rad=.3;rad<6;rad+=.3)for(let a=0;a<TAU;a+=TAU/16){const x=player.ix+Math.sin(a)*rad,z=player.iz+Math.cos(a)*rad;if(!blocked(def,x,z,.36)){player.ix=x;player.iz=z;return}}}
-function blocked(def,x,z,r){const R=def.R;if(x<-R.w/2+r||x>R.w/2-r||z<-R.d/2+r||z>R.d/2-r)return true;for(const b of def.col)if(x>b.x0-r&&x<b.x1+r&&z>b.z0-r&&z<b.z1+r)return true;return false}
+function blocked(def,x,z,r){const R=def.R;if(x<-R.w/2+r||x>R.w/2-r||z<-R.d/2+r||z>R.d/2-r)return true;
+  // salón redondo (La Serrezuela): fuera del círculo solo el zaguán de la salida
+  if(def.circ&&Math.hypot(x,z)>def.circ-r&&!(z>0&&Math.abs(x)<def.exitHW-r))return true;for(const b of def.col)if(x>b.x0-r&&x<b.x1+r&&z>b.z0-r&&z<b.z1+r)return true;return false}
 /* canasta, caja y mochila */
 // with something in the basket, the till wins over a product that is equally close
 function nearPick(){const def=CUR.def;if(!def.picks)return null;let best=null,bd=1.05;if(P.cart.length&&def.caja)bd=Math.min(bd,Math.hypot(def.caja.x-player.ix,def.caja.z-player.iz)-.15);for(const p of def.picks){const d=Math.hypot(p.x-player.ix,p.z-player.iz);if(d<bd){bd=d;best=p}}return best}
@@ -612,6 +717,7 @@ function dropCart(){if(!P.cart.length)return;P.cart=[];C.toast('Devolviste todo 
 window.addEventListener('keydown',e=>{if(e.repeat)return;if(e.code==='KeyB')consume();if(e.code==='KeyX'&&inside)dropCart()});
 function nearMenu(){const def=CUR.def;let best=null,bd=1.6;for(const m of def.menus){const d=Math.hypot(m.at.x-player.ix,m.at.z-player.iz);if(d<bd){bd=d;best=m}}return best}
 function updateInside(dt,inp){const def=CUR.def;const now=performance.now()/1000;if(def.grp.userData.fan)def.grp.userData.fan.rotation.y+=dt*7;if(def.grp.userData.tv)def.grp.userData.tv.material.color.setHSL(.58,.5,.35+Math.sin(now*3.1)*.06+Math.sin(now*7.7)*.04);
+  if(def.grp.userData.jets)for(const j of def.grp.userData.jets)j.m.scale.y=j.h*(.8+.2*Math.sin(now*2.3+j.ph));
   if(!menuOpen){const f=[Math.sin(player.cy),Math.cos(player.cy)],r=[-f[1],f[0]];let mx=f[0]*inp.iz+r[0]*inp.ix,mz=f[1]*inp.iz+r[1]*inp.ix;const m=Math.hypot(mx,mz);let sp=0;
     if(m>.08){sp=(inp.run&&canSprint()?4.6:2.2)*Math.min(1,m);mx/=m;mz/=m;const nx=player.ix+mx*sp*dt,nz=player.iz+mz*sp*dt;
       // if already overlapping something, let any step through so the player can always walk free
@@ -633,8 +739,9 @@ function updateInside(dt,inp){const def=CUR.def;const now=performance.now()/1000
     else if(p.kind==='dance'){pose='dance';p.yaw+=Math.sin(now*.7+p.x)*dt*.8}
     p.ch.mesh.position.set(p.x,p.kind==='sit'?seatY(p.ch):p.kind==='dance'?Math.abs(Math.sin(now*4.2+p.ch.phase))*.05:0,p.z);p.ch.mesh.rotation.y=p.yaw;anim(p.ch,speed,dt,pose)}
   // camera (stays inside the room)
-  const H=def.camH||3.1,dist=def.mall?6:3.8;const fx=Math.sin(player.cy),fz=Math.cos(player.cy);const cp=clamp(player.cp,.12,.7);
+  const H=def.camHf?def.camHf(player.ix,player.iz):def.camH||3.1,dist=def.mall?6:3.8;const fx=Math.sin(player.cy),fz=Math.cos(player.cy);const cp=clamp(player.cp,.12,.7);
   let cx=player.ix-fx*Math.cos(cp)*dist,cz=player.iz-fz*Math.cos(cp)*dist;const R=def.R;cx=clamp(cx,-R.w/2+.25,R.w/2-.25);cz=clamp(cz,-R.d/2+.25,R.d/2-.25);
+  if(def.circ){const d=Math.hypot(cx,cz),m=def.circ+.8;if(d>m&&!(cz>0&&Math.abs(cx)<def.exitHW-.2)){cx*=m/d;cz*=m/d}}
   C.camera.position.set(cx,Math.min(H,1.6+Math.sin(cp)*dist+.4),cz);C.camera.lookAt(player.ix,1.3,player.iz);
   // prompt
   const F=C.isTouch()?'Toca el botón':'F',pk=nearPick(),m=nearMenu(),cj=nearCaja()&&P.cart.length;
