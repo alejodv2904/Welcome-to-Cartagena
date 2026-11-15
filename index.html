@@ -99,7 +99,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="ciudad.js?v=20261115b"></script>
 <script src="modelos.js?v=20261114a"></script>
 <script src="carga.js?v=20261114a"></script>
-<script src="gente.js?v=20261115h"></script>
+<script src="gente.js?v=20261115j"></script>
 <script src="lugares.js?v=20261114a"></script>
 <script src="vehiculos.js?v=20261115a"></script><script src="extra.js?v=20261115b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
@@ -3161,9 +3161,9 @@ function patTex(kind,cs){const key=kind+'|'+(cs||'');if(PATS[key])return PATS[ke
 const PAT_BASE={seleccion:'#fcd116',camo:'#6b7a45',tiedye:'#ff9800'};
 // the colours a person is drawn with (shared by the skinned model and the far-away crowd figure)
 const MSPEC=new WeakMap();
-function modelSpec(sp){if(sp.sex!=='F'&&sp.hem!==undefined&&!sp.belt)sp.belt=true;let spec=MSPEC.get(sp);if(spec)return spec;const f=sp.sex==='F';
+function modelSpec(sp){if(sp.sex==='F'&&(sp.hairStyle==='bun'||sp.vestMesh||sp.hat==='police'))sp.tied=true;if(sp.sex!=='F'&&sp.hem!==undefined&&!sp.belt)sp.belt=true;let spec=MSPEC.get(sp);if(spec)return spec;const f=sp.sex==='F';
   spec={model:f?'f':'m',skin:sp.skin,top:sp.top,bottom:sp.bottom,shoes:sp.shoes,hairC:sp.hairC,scale:(sp.scale||1)*(f?1.05:1),beard:!f&&!!sp.beard,
-    pat:sp.pat?patTex(sp.pat,sp.patC):null,sleeve:sp.sleeve===undefined?(sp.longSleeve?0:1):sp.sleeve,shorts:!!(sp.shorts||sp.skirt==='short'),suit:sp.suit,shirtC:sp.shirtC,hem:sp.hem,belt:sp.belt,beltC:sp.beltC,jersey:sp.pat==='seleccion'};
+    pat:sp.pat?patTex(sp.pat,sp.patC):null,sleeve:sp.sleeve===undefined?(sp.longSleeve?0:1):sp.sleeve,shorts:!!(sp.shorts||sp.skirt==='short'),suit:sp.suit,shirtC:sp.shirtC,hem:sp.hem,belt:sp.belt,beltC:sp.beltC,jersey:sp.pat==='seleccion',fem:sp.fem,tied:!!sp.tied};
   if(sp.pat)spec.top=PAT_BASE[sp.pat]||(sp.patC||'#ffffff').split(',')[0];
   {const bc=new THREE.Color(spec.bottom||'#333333'),hsl={};bc.getHSL(hsl);if(sp.jeans||!sp.skirt&&hsl.h>.55&&hsl.h<.7&&hsl.s>.2&&hsl.l<.55)spec.patB=patTex('denim',spec.bottom)}
   if(!f&&!spec.hat&&sp.hairStyle!=='none')spec.hair={style:sp.hairStyle,c:sp.hairC||'#1b1310'};
@@ -3179,12 +3179,13 @@ function vestMesh(k){const geo=new THREE.CylinderGeometry(.205,.2,.5,16,1,true,M
 function helmetMesh(c,stripe){const g=new THREE.Group();const m=new THREE.MeshPhongMaterial({color:c,shininess:90,specular:0x666666});const d=new THREE.Mesh(new THREE.SphereGeometry(.152,16,10,0,TAU,0,Math.PI*.6),m);d.scale.set(1,1.02,1.12);g.add(d);
   const v=new THREE.Mesh(new THREE.SphereGeometry(.156,16,6,-.95,1.9,Math.PI*.42,Math.PI*.2),new THREE.MeshPhongMaterial({color:'#1a1d22',shininess:120,specular:0x999999}));v.scale.set(1,1.02,1.12);g.add(v);
   if(stripe){const s=new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.28),mat(stripe));s.position.set(0,.142,.01);g.add(s)}return g}
+const HAIRT={};function hairTexOf(c){return HAIRT[c]||(HAIRT[c]=(()=>{const S=32,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');g.fillStyle=c;g.fillRect(0,0,S,S);for(let i=0;i<260;i++){g.fillStyle=Math.random()<.5?'rgba(0,0,0,.35)':'rgba(255,255,255,.1)';g.fillRect(Math.random()*S,Math.random()*S,1,2)}return new THREE.CanvasTexture(cv)})())}
 function buildCharacter(sp){const f=sp.sex==='F';
   const spec=Object.assign({},modelSpec(sp));if(sp.vestMesh)spec.top=sp.top;if(sp.helmet)spec.hat=false;
   const ch=PPL.create(spec);const ht=headTop(ch);const A=(bone,obj,x,y,z)=>PPL.attachAt(ch,bone,obj,x,y,z);
-  if(sp.hat==='cap'||(!f&&sp.hat==='police')){const c=capMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#d32f2f');c.userData.cap=true;A('Head',c,0,ht.y-.075,ht.z+.005);
+  if(sp.hat==='cap'||sp.hat==='police'){const c=capMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#d32f2f');c.userData.cap=true;A('Head',c,0,ht.y-.075,ht.z+.005);
     if(sp.hat==='police'){const band=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.04,14),mat('#1a1a1a'));c.add(band)}}
-  if(f&&(sp.hat==='sun'||sp.hat==='police'))A('Head',sunHatMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#f2e6c4'),0,ht.y-.02,ht.z);
+  if(f&&sp.hat==='sun')A('Head',sunHatMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#f2e6c4'),0,ht.y-.02,ht.z);
   if(sp.hat==='scarf'){const s=new THREE.Mesh(new THREE.SphereGeometry(.16,14,8,0,TAU,0,Math.PI*.55),new THREE.MeshLambertMaterial({map:ATL.tex}));s.scale.set(1.15,.75,1.1);
     {const uv=s.geometry.attributes.uv,r=ATL.R.scarf;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2],r[1]+uv.getY(i)*r[3])}A('Head',s,0,ht.y-.09,ht.z-.01)}
   if(sp.bowl){const g=new THREE.Group();const b=new THREE.Mesh(new THREE.CylinderGeometry(.27,.16,.1,18,1,true),new THREE.MeshPhongMaterial({color:'#c0c4c8',shininess:80,side:THREE.DoubleSide}));g.add(b);
@@ -3194,6 +3195,8 @@ function buildCharacter(sp){const f=sp.sex==='F';
     const geo=new THREE.LatheGeometry(prof,22);let m;if(sp.skirtPat){const t=patTex(sp.skirtPat,sp.skirtPatC).clone();t.needsUpdate=true;t.repeat.set(4,2);m=new THREE.MeshLambertMaterial({map:t,side:THREE.DoubleSide})}else if(sp.skirtReg==='skirt'){const uv=geo.attributes.uv,r=ATL.R.skirt;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2]*.999,r[1]+(1-uv.getY(i))*r[3]*.999);m=new THREE.MeshLambertMaterial({map:ATL.tex,side:THREE.DoubleSide})}
     else m=new THREE.MeshLambertMaterial({color:sp.skirtC||'#e4572e',side:THREE.DoubleSide});const sk=new THREE.Mesh(geo,m);
     const hy=ch.bones.Hips.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(hy);A('Hips',sk,0,hy.y-.04,hy.z)}
+  if(f&&(sp.tied||sp.hairStyle==='bun'||sp.vestMesh||sp.hat==='police')){const hc=new THREE.MeshLambertMaterial({map:hairTexOf(sp.hairC||'#1b1310')});const bun=new THREE.Mesh(new THREE.SphereGeometry(.072,14,10),hc);bun.scale.set(1,.9,1);
+    const band=new THREE.Mesh(new THREE.TorusGeometry(.062,.008,6,14),mat('#1b1b1b'));band.position.z=.05;band.rotation.x=0;bun.add(band);A('Head',bun,0,ht.y-(sp.helmet?.17:sp.hat==='police'?.1:.075),ht.z-(sp.helmet?.15:.125))}
   if(sp.backpack){const hy=ch.bones.Spine2.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(hy);A('Spine2',new THREE.Mesh(new THREE.BoxGeometry(.3,.4,.16),mat(sp.backpack)),0,hy.y-.05,hy.z-.2)}
   const bpos=n=>{const b=ch.bones[n];if(!b)return null;const v=b.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(v);return v};
   if(sp.glasses){const hd=bpos('Head');const g=new THREE.Group();const lm=new THREE.MeshPhongMaterial({color:sp.glassC||'#111111',shininess:120,specular:0x666666});
@@ -3240,6 +3243,15 @@ function styleLocal(sp){const f=sp.sex==='F',r=rand();
 function kidSpec(sp){Object.assign(sp,{kid:true,scale:.56+rand()*.16,sleeve:1,shorts:rand()<.6,top:pick(T_COL),bottom:pick(B_COL.concat(JEAN)),shoes:pick(['#f2f2f2','#ff4081','#1565c0','#ffd54f']),beard:false,hairStyle:sp.sex==='F'?pick(['long','bun']):pick(['short','afro'])});
   const r=rand();if(r<.25){sp.pat='seleccion'}else if(r<.4){sp.pat='rayas';sp.patC=pick(['#ff4081,#ffffff','#1565c0,#ffd54f','#00bfa5,#ffffff'])}else if(r<.5){sp.pat='tropical';sp.patC=pick(TROP).join(',')}
   if(sp.sex==='F'&&rand()<.4){sp.skirt='short';sp.skirtC=pick(['#ff4fa3','#ffd54f','#00bfa5','#7c4dff']);sp.bottom=sp.skirtC}if(rand()<.2){sp.hat='cap';sp.hatC=pick(T_COL)}return sp}
+// mujeres: vestidos, faldas con blusa, jeans con camiseta, pantalonetas y ropa de oficina (el modelo base trae solo un top corto y un pantalón ancho)
+function femOutfit(sp){const r=rand(),COL=['#e4572e','#1f9aa6','#f0b429','#c9607a','#2b6cb0','#7c4dff','#00bfa5','#d32f2f','#2e7d32','#ff4fa3','#f4f1ea','#1d1d1d','#ffffff','#8d5a3b'],BL=['#2b4a7a','#3b5f8f','#5b7fa6','#7fa6d1'];
+  if(r<.30){const c=pick(COL);Object.assign(sp,{style:'vestido',fem:2,top:c,skirt:rand()<.4?'long':'short',skirtC:c,bottom:c,sleeve:1,shoes:pick(['#d8b48a','#f2f2f2','#1d1d1d','#a33'])});
+    if(rand()<.3){sp.top=pick(['#ffffff','#1d1d1d','#f4f1ea']);sp.skirtPat='flores';sp.skirtPatC=pick(['#ffffff,#e4572e,#1f9aa6','#1f3352,#f0b429,#ffffff','#f8bbd0,#c2185b,#2e7d32']);sp.skirtC=null}return true}
+  if(r<.48){const c=pick(COL);Object.assign(sp,{style:'falda',fem:1,top:pick(COL),skirt:rand()<.5?'long':'short',skirtC:c,bottom:c,sleeve:1});return true}
+  if(r<.70){Object.assign(sp,{style:'casual',fem:1,top:pick(COL),bottom:pick(BL.concat(['#1d1d1d','#d8c7a3','#f4f1ea','#d8c7a3'])),sleeve:1,shorts:false});if(BL.includes(sp.bottom))sp.jeans=true;return true}
+  if(r<.82){Object.assign(sp,{style:'short',fem:1,top:pick(COL),bottom:pick(BL.concat(['#d8c7a3','#f4f1ea','#1f9aa6'])),shorts:true,sleeve:1});if(BL.includes(sp.bottom))sp.jeans=true;return true}
+  if(r<.90){Object.assign(sp,{style:'oficina',fem:1,top:pick(['#ffffff','#e8f0f8','#f6dfe6']),bottom:pick(['#22262b','#2b2f3a','#1d2433']),sleeve:1,shorts:false,shoes:'#151515'});if(rand()<.5)sp.glasses=true;return true}
+  return false}
 function archetype(kind){const sp={sex:rand()<.5?'F':'M',skin:pick(rand()<.85?SKINS.slice(0,5):SKINS),hairC:rand()<.1?pick(['#c9a46a','#7a2e1a','#d9c08a']):pick(HAIRC),shoes:pick(['#1d1d1d','#f2f2f2','#6b4a2b','#a33']),scale:.94+rand()*.1};
   sp.hairStyle=sp.sex==='F'?pick(['long','bun','long','afro']):pick(['short','short','none','afro']);
   sp.top=pick(T_COL);sp.bottom=pick(B_COL);
@@ -3252,7 +3264,7 @@ function archetype(kind){const sp={sex:rand()<.5?'F':'M',skin:pick(rand()<.85?SK
     hat:rand()<.6?'sun':'cap',hatC:pick(['#f2e6c4','#ffffff','#1f9aa6','#e4572e']),face:'faceS',backpack:rand()<.5?pick(['#2b3a55','#d35400','#4a4a4a']):null,shoes:'#f2f2f2',sleeve:rand()<.3?2:1,glasses:rand()<.55});
     sp.topReg=null;const tr=rand();if(tr<.3){sp.pat='hawaii';sp.patC=pick(TROP).join(',')}else if(tr<.45){sp.pat='seleccion'}else if(tr<.55){sp.pat='rayas';sp.patC=pick(['#1565c0,#ffffff','#e4572e,#ffffff'])}else sp.top=pick(T_COL);return sp}
   // locals
-  if(sp.sex==='F'&&rand()<.45){sp.skirt=rand()<.5?'long':'short';sp.skirtC=pick(['#e4572e','#1f9aa6','#f0b429','#ffffff','#c9607a','#2b6cb0']);sp.skirtShort=sp.skirt==='short';sp.bottom=sp.skirtC}
+  if(sp.sex==='F'&&femOutfit(sp)){if(rand()<.35)sp.glasses=true;if(rand()<.1){sp.hat='sun';sp.hatC=pick(['#f2e6c4','#ffffff','#1f9aa6'])}return sp}
   if(sp.sex==='M'&&rand()<.2){sp.topReg='guaya';sp.top='#ffffff';sp.longSleeve=false;sp.bottom=pick(['#c8b89a','#e7e1d3','#2b3a55'])}
   if(rand()<.25)sp.shorts=true;if(rand()<.15){sp.hat='cap';sp.hatC=pick(T_COL)}if(rand()<.06){sp.hat='vueltiao'}
   if(sp.sex==='M'){sp.beard=rand()<.35;if(!sp.hat&&rand()<.35){sp.hat='cap';sp.hatC=pick(T_COL)}}
