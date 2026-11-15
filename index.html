@@ -99,7 +99,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="ciudad.js?v=20261115b"></script>
 <script src="modelos.js?v=20261114a"></script>
 <script src="carga.js?v=20261114a"></script>
-<script src="gente.js?v=20261115j"></script>
+<script src="cuerpos.js?v=20261116g"></script><script src="gente.js?v=20261116b"></script>
 <script src="lugares.js?v=20261114a"></script>
 <script src="vehiculos.js?v=20261115a"></script><script src="extra.js?v=20261115b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
@@ -3166,10 +3166,10 @@ function modelSpec(sp){if(sp.sex==='F'&&(sp.hairStyle==='bun'||sp.vestMesh||sp.h
     pat:sp.pat?patTex(sp.pat,sp.patC):null,sleeve:sp.sleeve===undefined?(sp.longSleeve?0:1):sp.sleeve,shorts:!!(sp.shorts||sp.skirt==='short'),suit:sp.suit,shirtC:sp.shirtC,hem:sp.hem,belt:sp.belt,beltC:sp.beltC,jersey:sp.pat==='seleccion',fem:sp.fem,tied:!!sp.tied};
   if(sp.pat)spec.top=PAT_BASE[sp.pat]||(sp.patC||'#ffffff').split(',')[0];
   {const bc=new THREE.Color(spec.bottom||'#333333'),hsl={};bc.getHSL(hsl);if(sp.jeans||!sp.skirt&&hsl.h>.55&&hsl.h<.7&&hsl.s>.2&&hsl.l<.55)spec.patB=patTex('denim',spec.bottom)}
-  if(!f&&!spec.hat&&sp.hairStyle!=='none')spec.hair={style:sp.hairStyle,c:sp.hairC||'#1b1310'};
-  if(!f&&(sp.hat==='vueltiao'||sp.hat==='sun')){spec.hat=true;spec.hatC=sp.hat==='vueltiao'?'#efe6cc':(sp.hatC||'#f2e6c4')}
+  if(sp.hairStyle!=='none'&&!(!f&&(sp.hat==='vueltiao'||sp.hat==='sun'))){let st=sp.hairStyle||'short';if(sp.tied)st=(sp.helmet||sp.hat==='police')?'bunLow':'bun';else if(f&&st==='short')st='long';spec.hair={style:st,c:sp.hairC||'#1b1310'}}
+  spec.topReg=sp.topReg;spec.noBottom=!!sp.skirt;
   if(sp.topReg==='guaya'||sp.topReg==='blouse')spec.top='#f4f1ea';
-  if(sp.vest)spec.top='#c5e33a';if(sp.skirt)spec.bottom=sp.skirtC||spec.bottom;MSPEC.set(sp,spec);return spec}
+  if(sp.skirt)spec.bottom=sp.skirtC||spec.bottom;MSPEC.set(sp,spec);return spec}
 // reflective vests: Policía (verde neón, franjas grises) and Tránsito (azul oscuro con franjas neón)
 const VESTT={};function vestTex(k){if(VESTT[k])return VESTT[k];const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');const pol=k==='policia';
   g.fillStyle=pol?'#c6f432':'#1d2a4a';g.fillRect(0,0,256,128);g.fillStyle=pol?'#b9bec2':'#c6f432';g.fillRect(0,70,256,12);g.fillRect(0,96,256,12);if(!pol){g.fillRect(40,0,14,70);g.fillRect(74,0,14,70);g.fillRect(168,0,14,70);g.fillRect(202,0,14,70)}
@@ -3185,6 +3185,7 @@ function buildCharacter(sp){const f=sp.sex==='F';
   const ch=PPL.create(spec);const ht=headTop(ch);const A=(bone,obj,x,y,z)=>PPL.attachAt(ch,bone,obj,x,y,z);
   if(sp.hat==='cap'||sp.hat==='police'){const c=capMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#d32f2f');c.userData.cap=true;A('Head',c,0,ht.y-.075,ht.z+.005);
     if(sp.hat==='police'){const band=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.04,14),mat('#1a1a1a'));c.add(band)}}
+  if(!f&&(sp.hat==='vueltiao'||sp.hat==='sun'))A('Head',sunHatMesh(sp.hat==='vueltiao'?'#efe6cc':(sp.hatC||'#f2e6c4')),0,ht.y-.02,ht.z);
   if(f&&sp.hat==='sun')A('Head',sunHatMesh(sp.hat==='police'?'#3d4a2a':sp.hatC||'#f2e6c4'),0,ht.y-.02,ht.z);
   if(sp.hat==='scarf'){const s=new THREE.Mesh(new THREE.SphereGeometry(.16,14,8,0,TAU,0,Math.PI*.55),new THREE.MeshLambertMaterial({map:ATL.tex}));s.scale.set(1.15,.75,1.1);
     {const uv=s.geometry.attributes.uv,r=ATL.R.scarf;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2],r[1]+uv.getY(i)*r[3])}A('Head',s,0,ht.y-.09,ht.z-.01)}
@@ -3195,8 +3196,6 @@ function buildCharacter(sp){const f=sp.sex==='F';
     const geo=new THREE.LatheGeometry(prof,22);let m;if(sp.skirtPat){const t=patTex(sp.skirtPat,sp.skirtPatC).clone();t.needsUpdate=true;t.repeat.set(4,2);m=new THREE.MeshLambertMaterial({map:t,side:THREE.DoubleSide})}else if(sp.skirtReg==='skirt'){const uv=geo.attributes.uv,r=ATL.R.skirt;for(let i=0;i<uv.count;i++)uv.setXY(i,r[0]+uv.getX(i)*r[2]*.999,r[1]+(1-uv.getY(i))*r[3]*.999);m=new THREE.MeshLambertMaterial({map:ATL.tex,side:THREE.DoubleSide})}
     else m=new THREE.MeshLambertMaterial({color:sp.skirtC||'#e4572e',side:THREE.DoubleSide});const sk=new THREE.Mesh(geo,m);
     const hy=ch.bones.Hips.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(hy);A('Hips',sk,0,hy.y-.04,hy.z)}
-  if(f&&(sp.tied||sp.hairStyle==='bun'||sp.vestMesh||sp.hat==='police')){const hc=new THREE.MeshLambertMaterial({map:hairTexOf(sp.hairC||'#1b1310')});const bun=new THREE.Mesh(new THREE.SphereGeometry(.072,14,10),hc);bun.scale.set(1,.9,1);
-    const band=new THREE.Mesh(new THREE.TorusGeometry(.062,.008,6,14),mat('#1b1b1b'));band.position.z=.05;band.rotation.x=0;bun.add(band);A('Head',bun,0,ht.y-(sp.helmet?.17:sp.hat==='police'?.1:.075),ht.z-(sp.helmet?.15:.125))}
   if(sp.backpack){const hy=ch.bones.Spine2.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(hy);A('Spine2',new THREE.Mesh(new THREE.BoxGeometry(.3,.4,.16),mat(sp.backpack)),0,hy.y-.05,hy.z-.2)}
   const bpos=n=>{const b=ch.bones[n];if(!b)return null;const v=b.getWorldPosition(new THREE.Vector3());ch.mesh.worldToLocal(v);return v};
   if(sp.glasses){const hd=bpos('Head');const g=new THREE.Group();const lm=new THREE.MeshPhongMaterial({color:sp.glassC||'#111111',shininess:120,specular:0x666666});

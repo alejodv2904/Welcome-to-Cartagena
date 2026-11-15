@@ -44,186 +44,80 @@ function retarget(src,clip,tgt,fps){fps=fps||30;
   tracks.push(new THREE.VectorKeyframeTrack(tH.name+'.position',times,hipP));
   return new THREE.AnimationClip(clip.name,clip.duration,tracks)}
 
-/* ---------- base models: all skinned parts merged into one mesh with a texture atlas + part mask ---------- */
-function imgOf(tex){return tex&&tex.image}
-function avgColor(img){const c=document.createElement('canvas');c.width=c.height=8;const g=c.getContext('2d');g.drawImage(img,0,0,8,8);const d=g.getImageData(0,0,8,8).data;let r=0,gg=0,b=0,n=0;for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;r+=d[i];gg+=d[i+1];b+=d[i+2];n++}return[r/n,gg/n,b/n]}
-function partOfMesh(name){name=name.toLowerCase();if(name.includes('eye')||name.includes('teeth'))return 6;if(name.includes('beard'))return 7;if(name.includes('hair'))return 5;if(name.includes('outfit_top'))return 1;if(name.includes('outfit_bottom'))return 2;if(name.includes('footwear'))return 3;if(name==='mesh'||name.includes('headwear'))return 4;return 0}
-function mergeSkinned(list,keepTri,size){// list: [{mesh,part,reg}]; keepTri(it,u,v) decides per triangle (atlas uv of its centre)
-  const P=[],N=[],U=[],SI=[],SW=[],I=[],SH=[];let base=0;
-  for(const it of list){const g=it.mesh.geometry;const p=g.attributes.position,nn=g.attributes.normal,uv=g.attributes.uv,si=g.attributes.skinIndex,sw=g.attributes.skinWeight;const r=it.reg;
-    for(let i=0;i<p.count;i++){P.push(p.getX(i),p.getY(i),p.getZ(i));N.push(nn.getX(i),nn.getY(i),nn.getZ(i));
-      let u=uv?uv.getX(i):.5,v=uv?uv.getY(i):.5;u=Math.min(.999,Math.max(.001,u-Math.floor(u)));v=Math.min(.999,Math.max(.001,v-Math.floor(v)));
-      SH.push(it.vsh?it.vsh[i]:0);U.push((r[0]+1+u*(r[2]-2))/size,(r[1]+1+v*(r[3]-2))/size);SI.push(si.getX(i),si.getY(i),si.getZ(i),si.getW(i));SW.push(sw.getX(i),sw.getY(i),sw.getZ(i),sw.getW(i))}
-    const idx=g.index?Array.from(g.index.array):[...Array(p.count).keys()];
-    for(let i=0;i<idx.length;i+=3){const a=idx[i],b=idx[i+1],c=idx[i+2];if(keepTri){const u=(U[(base+a)*2]+U[(base+b)*2]+U[(base+c)*2])/3,v=(U[(base+a)*2+1]+U[(base+b)*2+1]+U[(base+c)*2+1])/3;const C=[0,1,2].map(k=>(P[(base+a)*3+k]+P[(base+b)*3+k]+P[(base+c)*3+k])/3);if(!keepTri(it,u,v,C,i/3))continue}I.push(base+a,base+b,base+c)}
-    base+=p.count}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
-  g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(SI,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(SW,4));g.setAttribute('aShirt',new THREE.Float32BufferAttribute(SH,1));g.setIndex(I);g.computeBoundingSphere();return g}
-
-// la prenda original del modelo masculino es un frac con chaleco, corbatín, flor y botones: se separa por piezas (islas de triángulos),
-// se quitan los faldones, el corbatín, la flor y los botones, y se marcan las piezas de camisa (cuello y pechera) para poder vestir de traje
-const TOP_HEM=.84;
-function analyseTop(mesh){const g=mesh.geometry,P=g.attributes.position,I=g.index.array,nT=I.length/3;const key=new Map(),par=[];const find=x=>{while(par[x]!==x){par[x]=par[par[x]];x=par[x]}return x};
-  const vid=new Array(P.count);for(let i=0;i<P.count;i++){const k=Math.round(P.getX(i)*1000)+','+Math.round(P.getY(i)*1000)+','+Math.round(P.getZ(i)*1000);if(!key.has(k)){key.set(k,par.length);par.push(par.length)}vid[i]=key.get(k)}
-  for(let i=0;i<I.length;i+=3){const a=find(vid[I[i]]);par[find(vid[I[i+1]])]=a;par[find(vid[I[i+2]])]=a}
-  const comp=new Map();for(let t=0;t<nT;t++){const r=find(vid[I[t*3]]);let c=comp.get(r);if(!c){c={n:0,miny:9,maxy:-9};comp.set(r,c)}c.n++;for(let k=0;k<3;k++){const y=P.getY(I[t*3+k]);c.miny=Math.min(c.miny,y);c.maxy=Math.max(c.maxy,y)}}
-  let big=null;for(const [r,c] of comp)if(!big||c.n>comp.get(big).n)big=r;
-  const kill=new Uint8Array(nT),vsh=new Uint8Array(P.count);
-  for(let t=0;t<nT;t++){const r=find(vid[I[t*3]]),c=comp.get(r);
-    if(c.n<40||(c.n<=200&&c.n!==117&&c.miny>1.3&&c.maxy<1.6))kill[t]=1;   // botones, corbatín, flor
-    for(let k=0;k<3;k++)vsh[I[t*3+k]]=r!==big?1:2}                      // todo lo que no es el saco: camisa
-  return{kill,vsh}}
-function prepModel(gltf,kind){const scene=gltf.scene;scene.updateMatrixWorld(true);const skinned=[];scene.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o)});
-  const SZ=1024;const atlas=document.createElement('canvas');atlas.width=atlas.height=SZ;const ag=atlas.getContext('2d');
-  const mask=document.createElement('canvas');mask.width=mask.height=SZ;const mg=mask.getContext('2d');
-  const setMask=(r,part)=>{mg.fillStyle='rgb('+(part*32+16)+',0,0)';mg.fillRect(r[0],r[1],r[2],r[3])};
-  let skinAvg=[150,100,80];const variants={};let headBox=null;
-  if(kind==='m'){
-    // atlas layout (pixels): clothes get the big cells
-    const L={1:[0,0,512,512],2:[512,0,512,512],0:[0,512,512,512],4:[512,512,256,256],3:[768,512,256,256],5:[512,768,64,64],6:[576,768,128,128],7:[704,768,64,64]};
-    const items=[];
-    for(const m of skinned){const part=partOfMesh(m.name);const mat=m.material;let reg;
-      if(m.name==='Wolf3D_Body')reg=L[7];else if(part===6)reg=L[6];else if(part===7)reg=L[5];else reg=L[part];
-      items.push({mesh:m,part,reg,mat})}
-    // paint atlas
-    const head=items.find(i=>i.mesh.name==='Wolf3D_Head');if(head&&imgOf(head.mat.map))skinAvg=avgColor(imgOf(head.mat.map));
-    for(const it of items){const r=it.reg,img=imgOf(it.mat.map);
-      if(it.mesh.name==='Wolf3D_Body'){ag.fillStyle='rgb('+skinAvg.map(Math.round).join(',')+')';ag.fillRect(r[0],r[1],r[2],r[3])}
-      else if(img&&it.part===4){ag.drawImage(img,r[0],r[1],r[2],r[3]);const d=ag.getImageData(r[0],r[1],r[2],r[3]).data,md=mg.createImageData(r[2],r[3]);
-        for(let i=0;i<d.length;i+=4){const R=d[i],G2=d[i+1],B=d[i+2],mx=Math.max(R,G2,B),mn=Math.min(R,G2,B);const olive=G2>=R&&G2>B+6&&(mx-mn)>10;md.data[i]=(olive?4:5)*32+16;md.data[i+3]=255}
-        it.maskData=md;continue}
-      else if(img&&it.part!==6){ag.drawImage(img,r[0],r[1],r[2],r[3])}
-      else if(it.part===6){// eyes & teeth share a cell: white with a dark iris in the middle
-        ag.fillStyle='#f2efe8';ag.fillRect(r[0],r[1],r[2],r[3]);ag.fillStyle='#2a1a10';ag.beginPath();ag.arc(r[0]+r[2]/2,r[1]+r[3]/2,r[2]*.22,0,TAU);ag.fill()}
-      else{const c=it.mat.color;ag.fillStyle='#'+c.getHexString();ag.fillRect(r[0],r[1],r[2],r[3])}
-      setMask(r,it.part)}
-    for(const it of items)if(it.maskData)mg.putImageData(it.maskData,it.reg[0],it.reg[1]);
-    const eyes=items.filter(i=>i.part===6&&/eye/i.test(i.mesh.name));
-    // eyes: use the real eye texture if present (iris centred on uv .5)
-    for(const e of eyes){const img=imgOf(e.mat.map);if(img){ag.drawImage(img,L[6][0],L[6][1],L[6][2],L[6][3]);break}}
-    const teeth=items.filter(i=>/teeth/i.test(i.mesh.name));items.forEach(i=>{if(/teeth/i.test(i.mesh.name))i.reg=[L[6][0]+8,L[6][1]+8,8,8]});
-    {const hp=items.find(i=>i.mesh.name==='Wolf3D_Head').mesh.geometry.attributes.position;const b=[1e9,-1e9,1e9,-1e9,1e9,-1e9];for(let i=0;i<hp.count;i++){const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);b[0]=Math.min(b[0],x);b[1]=Math.max(b[1],x);b[2]=Math.min(b[2],y);b[3]=Math.max(b[3],y);b[4]=Math.min(b[4],z);b[5]=Math.max(b[5],z)}headBox=b}
-    let hc=[0,0,0],hn=0,htop=-9;{const hp=items.find(i=>i.mesh.name==='Wolf3D_Head').mesh.geometry.attributes.position;for(let i=0;i<hp.count;i++){hc[0]+=hp.getX(i);hc[2]+=hp.getZ(i);hn++;htop=Math.max(htop,hp.getY(i))}hc[0]/=hn;hc[2]/=hn}
-    {const ti=items.find(i=>i.mesh.name==='Wolf3D_Outfit_Top');if(ti){const a=analyseTop(ti.mesh);ti.kill=a.kill;ti.vsh=a.vsh}}
-    const mk=mg.getImageData(0,0,SZ,SZ).data;const partAt=(u,v)=>Math.floor(mk[(Math.min(SZ-1,Math.floor(v*SZ))*SZ+Math.min(SZ-1,Math.floor(u*SZ)))*4]/32);
-    for(const withHat of [true,false])for(const beard of [true,false]){const use=items.filter(i=>beard||i.part!==7);
-      variants[(withHat?'hat':'nohat')+(beard?'B':'')]=mergeSkinned(use,(it,u,v,c,tri)=>{if(it.part===1&&(c[1]<TOP_HEM||it.kill&&it.kill[tri]))return false;return withHat||it.part!==4||partAt(u,v)!==4&&c[1]<htop+.005&&Math.hypot(c[0]-hc[0],c[2]-hc[2])<.12},SZ)}
-  }else{
-    // single-texture model: classify texels into parts (yellow trousers → bottom, skin, dark hair/top)
-    const m=skinned[0];const img=imgOf(m.material.map);ag.drawImage(img,0,0,SZ,SZ);
-    const d=ag.getImageData(0,0,SZ,SZ),md=mg.createImageData(SZ,SZ);let sr=0,sg=0,sb=0,sn=0;
-    for(let i=0;i<d.data.length;i+=4){const r=d.data[i],g=d.data[i+1],b=d.data[i+2];const mx=Math.max(r,g,b),mn=Math.min(r,g,b),s=mx?(mx-mn)/mx:0;let h=0;
-      if(mx!==mn){if(mx===r)h=((g-b)/(mx-mn))%6;else if(mx===g)h=(b-r)/(mx-mn)+2;else h=(r-g)/(mx-mn)+4;h*=60;if(h<0)h+=360}
-      let part=6;const top=i/4<SZ*SZ*.13;
-      if((h<14||h>340)&&s>.55&&mx>100||top&&h>=14&&h<70&&s>.4)part=4;   // goggle lenses & red trims → dark glasses/accents
-      else if(h>38&&h<70&&s>.45&&mx>120)part=2;                        // yellow trousers
-      else if(h>8&&h<40&&s>.22&&s<.8&&mx>80&&mx<215){part=0;sr+=r;sg+=g;sb+=b;sn++} // skin
-      else if(mx<80)part=5;                                             // hair (dark)
-      else if(s<.14&&mx>=80&&mx<205)part=1;                             // grey crop top
-      md.data[i]=part*32+16;md.data[i+3]=255}
-    mg.putImageData(md,0,0);if(sn)skinAvg=[sr/sn,sg/sn,sb/sn];
-    variants.nohat=mergeSkinned([{mesh:m,part:0,reg:[-1,-1,SZ+2,SZ+2]}],null,SZ);
-    // cabello recogido: sin los dos moños de los lados (el moño de atrás se pone aparte)
-    {const mk2=mg.getImageData(0,0,SZ,SZ).data;const pAt=(u,v)=>Math.floor(mk2[(Math.min(SZ-1,Math.floor(v*SZ))*SZ+Math.min(SZ-1,Math.floor(u*SZ)))*4]/32);
-      variants.tied=mergeSkinned([{mesh:m,part:0,reg:[-1,-1,SZ+2,SZ+2]}],(it,u,v,c)=>!(c[1]>1.42&&Math.abs(c[0])>.075&&pAt(u,v)===5),SZ)}}
-  // average brightness of every part, so recoloured cloth keeps its folds but reaches the wanted colour
-  const pl=new Array(NP).fill(0),pn=new Array(NP).fill(0);{const a=ag.getImageData(0,0,SZ,SZ).data,mk=mg.getImageData(0,0,SZ,SZ).data;for(let i=0;i<a.length;i+=16){const id=Math.floor(mk[i]/32);if(id<NP&&mk[i]>0){pl[id]+=(a[i]*.299+a[i+1]*.587+a[i+2]*.114)/255;pn[id]++}}}
-  const plum=pl.map((v,i)=>pn[i]?Math.max(.05,v/pn[i]):.5);
-  const tex=new THREE.CanvasTexture(atlas);tex.flipY=false;tex.anisotropy=4;
-  const mtex=new THREE.CanvasTexture(mask);mtex.flipY=false;mtex.magFilter=mtex.minFilter=THREE.NearestFilter;mtex.generateMipmaps=false;
-  // template: keep the skeleton, drop the original meshes, add one merged mesh per variant
-  const tpl={};const first=skinned[0];
-  for(const key in variants){const root=THREE.SkeletonUtils.clone(scene);const rs=[];root.traverse(o=>{if(o.isSkinnedMesh)rs.push(o)});
-    const keep=rs.find(o=>o.name===first.name);rs.forEach(o=>{if(o!==keep)o.parent.remove(o)});
-    keep.geometry=variants[key];keep.morphTargetInfluences=undefined;keep.morphTargetDictionary=undefined;keep.updateMorphTargets&&keep.updateMorphTargets();
-    tpl[key]={root,meshName:keep.name}}
-  for(const k of ['hat','hatB','nohatB'])if(!variants[k])variants[k]=variants.nohat;
-  // volumen de recorte holgado (la pose animada se sale de la pose de reposo): así no se dibuja a quien está detrás de la cámara
-  for(const k in variants){const g=variants[k];if(g.userData.cullR)continue;if(!g.boundingSphere)g.computeBoundingSphere();g.boundingSphere.radius*=2;g.userData.cullR=true}
-  let hips=null;scene.traverse(o=>{if(!hips&&strip(o.name)==='Hips')hips=o});
-  // hombro, codo, cadera y rodilla en el espacio de la malla: desde ahí la ropa se vuelve piel (manga corta, sin mangas, pantaloneta)
-  const bb=bonesOf(scene),lp=n=>{const b=bb[n];if(!b)return null;const w=b.getWorldPosition(new THREE.Vector3());return kind==='f'?w:first.worldToLocal(w)};
-  const sh=lp('LeftArm'),el=lp('LeftForeArm'),wr=lp('LeftHand'),hp=lp('LeftUpLeg'),kn=lp('LeftLeg');
-  const th=new THREE.Vector4(sh?Math.abs(sh.x):.18,el?Math.abs(el.x):.4,hp?hp.y:.9,kn?kn.y:.5);
-  const arm=[sh,el,wr].every(Boolean)?[sh,el,wr]:null;const lgp=[lp('LeftUpLeg'),lp('LeftLeg'),lp('LeftFoot')],leg=lgp.every(Boolean)?lgp:null;
-  return{kind,scene,hips,tex,mtex,tpl,skinAvg,plum,th,headBox,arm,leg,clips:{}}}
-
-/* ---------- shader: per-part recolouring, one draw call per person ---------- */
-const FRAG=`
-uniform sampler2D partMask;uniform vec3 pc[${NP}];uniform float pm[${NP}];uniform float pl[${NP}];
-uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uPatS,uSleeve,uShorts,uSuit,uHem,uJersey,uBelt,uArmK,uFem;uniform vec3 uArmA,uArmE,uArmW;uniform vec3 uSkinA,uShirtC,uBeltC;uniform vec4 uTh;varying vec3 vBind;varying float vShirtV;
-`;
+/* ---------- cuerpos construidos por código (cuerpos.js): hombre y mujer con esqueleto completo y ropa en piezas ---------- */
+const CB=window.CUERPOS(THREE);
 const WHITE=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1,THREE.RGBAFormat);WHITE.needsUpdate=true;
 // tejido: ruido fino de hilos que se repite sobre toda la ropa, para que la tela no se vea plana
 const WEAVE=(function(){const S=64,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');const d=g.createImageData(S,S);for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=(y*S+x)*4;const v=128+(((x+y)%4<2)?18:-18)+((x%2)?10:-10)+(Math.random()*44-22);d.data[i]=d.data[i+1]=d.data[i+2]=Math.max(0,Math.min(255,v));d.data[i+3]=255}g.putImageData(d,0,0);
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t})();
-function makeMaterial(M,cols,modes,X){X=X||{};const m=new THREE.MeshPhongMaterial({map:M.tex,skinning:true,shininess:14,specular:0x1c1a18});
-  const AR=M.arm&&M.kind==='m'?M.arm:(M.leg&&M.kind==='f'?M.leg:null),V3=a=>a.clone();
-  const U={uArmK:{value:AR&&M.kind==='m'?.66:1},uArmA:{value:AR?V3(AR[0]):new THREE.Vector3()},uArmE:{value:AR?V3(AR[1]):new THREE.Vector3()},uArmW:{value:AR?V3(AR[2]):new THREE.Vector3()},partMask:{value:M.mtex},pc:{value:cols},pm:{value:modes},pl:{value:M.plum},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uPatS:{value:M.kind==='m'?14:26},
-    uSuit:{value:X.suit?1:0},uShirtC:{value:col(X.shirtC||'#f4f2ee')},uHem:{value:X.hem!==undefined?X.hem:(M.kind==='m'?.84:-1e9)},uJersey:{value:X.jersey?1:0},uFem:{value:M.kind==='f'?(X.fem||0):0},uLegOn:{value:M.kind==='f'&&X.shorts?1:0},uBelt:{value:X.belt&&M.kind==='m'?1:0},uBeltC:{value:col(X.beltC||'#3b2416')},uSleeve:{value:X.sleeve||0},uShorts:{value:X.shorts?1:0},uSkinA:{value:col(X.skin||'#8d5a3b')},uTh:{value:M.th}};m.userData.U=U;
-  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);s.vertexShader='varying vec3 vBind;attribute float aShirt;varying float vShirtV;uniform float uSleeve,uArmK,uSuit,uLegOn;uniform vec4 uTh;uniform vec3 uArmA,uArmE,uArmW;\n'+s.vertexShader.replace('#include <beginnormal_vertex>',`#include <beginnormal_vertex>
-if(aShirt>0.5&&uSuit<0.5&&abs(position.x)<0.2&&position.y<1.56)objectNormal=normalize(vec3(position.x,0.0,position.z+0.01));`).replace('#include <begin_vertex>',`#include <begin_vertex>
-vBind=position;vShirtV=aShirt;
-if(aShirt>0.5&&uSleeve>0.5&&uArmK<0.99){float sg=position.x<0.0?-1.0:1.0;float cut=uSleeve>1.5?uTh.x*1.04:mix(uTh.x,uTh.y,0.88);float w=smoothstep(cut-0.006,cut+0.012,abs(position.x));
-  if(w>0.0){vec3 A=uArmA*vec3(sg,1.0,1.0),E=uArmE*vec3(sg,1.0,1.0),Wr=uArmW*vec3(sg,1.0,1.0);vec3 a=A,b=E;if(dot(position-E,E-A)>0.0){a=E;b=Wr;}
-    vec3 d=b-a;float t=clamp(dot(position-a,d)/dot(d,d),0.0,1.0);vec3 c=a+d*t;float kk=aShirt<1.5?uArmK*0.6:uArmK;transformed=c+(position-c)*mix(1.0,kk,w);}}
-if(uLegOn>0.5&&position.y<0.66&&position.y>0.2){float sg=position.x<0.0?-1.0:1.0;vec3 A=uArmA*vec3(sg,1.0,1.0),E=uArmE*vec3(sg,1.0,1.0),F=uArmW*vec3(sg,1.0,1.0);vec3 a=A,b=E;if(position.y<E.y){a=E;b=F;}
-  vec3 d=b-a;float t=clamp(dot(position-a,d)/dot(d,d),0.0,1.0);vec3 c=a+d*t;vec3 v=position-c;float r=length(v);float R0=0.055;
-  if(r>R0){float w=smoothstep(0.2,0.3,position.y)*(1.0-smoothstep(0.6,0.66,position.y));transformed=c+v*mix(1.0,(R0+(r-R0)*0.12)/r,w);}}`);
-    s.fragmentShader=FRAG+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-    float pid=floor(texture2D(partMask,vUv).r*255.0/32.0+0.02);vec3 tc=diffuseColor.rgb;float lum=dot(tc,vec3(.299,.587,.114));
-    vec3 pcol=vec3(1.0);float mode=0.0;float al=0.5;
-    if(pid<0.5){pcol=pc[0];mode=pm[0];al=pl[0];}else if(pid<1.5){pcol=pc[1];mode=pm[1];al=pl[1];}else if(pid<2.5){pcol=pc[2];mode=pm[2];al=pl[2];}else if(pid<3.5){pcol=pc[3];mode=pm[3];al=pl[3];}
-    else if(pid<4.5){pcol=pc[4];mode=pm[4];al=pl[4];}else if(pid<5.5){pcol=pc[5];mode=pm[5];al=pl[5];}else if(pid>6.5){pcol=pc[7];mode=pm[7];al=pl[7];}
-    bool isTop=pid>0.5&&pid<1.5;
-    if(isTop&&vBind.y<uHem)discard;
-    if(isTop&&uSuit>0.5&&vShirtV>0.5&&vShirtV<1.5){pcol=uShirtC;mode=2.0;}
-    float lr=lum/al;if(isTop)lr=mix(1.0,lr,0.18);
-    bool bare=false;float hemF=1.0;float ax=abs(vBind.x);
-    float cutX=mix(uTh.x,uTh.y,0.88);
-    if(isTop&&(uSleeve>1.5&&ax>uTh.x*1.04||uSleeve>0.5&&uSleeve<1.5&&ax>cutX))bare=true;
-    if(pid>1.5&&pid<2.5&&uShorts>0.5&&vBind.y<mix(uTh.w,uTh.z,0.2))bare=true;
-    if(isTop&&!bare&&uSleeve>0.5&&uSleeve<1.5&&ax>cutX-0.02)hemF=0.78;
-    if(bare)diffuseColor.rgb=uSkinA*clamp(0.62+0.38*lr,0.0,1.3);
-    else if(uPatOn>0.5&&isTop)diffuseColor.rgb=texture2D(uPat,vUv*uPatS).rgb*clamp(0.3+0.7*lr,0.0,1.5);
-    else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv*uPatS*0.8).rgb*clamp(0.3+0.7*lr,0.0,1.5);
-    else if(mode>1.5)diffuseColor.rgb=pcol*clamp(0.25+0.75*lr,0.0,1.6);else if(mode>0.5)diffuseColor.rgb=tc*pcol;
-    if(!bare&&isTop&&uJersey>0.5){float sx=abs(vBind.x);vec3 bl=vec3(0.0,0.22,0.58),rd=vec3(0.81,0.07,0.15);
-      if(vBind.y>1.54)diffuseColor.rgb=bl;
-      else if(vBind.y>1.40&&sx>0.12&&abs(vBind.z)<0.024)diffuseColor.rgb=abs(vBind.z)<0.01?rd:bl;
-      if(uSleeve<1.5&&uSleeve>0.5&&ax>cutX-0.04&&ax<=cutX)diffuseColor.rgb=bl;
-      if(vBind.z>0.04){vec2 d=vec2(vBind.x-0.1,vBind.y-1.27);float r=length(d);if(r<0.036)diffuseColor.rgb=r<0.012?bl:(r<0.026?vec3(0.99,0.82,0.09):rd);}}
-    if(pid>1.5&&pid<2.5&&uBelt>0.5&&!bare&&vBind.y>1.035&&vBind.y<1.082){diffuseColor.rgb=uBeltC*(0.7+0.5*lum);if(abs(vBind.x)<0.022&&vBind.z>0.08)diffuseColor.rgb=vec3(0.78,0.78,0.74);}
-    if(uFem>0.5){float ay=vBind.y;{if((ay>0.97&&ay<1.285&&ax<0.17)||(uFem<1.5&&ay>1.2&&ay<1.36&&ax>0.095&&ax<0.2))diffuseColor.rgb=pc[1]*(0.78+0.4*lum);}}
-    diffuseColor.rgb*=hemF;
-    if(!bare&&pid>0.5&&pid<2.5)diffuseColor.rgb*=0.92+0.16*texture2D(uWeave,vUv*uPatS*5.0).r;`)};
-  m.customProgramCacheKey=()=>'gente6';return m}
-
-const models={m:prepModel(G.hombre,'m'),f:prepModel(G.mujer,'f')};
-// clips: walk/run/idle from one capture set, talking gestures from another
+const col=(c)=>new THREE.Color(c);
+const models={};
+for(const k of ['m','f']){const rig=CB.makeRig(k);models[k]={kind:k,rig,clips:{},tgt:{scene:rig.root,hips:rig.bones.Hips}}}
+// clips: caminar/correr/quieto de una captura, gestos de conversación de otra; se adaptan al esqueleto de cada modelo
 const srcA={scene:G.animA.scene},srcB={scene:G.animB.scene};
 const findClip=(g,n)=>g.animations.find(a=>a.name===n);
-for(const k in models){const M=models[k];const tgt={scene:M.tpl.nohat.root,hips:null};let h=null;tgt.scene.traverse(o=>{if(!h&&strip(o.name)==='Hips')h=o});tgt.hips=h;
+for(const k in models){const M=models[k],tgt=M.tgt;
   M.clips.idle=retarget(srcA,findClip(G.animA,'Idle'),tgt);M.clips.walk=retarget(srcA,findClip(G.animA,'Walk'),tgt);M.clips.run=retarget(srcA,findClip(G.animA,'Run'),tgt);
   M.clips.idle2=retarget(srcB,findClip(G.animB,'idle'),tgt);M.clips.agree=retarget(srcB,findClip(G.animB,'agree'),tgt);M.clips.shake=retarget(srcB,findClip(G.animB,'headShake'),tgt)}
-
-/* ---------- instances ---------- */
-const col=(c)=>new THREE.Color(c);
-function create(sp){const M=models[sp.model||'m'];const T=M.tpl[M.kind==='f'?(sp.tied?'tied':'nohat'):(sp.hat?'hat':'nohat')+(sp.beard?'B':'')];const root=THREE.SkeletonUtils.clone(T.root);
-  let mesh=null;root.traverse(o=>{if(o.isSkinnedMesh&&o.name===T.meshName)mesh=o});
-  // skin: ratio between wanted tone and the texture's own average, so shading detail survives
-  const sa=M.skinAvg;const sk=col(sp.skin||'#8d5a3b');const skinRatio=new THREE.Color(sk.r*255/sa[0],sk.g*255/sa[1],sk.b*255/sa[2]);
-  const cols=[skinRatio,col(sp.top||'#ffffff'),col(sp.bottom||'#333333'),col(sp.shoes||'#222222'),col(sp.hatC||(M.kind==='f'?'#141414':'#e9dcb0')),col(sp.hairC||'#1b1310'),col('#ffffff'),col(sp.hairC||'#1b1310')];
-  const modes=[1,sp.top?2:0,sp.bottom?2:0,sp.shoes?2:0,2,M.kind==='m'?2:(sp.hairC?2:0),0,2];
-  if(M.kind==='f'){if(sp.fem){modes[1]=2;cols[1]=col(sp.top||'#ffffff')}else{modes[1]=sp.top?1:0;cols[1]=col(sp.top||'#ffffff').multiplyScalar(4)}}// the dark top only takes a hint of colour
-  const mat=makeMaterial(M,cols,modes,{pat:sp.pat,patB:sp.patB,sleeve:sp.sleeve,shorts:sp.shorts,skin:sp.skin,suit:sp.suit,shirtC:sp.shirtC,hem:sp.hem,jersey:sp.jersey,belt:sp.belt,beltC:sp.beltC,fem:sp.fem});mesh.material=mat;mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
-  const bones=bonesOf(root);
+/* ---------- material: un color por pieza (piel, camiseta, pantalón, zapatos...) y estampados ---------- */
+const NPART=10;
+function makeMaterial(cols,X){const m=new THREE.MeshPhongMaterial({vertexColors:true,skinning:true,shininess:14,specular:0x1c1a18});
+  const U={pcA:{value:cols},uPat:{value:X.pat||WHITE},uPatOn:{value:X.pat?1:0},uPatB:{value:X.patB||WHITE},uPatBOn:{value:X.patB?1:0},uWeave:{value:WEAVE},uJersey:{value:X.jersey?1:0},uJk:{value:new THREE.Vector2(X.kx||1,X.ty||1.49)}};m.userData.U=U;
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);
+    s.vertexShader='attribute float aPart;varying float vPart;varying vec3 vPC;varying vec3 vBind;varying vec2 vUv2;uniform vec3 pcA['+NPART+'];\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBind=position;vUv2=uv;vPart=aPart;vPC=pcA[int(aPart+0.5)];');
+    s.fragmentShader='uniform sampler2D uPat,uPatB,uWeave;uniform float uPatOn,uPatBOn,uJersey;uniform vec2 uJk;varying float vPart;varying vec3 vPC;varying vec3 vBind;varying vec2 vUv2;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+    float pid=vPart+0.02;diffuseColor.rgb*=vPC;
+    bool cloth=(pid>0.5&&pid<2.5)||(pid>7.5&&pid<8.5);
+    if(uPatOn>0.5&&pid>0.5&&pid<1.5)diffuseColor.rgb=texture2D(uPat,vUv2*7.0).rgb*(0.55+0.45*vColor.r);
+    else if(uPatBOn>0.5&&pid>1.5&&pid<2.5)diffuseColor.rgb=texture2D(uPatB,vUv2*6.0).rgb;
+    if(uJersey>0.5&&pid>0.5&&pid<1.5){float ax=abs(vBind.x),ay=vBind.y;vec3 bl=vec3(0.0,0.22,0.58),rd=vec3(0.81,0.07,0.15);
+      if(ay>uJk.y-0.03)diffuseColor.rgb=bl;
+      else if(ay>uJk.y-0.1&&ax>0.115*uJk.x&&abs(vBind.z)<0.034)diffuseColor.rgb=abs(vBind.z)<0.014?rd:bl;
+      if(ax>0.285*uJk.x&&ay<uJk.y-0.1&&ay>uJk.y-0.19)diffuseColor.rgb=bl;
+      if(vBind.z>0.04){vec2 d=vec2(vBind.x-0.095*uJk.x,vBind.y-(uJk.y-0.22));float r=length(d);if(r<0.036)diffuseColor.rgb=r<0.012?bl:(r<0.026?vec3(0.99,0.82,0.09):rd);}}
+    if(cloth)diffuseColor.rgb*=0.9+0.2*texture2D(uWeave,vUv2*28.0).r;`)};
+  m.customProgramCacheKey=()=>'cuerpo1';return m}
+/* ---------- ropa a partir de los datos de la persona ---------- */
+const GEO=new Map();
+function outfit(sp,kind){const f=kind==='f',ky=CB.SC[kind].y;let top='tee',neck='crew';
+  if(sp.suit)top=(sp.hem!==undefined&&sp.hem>.95)?'shirt':'jacket';else if(sp.topReg==='guaya'||sp.sleeve===0&&sp.top&&!sp.jersey&&!sp.pat)top='shirt';
+  if(sp.jersey)neck='v';else if(sp.fem===2||sp.topReg==='blouse')neck='scoop';
+  let sleeve=sp.sleeve===undefined?1:sp.sleeve;if(sp.fem===2)sleeve=2;
+  const hem=sp.hem!==undefined?sp.hem*ky:undefined;const effHem=hem!==undefined?hem:(f?.9:.86);
+  const bottom=sp.noBottom||sp.fem===2?null:(sp.shorts?'shorts':'long');
+  return{top,neck,sleeve,hem,bottom,belt:!!sp.belt&&!f&&effHem>.98*ky&&!!bottom,shoes:true}}
+/* ---------- cabello, barba ---------- */
+const HAIRTEX={};function hairTex(c){if(HAIRTEX[c])return HAIRTEX[c];const S=64,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');g.fillStyle=c;g.fillRect(0,0,S,S);
+  for(let i=0;i<900;i++){const v=Math.random();g.fillStyle=v<.5?'rgba(0,0,0,.35)':'rgba(255,255,255,.08)';g.fillRect(Math.random()*S,Math.random()*S,1,1+Math.random()*2)}const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,2);HAIRTEX[c]=t;return t}
+function makeHair(root,bones,kind,hair,beard,hairC,out){const H=CB.headInfo(kind),hc=H.c,hr=H.r;const hp=bones.Head.position.clone();let P=hp.clone();bones.Head.parent&&bones.Head.parent.updateWorldMatrix(true,false);
+  const rp=CB.restPos(kind).Head;const holder=new THREE.Group();holder.position.set(-rp[0],-rp[1],-rp[2]);bones.Head.add(holder);
+  const mat=new THREE.MeshLambertMaterial({map:hairTex(hair&&hair.c||hairC||'#1b1310'),color:'#ffffff',side:THREE.DoubleSide});
+  const add=(geo,x,y,z,sx,sy,sz,rx)=>{const m=new THREE.Mesh(geo,mat);m.position.set(hc[0]+x,hc[1]+y,hc[2]+z);m.scale.set(sx,sy,sz);m.rotation.x=rx||0;m.castShadow=true;holder.add(m);out.props.push(m);return m};
+  if(hair){const st=hair.style||'short',f=kind==='f';
+    const cap=new THREE.SphereGeometry(1,26,14,0,TAU,0,Math.PI*(st==='afro'&&!f?.66:.46));
+    if(st==='afro'&&!f)add(cap,0,.0,-.012,hr[0]*1.42,hr[1]*1.3,hr[2]*1.38,-.1);
+    else if(st!=='none'){add(cap,0,.004,-.01,hr[0]*1.055,hr[1]*1.07,hr[2]*1.08,-.5);
+      if(st==='afro'&&f){const pg=new THREE.SphereGeometry(1,14,10);add(pg,.1,.085,-.02,.068,.068,.068);add(pg,-.1,.085,-.02,.068,.068,.068)}
+      if(st==='bun'){add(new THREE.SphereGeometry(1,14,10),0,.082,-.1,.058,.052,.058)}
+      if(st==='bunLow'){add(new THREE.SphereGeometry(1,14,10),0,-.02,-.115,.058,.052,.056)}
+      if(st==='long'){const ln=new THREE.CylinderGeometry(1,.86,1,18,1,true,Math.PI-Math.PI*1.2/2,Math.PI*1.2);add(ln,0,-.14,-.004,hr[0]*1.08,.36,hr[2]*1.0)}
+      if(st==='ponytail'){add(new THREE.CylinderGeometry(.03,.022,.22,8),0,-.02,-.125,1,1,1,.45)}}}
+  if(beard){const bg=new THREE.SphereGeometry(1,18,10,0,TAU,Math.PI*.62,Math.PI*.38);add(bg,0,-.003,.012,hr[0]*1.045,hr[1]*1.03,hr[2]*1.04);const m2=add(new THREE.SphereGeometry(1,8,6),0,-.052,hr[2]*.9,.027,.0065,.012);m2.rotation.x=.1}
+  return out.props[0]||null}
+/* ---------- instancias ---------- */
+function create(sp){const kind=sp.model||'m';const M=models[kind];const O=outfit(sp,kind);const key=kind+JSON.stringify(O);let geo=GEO.get(key);if(!geo){geo=CB.build(kind,O);GEO.set(key,geo)}
+  const rig=CB.makeRig(kind),root=rig.root,bones=rig.bones;const skel=new THREE.Skeleton(rig.list,rig.inv);
+  const sk=col(sp.skin||'#8d5a3b');const hairC=sp.hairC||'#1b1310';
+  const cols=[sk,col(sp.top||'#ffffff'),col(sp.bottom||'#333333'),col(sp.shoes||'#222222'),col(sp.hatC||'#e9dcb0'),col(hairC),col('#ffffff'),col(hairC),col(sp.shirtC||'#f4f2ee'),col(sp.beltC||'#3b2416')];
+  const mat=makeMaterial(cols,{pat:sp.pat,patB:sp.patB,jersey:sp.jersey,kx:CB.SC[kind].x,ty:1.49*CB.SC[kind].y});
+  const mesh=new THREE.SkinnedMesh(geo,mat);mesh.name='cuerpo';root.add(mesh);root.updateMatrixWorld(true);mesh.bind(skel,new THREE.Matrix4());mesh.castShadow=true;mesh.receiveShadow=false;mesh.frustumCulled=true;
   const mixer=new THREE.AnimationMixer(root);const A={};for(const k in M.clips){A[k]=mixer.clipAction(M.clips[k]);A[k].play();A[k].setEffectiveWeight(0)}
   A.idle.setEffectiveWeight(1);
   const g=new THREE.Group();g.add(root);const s=sp.scale||1;root.scale.multiplyScalar(s);
   const rest={};for(const n in bones)rest[n]=bones[n].quaternion.clone();
-  const ch0={props:[]};if(sp.hair&&M.headBox&&bones.Head)makeHair(g,root,mesh,bones.Head,M.headBox,sp.hair,ch0);
-  return{mesh:g,root,skin:mesh,mixer,A,bones,rest,sp,model:M.kind,hairMesh:ch0.props[0]||null,phase:Math.random()*10,talk:0,talkT:0,w:{idle:1,walk:0,run:0},props:[]}}
+  const ch0={props:[]};const hm=makeHair(root,bones,kind,sp.hair,!!sp.beard&&kind==='m',hairC,ch0);
+  return{mesh:g,root,skin:mesh,mixer,A,bones,rest,sp,model:kind,hairMesh:hm,phase:Math.random()*10,talk:0,talkT:0,w:{idle:1,walk:0,run:0},props:[]}}
+
 
 /* ---------- sombras solo para la gente cercana: cada persona animada pesa unos 16.000 triángulos y la sombra la dibuja otra vez ---------- */
 const SHC={x:0,z:0,d2:Infinity};
@@ -269,16 +163,6 @@ function animate(ch,speed,dt,pose,far){const A=ch.A,t=(ch.clock=(ch.clock||0)+dt
   ch.mixer.update(far?dt:dt);
   const P=POSES[pose];if(P)P(ch,t)}
 
-const HAIRTEX={};function hairTex(c){if(HAIRTEX[c])return HAIRTEX[c];const S=64,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');g.fillStyle=c;g.fillRect(0,0,S,S);
-  for(let i=0;i<900;i++){const v=Math.random();g.fillStyle=v<.5?'rgba(0,0,0,.35)':'rgba(255,255,255,.08)';g.fillRect(Math.random()*S,Math.random()*S,1,1+Math.random()*2)}const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,2);HAIRTEX[c]=t;return t}
-function makeHair(g,root,mesh,head,hb,hair,out){g.updateMatrixWorld(true);const W=mesh.matrixWorld,ws=new THREE.Vector3();W.decompose(new THREE.Vector3(),new THREE.Quaternion(),ws);const k=ws.x;
-  const hx=(hb[1]-hb[0])/2,hz=(hb[5]-hb[4])/2,top=hb[3],cx=(hb[0]+hb[1])/2,cz=(hb[4]+hb[5])/2;const afro=hair.style==='afro';
-  // media esfera achatada: cubre la coronilla, los lados por encima de las orejas y la nuca; la frente queda libre
-  const geo=new THREE.SphereGeometry(1,24,12,0,TAU,0,Math.PI*.5);const sx=hx*(afro?1.3:1.035),sz=hz*(afro?1.3:1.04),sy=afro?.17:.12;
-  const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:hairTex(hair.c||'#1b1310'),color:'#ffffff'}));m.scale.set(sx*k,sy*k,sz*k);m.castShadow=true;
-  const p=new THREE.Vector3(cx,top-(afro?.06:.115),cz-.005).applyMatrix4(W);const holder=new THREE.Group();head.add(holder);
-  const want=new THREE.Matrix4().compose(p,new THREE.Quaternion().setFromEuler(new THREE.Euler(afro?-.12:-.32,0,0)),new THREE.Vector3(1,1,1));
-  const local=new THREE.Matrix4().copy(head.matrixWorld).invert().multiply(want);local.decompose(holder.position,holder.quaternion,holder.scale);holder.add(m);out.props.push(m)}
 /* ---------- props attached to bones (metres, in the bone's frame scaled back to world size) ---------- */
 // attach at a point given in character space (metres, bind pose); the holder keeps the character's axes
 function attachAt(ch,boneName,obj,X,Y,Z){const b=ch.bones[boneName];if(!b)return;ch.mesh.updateMatrixWorld(true);const holder=new THREE.Group();b.add(holder);
