@@ -84,8 +84,8 @@ const lookup=(W,side)=>W; // (los lados se resuelven con el prefijo en cada uso)
 function bodyParts(A,kind,sk){const k=SC[kind],W=weights(kind),T=torsoTable(kind);const SKIN=PART.skin;
   // torso
   tube(A,{nodes:T.map(r=>({p:[0,r[0],0],a:r[1],b:r[2],w:W.torso})),axis:'y',part:SKIN,n:16,capA:true});
-  // cuello (se mete en la cabeza)
-  const nr=.05*k.r;tube(A,{nodes:[[1.45*k.y,nr*1.15],[1.52*k.y,nr],[1.62*k.y,nr*.95]].map(r=>({p:[0,r[0],0],a:r[1],b:r[1]*1.05,w:W.neck})),axis:'y',part:SKIN,n:12});
+  // cuello (se mete en la cabeza, un poco más delgado que el cuello de la cabeza para que no se peleen)
+  const nr=.05*k.r;tube(A,{nodes:[[1.44*k.y,nr*1.15],[1.49*k.y,nr*.92],[1.62*k.y,nr*.78]].map(r=>({p:[0,r[0],0],a:r[1],b:r[1]*1.05,w:W.neck})),axis:'y',part:SKIN,n:12});
   // piernas y brazos de cada lado
   for(const sd of [1,-1]){const s=sd>0?'Left':'Right';
     tube(A,{nodes:LEG.map(r=>{const y=r[0]*k.y;return{p:[legX(kind,y,sd),y,.004],a:r[1]*k.r,b:r[2]*k.r,w:W.leg(s)}}),axis:'y',part:SKIN,n:12,capB:true,capA:true});
@@ -109,6 +109,7 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
     const nodes=ys.map((y,i)=>{let [rx,rz]=torsoR(kind,y);const f=1+loose/ .1;const tuck=hem>=.98*k.y&&!jacket&&y<1.12*k.y;let ax=tuck?rx+.005:rx+loose*(y<1.15*k.y?(jacket?1.1:1.5):1),az=tuck?rz+.005:rz+loose*(y<1.15*k.y?(jacket?1.1:1.5):1);
       if(noSleeveless&&y>1.38*k.y){ax*=.82}
       if(y>1.46*k.y){const t=smooth(1.44*k.y,TOPY,y);ax=ax*(1-t)+(.058*k.r+.014)*t;az=az*(1-t)+(.058*k.r+.014)*t}
+      ax=Math.max(ax,rx+.007);az=Math.max(az,rz+.007); // que el hombro no se asome por la tela
       return{p:[0,y,0],a:ax,b:az,w:W.torso}});
     const vFn=(x,y,z,c,s)=>{ // zonas pintadas: V del cuello, camisa bajo el saco, escote
       if(z>0&&c>-2){const dy=y-(1.5*k.y);
@@ -118,9 +119,9 @@ function garments(A,kind,o){const k=SC[kind],W=weights(kind);
     tube(A,{nodes,axis:'y',part:PART.top,n:18,fn:vFn});
     // mangas
     if(sl<2){for(const sd of [1,-1]){const s=sd>0?'Left':'Right';const cut=(sl===1?.34:.67)*k.x;const arr=[];
-      for(let x=.1*k.x;x<cut;x+=.06*k.x)arr.push(x);arr.push(cut);
+      for(let x=.075*k.x;x<cut;x+=.06*k.x)arr.push(x);arr.push(cut); // la manga nace adentro del hombro para taparlo
       const flare=jacket?.03:o.top==='tee'?.018:.014;
-      const nd=arr.map((x,i)=>{const r=armR(kind,x);const lf=flare*(i/(arr.length-1)>.5?1.4:1);return{p:[x*sd,1.45*k.y,x>.4*k.x?-.008:0],a:r[0]+lf+(i<2?.012:0),b:r[1]+lf+(i<2?.012:0),w:W.arm(s)}});
+      const nd=arr.map((x,i)=>{const r=armR(kind,x);const lf=flare*(i/(arr.length-1)>.5?1.4:1);return{p:[x*sd,1.45*k.y,x>.4*k.x?-.008:0],a:r[0]+lf+(x<.1*k.x?0:i<3?.008:0),b:r[1]+lf+(x<.1*k.x?0:i<3?.008:0),w:W.arm(s)}});
       tube(A,{nodes:nd,axis:'x',part:PART.top,n:14,fn:()=>null});
       const e=nd[nd.length-1];tube(A,{nodes:[e,{...e,a:e.a-.012,b:e.b-.012},{...e,p:[e.p[0]-sd*.03,e.p[1],e.p[2]],a:e.a-.012,b:e.b-.012}],axis:'x',part:PART.top,n:14});
       if(shirt&&sl===0){const wr=armR(kind,.68*k.x);tube(A,{nodes:[{p:[.62*k.x*sd,1.45*k.y,-.008],a:wr[0]+.014,b:wr[1]+.014,w:W.arm(s)},{p:[.7*k.x*sd,1.45*k.y,0],a:wr[0]+.012,b:wr[1]+.012,w:W.arm(s)}],axis:'x',part:jacket?PART.shirt:PART.top,n:14})}}}
