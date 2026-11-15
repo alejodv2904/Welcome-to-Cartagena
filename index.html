@@ -96,12 +96,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(-
 <script src="ciudad-osm.js?v=20261114a"></script>
 <script src="relieve.js?v=20261114a"></script>
 <script src="ambiente.js?v=20261114a"></script>
-<script src="ciudad.js?v=20261114a"></script>
+<script src="ciudad.js?v=20261115b"></script>
 <script src="modelos.js?v=20261114a"></script>
 <script src="carga.js?v=20261114a"></script>
 <script src="gente.js?v=20261114a"></script>
 <script src="lugares.js?v=20261114a"></script>
-<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261115a"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
+<script src="vehiculos.js?v=20261114a"></script><script src="extra.js?v=20261115b"></script><script src="celular.js?v=20261114a"></script><script src="animales.js?v=20261114a"></script><script src="sitios.js?v=20261114a"></script><script src="marcas.js?v=20261114c"></script><script src="tiendas.js?v=20261114c"></script>
 <script>
 window.__startGame=(TX,MODELS)=>{
 'use strict';
@@ -432,7 +432,7 @@ function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get
   for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=roadSegs.get(rkey(i,j));if(!a)continue;for(const s of a){
     const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const d=Math.hypot(x-s.ax-ex*t,z-s.az-ez*t),hw=s.w/2;
     if(d<=hw+.05){v=Math.max(v,RLIFT[s.ty]);continue}
-    if(s.ty>=1&&s.ty<=4&&d<=hw+2.45){const L=Math.sqrt(l2),at=t*L,tr=s.w*.7;if((at<tr&&isJunction(s.ax,s.az))||(L-at<tr&&isJunction(s.bx,s.bz)))continue;walk=Math.max(walk,RLIFT[s.ty]+.17)}}}
+    if(s.ty<=4&&!s.walk&&d<=hw+2.45&&d>hw&&RLIFT[s.ty]+.17>walk){const px=s.ax+ex*t,pz=s.az+ez*t;if(s.br||walkFree(px,pz,(x-px)/d,(z-pz)/d,hw,roadKey(s),s.ty))walk=RLIFT[s.ty]+.17}}}
   if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;const al=dx*st.tx+dz*st.tz,pp=Math.abs(-dx*st.tz+dz*st.tx);if(pp>=st.hw)continue;if(Math.abs(al)<st.hl)v=Math.max(v,st.top);else if(st.rl){const e=-al-st.hl;if(e>=0&&e<st.rl)v=Math.max(v,st.base+(st.top-st.base)*(1-e/st.rl))}}
   if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
 const standY=(x,z)=>ground(x,z)+surfLift(x,z);
@@ -455,7 +455,7 @@ function ribbonP(P,w,lift,mkey,col,off,uScale,joints){if(P.length<2)return;const
   if(joints)for(let i=1;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);const y=ground(P[i][0],P[i][1])+lift;const c=[P[i][0],y,P[i][1]];const gp=(x,z)=>[x,ground(x,z)+lift,z];for(let k=0;k<8;k++){const a0=k/8*TAU,a1=(k+1)/8*TAU;triW(b,c,gp(P[i][0]+Math.cos(a1)*h,P[i][1]+Math.sin(a1)*h),gp(P[i][0]+Math.cos(a0)*h,P[i][1]+Math.sin(a0)*h),8,col)}}}
 const GRAPH={nodes:[],edges:[],idx:new Map()};
 function gnode(x,z){const k=Math.round(x*10)+','+Math.round(z*10);let n=GRAPH.idx.get(k);if(n===undefined){n=GRAPH.nodes.length;GRAPH.nodes.push({x,z,out:[]});GRAPH.idx.set(k,n)}return n}
-function gedge(a,b,ty,two,name){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
+function gedge(a,b,ty,two,name,w){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,w:w||RW[ty],dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
 // how many street segments meet at each vertex (to keep sidewalks and paint out of junctions)
 const vdeg=new Map();const vk=(x,z)=>Math.round(x*10)+','+Math.round(z*10);
 MAP.roads.forEach(r=>{if(r[0]>5)return;const p=r[5];for(let i=0;i<p.length;i+=2){const k=vk(p[i],p[i+1]);vdeg.set(k,(vdeg.get(k)||0)+((i===0||i===p.length-2)?1:2))}});
@@ -478,26 +478,50 @@ function dashed(pts,w,lift,col,on,offL){const P=densify(pts);let acc=0,run=[];co
       if(inOn)ribbonP([[x0,z0],[x1,z1]],w,lift,'paint',col,offL);s+=step;acc+=step}}}
 const TC_ROAD='Avenida Pedro de Heredia';
 function roadW(ty,ow,lanes,name){return name===TC_ROAD&&ow===1&&ty===0?clamp(3.3*Math.max(2,lanes)+1.2,7.8,12):RW[ty]+(lanes>=4?3:0)}
+// sidewalks are only drawn where they do not fall on another roadway: the other carriageway of an avenue, the Transcaribe busway,
+// a parallel service road or the street that crosses at the corner (there they stop at its curb, so the two sidewalks meet at the corner)
+const roadKey=s=>s.road||s.pl||s;
+function otherRoadAt(x,z,self){const ci=Math.floor(x/RS),cj=Math.floor(z/RS);
+  for(let i=ci-1;i<=ci+1;i++)for(let j=cj-1;j<=cj+1;j++){const a=roadSegs.get(rkey(i,j));if(!a)continue;for(const s of a){if(s.walk&&!s.bw||s.br||self&&roadKey(s)===self)continue;
+    const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;let t=l2?((x-s.ax)*ex+(z-s.az)*ez)/l2:0;t=clamp(t,0,1);const hw=s.w/2-.05;if((x-s.ax-ex*t)**2+(z-s.az-ez*t)**2<hw*hw)return true}}return false}
+// trunk roads had no sidewalks before: there they also stay out of the places built by hand (Bazurto, the Éxito…)
+const OWNWALK=[];let WALK_READY=false;
+function walkFree(px,pz,nx,nz,hw,self,ty){if(ty===0&&!WALK_READY)return false;for(const o of [.3,1.2,2.2]){const x=px+nx*(hw+o),z=pz+nz*(hw+o);if(otherRoadAt(x,z,self))return false;
+    if(ty===0&&(inSpecial(x,z)||OWNWALK.some(q=>inPoly(q,x,z))))return false}return true}
+// the stretches of one side of a street where its sidewalk can go (cut exactly where another roadway begins)
+function walkRuns(pts,w,sgn,self,ty){const runs=[];let cur=null;const hw=w/2;
+  for(let i=0;i<pts.length-2;i+=2){const ax=pts[i],az=pts[i+1],bx=pts[i+2],bz=pts[i+3],L=Math.hypot(bx-ax,bz-az);if(L<.01)continue;const dx=(bx-ax)/L,dz=(bz-az)/L,nx=-dz*sgn,nz=dx*sgn;
+    const ok=t=>walkFree(ax+dx*t,az+dz*t,nx,nz,hw,self,ty);const n=Math.max(1,Math.ceil(L/3));let prevOk=ok(0),prevT=0;
+    if(!prevOk&&cur){if(cur.length>=4)runs.push(cur);cur=null}if(prevOk&&!cur)cur=[ax,az];
+    for(let k=1;k<=n;k++){const t=L*k/n,o=ok(t);
+      if(o!==prevOk){let lo=prevT,hi=t;for(let q=0;q<5;q++){const m=(lo+hi)/2;if(ok(m)===prevOk)lo=m;else hi=m}const ct=prevOk?lo:hi;
+        if(prevOk){cur.push(ax+dx*ct,az+dz*ct);if(cur.length>=4)runs.push(cur);cur=null}else cur=[ax+dx*ct,az+dz*ct]}
+      prevOk=o;prevT=t}
+    if(cur){const lx=cur[cur.length-2],lz=cur[cur.length-1];if(Math.hypot(lx-bx,lz-bz)>.01)cur.push(bx,bz)}}
+  if(cur&&cur.length>=4)runs.push(cur);return runs}
 // pavement, markings, sidewalks and curbs of one street
-function roadGeo(ty,ow,w,pts){const P=densify(pts);
+function roadGeo(ty,ow,w,pts,self,br,noWalk){const P=densify(pts);
   ribbonP(P,w,RLIFT[ty],RMAT[ty],colObj(RTINT[ty]),0,0,true);
   if(ty<=4){// markings, kept clear of junctions
     for(const run of trimRuns(pts,w*.7)){
       if(ow===0&&ty<=3)dashed(run,.22,RLIFT[ty]+.01,YEL,3);
-      if(ty<=2){ribbonP(densify(run),.18,RLIFT[ty]+.01,'paint',WHT,w/2-.5);ribbonP(densify(run),.18,RLIFT[ty]+.01,'paint',WHT,-(w/2-.5))}
-      if(ty>=1){// raised sidewalks with a curb on both sides
-        for(const sgn of [1,-1]){const o=sgn*(w/2+1.2),D=densify(run);ribbonP(D,2.4,RLIFT[ty]+.17,'walk',WALKC,o,0,false);
-          // curb face
-          const C=[];for(let i=0;i<D.length;i++){const a=D[Math.max(0,i-1)],b=D[Math.min(D.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const l=Math.hypot(dx,dz)||1;C.push([D[i][0]-dz/l*sgn*w/2,D[i][1]+dx/l*sgn*w/2])}
-          for(let i=0;i<C.length-1;i++){const y0=ground(C[i][0],C[i][1])+RLIFT[ty],y1=ground(C[i+1][0],C[i+1][1])+RLIFT[ty];quad(bucket('plain',C[i][0],C[i][1]),[C[i][0],y0,C[i][1]],[C[i+1][0],y1,C[i+1][1]],[C[i+1][0],y1+.17,C[i+1][1]],[C[i][0],y0+.17,C[i][1]],null,CURB)}}}}}}
-MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);roadGeo(ty,ow,w,pts);
-  if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,outerAv:r[6]===1});
+      if(ty<=2){ribbonP(densify(run),.18,RLIFT[ty]+.01,'paint',WHT,w/2-.5);ribbonP(densify(run),.18,RLIFT[ty]+.01,'paint',WHT,-(w/2-.5))}}
+    if(!noWalk)sidewalks(ty,w,pts,self,br)}}
+// raised sidewalks with a curb, on each side where there is room for them
+function sidewalks(ty,w,pts,self,br){
+  for(const sgn of [1,-1])for(const run of br?[pts]:walkRuns(pts,w,sgn,self,ty)){const o=sgn*(w/2+1.2),D=densify(run);ribbonP(D,2.4,RLIFT[ty]+.17,'walk',WALKC,o,0,false);
+    // curb face
+    const C=[];for(let i=0;i<D.length;i++){const a=D[Math.max(0,i-1)],b=D[Math.min(D.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const l=Math.hypot(dx,dz)||1;C.push([D[i][0]-dz/l*sgn*w/2,D[i][1]+dx/l*sgn*w/2])}
+    for(let i=0;i<C.length-1;i++){const y0=ground(C[i][0],C[i][1])+RLIFT[ty],y1=ground(C[i+1][0],C[i+1][1])+RLIFT[ty];quad(bucket('plain',C[i][0],C[i][1]),[C[i][0],y0,C[i][1]],[C[i+1][0],y1,C[i+1][1]],[C[i+1][0],y1+.17,C[i+1][1]],[C[i][0],y0+.17,C[i][1]],null,CURB)}}}
+// (the sidewalks of these streets are drawn once every roadway and the places built by hand are known: see drawSidewalks)
+MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);roadGeo(ty,ow,w,pts,r,br,true);
+  if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,outerAv:r[6]===1,road:r,br:!!br});
   else for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,walk:true});
-  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name);if(ow<=0)gedge(b,a,ty,two,name)}}});
+  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name,w);if(ow<=0)gedge(b,a,ty,two,name,w)}}});
 // streets of the generated barrios: in the street index and the traffic graph now; their pavement and houses are built near the player
 // (con ciudad-osm.js son las calles reales: respetan el sentido único y las de servicio no llevan tránsito)
-const GSEGS=GEN.segs;for(const s of GSEGS){s.w=s.pl?roadW(s.ty,s.ow,s.lanes,s.name):RW[s.ty];s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);
-  if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name);if(two)gedge(b,a,s.ty,two,s.name)}
+const GSEGS=GEN.segs;for(const s of GSEGS){s.w=s.pl?roadW(s.ty,s.ow,s.lanes,s.name):RW[s.ty];s.br=!!(s.pl&&s.pl.br);s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);
+  if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name,s.w);if(two)gedge(b,a,s.ty,two,s.name,s.w)}
 /* ---------- Transcaribe: exclusive two-way busway down the middle of Avenida Pedro de Heredia, with raised stations ---------- */
 const TCW={path:null,S:null,L:0,stations:[]};
 (function(){const segs=CD.OSM
@@ -2550,7 +2574,7 @@ function construirSitios(){
         if(!onLand(c1[0],c1[1])||!roadClear(c1[0],c1[1],.3)||!roadClear(c2[0],c2[1],.3))continue;
         flatPoly(ccw([...S.pt(a,S.O1),...S.pt(b,S.O1),...S.pt(b,S.O2),...S.pt(a,S.O2)]),'walk',.14,3,colObj(S.mer?'#c9c1b3':'#d3cfc7'));
         const q=S.pt((a+b)/2,S.O1+.12),d=S.at((a+b)/2);box(1.5,.26,.24,k%2?'#2a2a2a':'#f2c230',q[0],ground(q[0],q[1])+.06,q[1],Math.atan2(-d.dz,d.dx))}
-      const st=[];for(let a=0;a<=S.len;a+=5)st.push(...S.pt(a,S.O1-.4));for(let a=S.len;a>=0;a-=5)st.push(...S.pt(a,S.O2+S.dMax+2));NOPALM.push(ccw(st))}
+      const st=[];for(let a=0;a<=S.len;a+=5)st.push(...S.pt(a,S.O1-.4));for(let a=S.len;a>=0;a-=5)st.push(...S.pt(a,S.O2+S.dMax+2));NOPALM.push(ccw(st));OWNWALK.push(ccw(st))}
     // los vendedores ambulantes del andén
     const umb=(x,y,z,r,cols)=>{cyl(.03,.03,2.3,'#d0d0d0',x,y+1.15,z,5);for(let i=0;i<8;i++)geoInto('plain',new THREE.ConeGeometry(r,.55,2,1,true,i*TAU/8,TAU/8),colObj(cols[i%cols.length]),place(x,y+2.45,z))};
     const B=(x,z,yw,lx,y,lz,w,h,d,col)=>{const p=lc(x,z,yw,lx,lz);box(w,h,d,col,p[0],y,p[1],yw)};
@@ -2904,6 +2928,8 @@ const ANCHORED=(function(){const out=[];
       for(let a=-L*.28;a<L*.3;a+=L*.14){bx(B*.7,1.4,L*.09,'#2e5f4f',P(a,0,5.9),yaw);bx(.7,9,.7,'#e8c23a',P(a+L*.07,B*.3,9.7),yaw);bx(.5,.5,10,'#e8c23a',P(a+L*.07,B*.3,13.8),yaw)}}
     });
   return out})();
+// sidewalks of the streets built at the start, now that every roadway and the places built by hand are known
+(function drawSidewalks(){WALK_READY=true;for(const r of MAP.roads){const [ty,ow,lanes,br,name,pts]=r;if(ty<=4)sidewalks(ty,roadW(ty,ow,lanes,name),pts,r,br)}SLC.clear()})();
 flushBatches();
 /* ---------- barrios por bloques de 250 m: el pavimento de las calles, las casas, los locales y los postes de luz
    se construyen solo cerca del jugador (y se desarman al alejarse), así toda Cartagena cabe en el navegador ---------- */
@@ -3025,13 +3051,13 @@ function chunkBuild(tx,tz){const x0=tx*TILE,z0=tz*TILE,x1=x0+TILE,z1=z0+TILE;con
   const list=[...set].sort((a,b)=>a.rid-b.rid);
   for(const s of list){if(!s.grid)continue;
     // calle real: el tramo entero (con sus curvas) se construye en el bloque donde empieza, con postes a lo largo
-    if(s.pl){if(!s.own||s.ax<x0||s.ax>=x1||s.az<z0||s.az>=z1)continue;const p=s.pl.pts;roadGeo(s.ty,s.ow===1?1:0,s.w,p);if(s.ty>4)continue;
+    if(s.pl){if(!s.own||s.ax<x0||s.ax>=x1||s.az<z0||s.az>=z1)continue;const p=s.pl.pts;roadGeo(s.ty,s.ow===1?1:0,s.w,p,s.pl,s.pl.br);if(s.ty>4)continue;
       const sd=s.rid%2?1:-1,off=s.w/2+.8;let acc=14;
       for(let i=0;i<p.length-2;i+=2){const L=Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1]);if(L<.05)continue;const dx=(p[i+2]-p[i])/L,dz=(p[i+3]-p[i+1])/L,nx=-dz*sd,nz=dx*sd;
         for(;acc<L;acc+=36){if(i===p.length-4&&acc>L-10)break;const x=p[i]+dx*acc+nx*off,z=p[i+1]+dz*acc+nz*off;if(!onLand(x,z)||osmSolidAt(x,z)||realSolidAt(x,z))continue;pushLamp(x,z,Math.atan2(-nx,-nz));const gx=x-nx*2,gz=z-nz*2;glow.push(gx,ground(gx,gz)+7.65,gz);pools.push(gx,gz)}
         acc-=L}
       continue}
-    const mx=(s.ax+s.bx)/2,mz=(s.az+s.bz)/2;if(mx<x0||mx>=x1||mz<z0||mz>=z1)continue;roadGeo(s.ty,0,s.w,[s.ax,s.az,s.bx,s.bz]);
+    const mx=(s.ax+s.bx)/2,mz=(s.az+s.bz)/2;if(mx<x0||mx>=x1||mz<z0||mz>=z1)continue;roadGeo(s.ty,0,s.w,[s.ax,s.az,s.bx,s.bz],s);
     const L=Math.hypot(s.bx-s.ax,s.bz-s.az),dx=(s.bx-s.ax)/L,dz=(s.bz-s.az)/L,sd=s.rid%2?1:-1,nx=-dz*sd,nz=dx*sd,off=s.w/2+.8;
     for(let t=14;t<L-10;t+=36){const x=s.ax+dx*t+nx*off,z=s.az+dz*t+nz*off;if(!onLand(x,z)||osmSolidAt(x,z))continue;pushLamp(x,z,Math.atan2(-nx,-nz));const gx=x-nx*2,gz=z-nz*2;glow.push(gx,ground(gx,gz)+7.65,gz);pools.push(gx,gz)}}
   const trees=[];const lots=[];for(const s of list){if(s.walk)continue;for(const l of lotsOf(s))if(l.cx>=x0&&l.cx<x1&&l.cz>=z0&&l.cz<z1){if(!l.real)l.r=Math.hypot(l.lw,l.d)/2;lots.push(l)}}
@@ -3231,7 +3257,7 @@ scene.add(player.mesh);
 
 // pedestrians walk along the sidewalks of the street graph (both directions), others stand in plazas
 const PADJ=new Map();
-GRAPH.edges.forEach(e=>{for(const [a,b] of [[e.a,e.b],[e.b,e.a]]){let l=PADJ.get(a);if(!l){l=[];PADJ.set(a,l)}if(!l.some(q=>q.to===b))l.push({to:b,ty:e.ty})}});
+GRAPH.edges.forEach(e=>{for(const [a,b] of [[e.a,e.b],[e.b,e.a]]){let l=PADJ.get(a);if(!l){l=[];PADJ.set(a,l)}const q=l.find(q=>q.to===b);if(!q)l.push({to:b,ty:e.ty,w:e.w});else if(e.w>q.w)q.w=e.w}});
 const pedNodes=[...PADJ.keys()];
 const CENTRO_NODES=pedNodes.filter(n=>{const N=GRAPH.nodes[n];return inCentro(N.x,N.z)}),CENTRO_SET=new Set(CENTRO_NODES);
 // street nodes bucketed in a grid so new walkers can be placed near the player without blind random tries
@@ -3294,30 +3320,79 @@ function crowdLook(sp){const ms=modelSpec(sp);const f=ms.model==='f';const C=c=>
 function makePed(kind,x,z,eager){const sp=archetype(kind);const p={sp,look:crowdLook(sp),ch:null,mesh:null,kind,x,z,ang:0,spd:kind==='palenquera'?rr(.8,1.1):kind==='tourist'?rr(.95,1.3):kind==='nino'?rr(.75,1.05):sp.style==='mayor'?rr(.7,1):rr(1.1,1.5),from:-1,to:-1,side:1,stand:0,inScene:false,skin:false,vis:false};
   if(eager)pedBuild(p);return p}
 function pedBuild(p){if(p.ch)return;p.ch=buildCharacter(p.sp);p.mesh=p.ch.mesh;p.mesh.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=true})}
-function placePed(p,minD,maxD,hidden){p.xing=null;p.flipAt=undefined;p.okN=-1;for(let t=0;t<8;t++){const n=nodeNear(minD,maxD,hidden);if(n<0||CENTRO_SET.has(n))continue;const N=GRAPH.nodes[n];if(rand()>pedDens(N.x,N.z))continue;const adj=PADJ.get(n);const q=pick(adj);
-    p.from=n;p.to=q.to;p.side=rand()<.5?1:-1;p.w=RW[q.ty];const B=GRAPH.nodes[q.to];const L=dist2(N.x,N.z,B.x,B.z);p.s=rr(0,L);p.L=L;pedPos(p);p.yawS=p.ang;if(onLand(p.x,p.z)&&!solidAt(p.x,p.z))return true}p.from=-1;return false}
-function pedPos(p){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];const dx=(B.x-A.x)/(p.L||1),dz=(B.z-A.z)/(p.L||1);const X=p.xing;const o=(X?lerp(X.from,X.to,X.k):p.side)*(p.w/2+1.1);
-  p.x=A.x+dx*p.s-dz*o;p.z=A.z+dz*p.s+dx*o;p.ang=X&&!X.wait?Math.atan2(-dz*(X.to-X.from),dx*(X.to-X.from)):Math.atan2(dx,dz)}
-// pedestrians only cross at the zebra crossings of the junctions with traffic lights, and only when the light lets them:
-// returns 0 walking along the street, 1 crossing it (s does not advance), 2 waiting at the kerb
-function pedRule(p,dt){const X=p.xing;
-  if(X){if(X.wait){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];if(!EX.pedAcross(B.x-A.x,B.z-A.z))return 2;X.wait=false}
-    X.k+=p.spd*dt/X.len;if(X.k>=1){p.side=X.to;p.xing=null;return 0}return 1}
-  if(p.flipAt!==undefined&&p.s>=p.flipAt){p.s=p.flipAt;p.flipAt=undefined;p.xing={k:0,from:p.side,to:-p.side,len:p.w+2.2,wait:true};return 2}
-  const T=p.okN===p.to?null:EX.tlAt(p.to);
-  if(T&&p.s>=p.L-(T.w+.6)){const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];if(!EX.pedAlong(B.x-A.x,B.z-A.z)){p.s=Math.max(p.s-p.spd*dt,p.L-(T.w+.6));return 2}p.okN=p.to}
-  return 0}
-// arrived at a node: at a junction with traffic lights, sometimes cross to the other sidewalk by its zebra crossing
-function pedTurn(p){p.okN=-1;p.flipAt=undefined;const T=EX.tlAt(p.from);if(T&&rand()<.3&&p.L>T.w+8)p.flipAt=T.w+1.3}
+/* the walkers keep to the sidewalk (its middle, w/2+1.2 from the centre of the street): they go round the corners without stepping
+   on the road and only cross a street by the zebra of a junction with traffic lights, waiting at the kerb for the green man */
+// the streets that meet at a node, in angular order
+const PNB=new Map();
+function pnb(n){let l=PNB.get(n);if(l)return l;const N=GRAPH.nodes[n];
+  l=(PADJ.get(n)||[]).map(q=>{const B=GRAPH.nodes[q.to];const L=dist2(N.x,N.z,B.x,B.z)||1;return{to:q.to,w:q.w,dx:(B.x-N.x)/L,dz:(B.z-N.z)/L,L,a:Math.atan2(B.z-N.z,B.x-N.x)}}).sort((a,b)=>a.a-b.a);PNB.set(n,l);return l}
+function adjW(a,b){const q=(PADJ.get(a)||[]).find(q=>q.to===b);return q?q.w:RW[3]}
+// is there a sidewalk to walk on this side of the street? (not when it falls on the other carriageway, the busway, a parallel road or the water)
+const PWOK=new Map();
+function sideOK(a,b,side){const k=a<b?a*4e6+b*2+(side>0?1:0):b*4e6+a*2+(side>0?0:1);let v=PWOK.get(k);if(v!==undefined)return v;
+  const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const L=dist2(A.x,A.z,B.x,B.z)||1,dx=(B.x-A.x)/L,dz=(B.z-A.z)/L,o=side*(adjW(a,b)/2+1.2);let bad=0,n=0;
+  for(const t of L>8?[.2,.5,.8]:[.5]){const x=A.x+dx*L*t-dz*o,z=A.z+dz*L*t+dx*o;n++;if(!onLand(x,z)){bad++;continue}
+    // another roadway running alongside (a street that only crosses it is the corner, handled when turning)
+    const ci=Math.floor(x/RS),cj=Math.floor(z/RS);let hit=false;
+    for(let i=ci-1;i<=ci+1&&!hit;i++)for(let j=cj-1;j<=cj+1&&!hit;j++){const arr=roadSegs.get(rkey(i,j));if(!arr)continue;for(const s of arr){if(s.walk&&!s.bw)continue;
+      const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez;if(l2<.01)continue;let u=((x-s.ax)*ex+(z-s.az)*ez)/l2;u=clamp(u,0,1);const hw=s.w/2-.1;if((x-s.ax-ex*u)**2+(z-s.az-ez*u)**2>=hw*hw)continue;
+      if(Math.abs((ex*dx+ez*dz)/Math.sqrt(l2))>.6){hit=true;break}}}
+    if(hit)bad++}
+  v=bad===0||L>40&&bad===1;if(PWOK.size>200000)PWOK.clear();PWOK.set(k,v);return v}
+// the corner where a walker coming from `from` along the `side` sidewalk reaches node n: the next street round that corner (e2) and how far
+// from the node the two sidewalk lines meet (t1 along the street it comes by, t2 along e2)
+function pedCorner(n,from,side,w1){const l=pnb(n);const i=l.findIndex(q=>q.to===from);if(l.length<2||i<0)return{dead:true,t1:.3};
+  const e1=l[i],e2=l[(i+(side>0?-1:1)+l.length)%l.length];const r1=w1/2+1.2,r2=e2.w/2+1.2;
+  const o1x=side*e1.dz,o1z=-side*e1.dx,o2x=-side*e2.dz,o2z=side*e2.dx;
+  const rx=o2x*r2-o1x*r1,rz=o2z*r2-o1z*r1,det=e2.dx*e1.dz-e1.dx*e2.dz;let t1,t2;
+  if(Math.abs(det)<.25){t1=t2=Math.max(r1,r2)*.25}   // the street just goes on (or bends a little): the sidewalk goes on too
+  else{t1=(e2.dx*rz-e2.dz*rx)/det;t2=(e1.dx*rz-e1.dz*rx)/det}
+  return{e1,e2,t1:clamp(t1,0,e1.L-.4),t2:clamp(t2,0,e2.L-.4),o2x,o2z,r2}}
+// start walking along the street a→b on one side, s metres from a
+function pedEdge(p,a,b,side,s){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];p.from=a;p.to=b;p.side=side;p.L=dist2(A.x,A.z,B.x,B.z)||1;p.w=adjW(a,b);p.s=Math.min(s,p.L);p.path=null;p.hold=false;
+  p.cn=pedCorner(b,a,side,p.w);p.se=Math.max(p.s,p.L-p.cn.t1)}
+function pedPos(p){if(p.path)return;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];const dx=(B.x-A.x)/p.L,dz=(B.z-A.z)/p.L,o=p.side*(p.w/2+1.2);
+  p.x=A.x+dx*p.s-dz*o;p.z=A.z+dz*p.s+dx*o;p.ang=Math.atan2(dx,dz)}
+const pAt=(N,e,t,ox,oz,r)=>({x:N.x+e.dx*t+ox*r,z:N.z+e.dz*t+oz*r});
+// a walk from (x,z) through these points that never steps on a roadway (where the street map is tangled, the walker turns back instead)
+function dryWalk(x,z,pts){for(const q of pts){if(otherRoadAt(q.x,q.z,null)||otherRoadAt((x+q.x)/2,(z+q.z)/2,null))return false;x=q.x;z=q.z}return true}
+// at the end of the sidewalk: round the corner, cross by the zebra when there is one, or turn back
+function pedArrive(p,res){const n=p.to,c=p.cn,N=GRAPH.nodes[n],side=p.side;const back=()=>pedEdge(p,n,p.from,-side,Math.max(0,p.L-p.s));
+  if(c.dead)return back();const e2=c.e2;const okTo=o=>!res||CENTRO_SET.has(o);
+  const Z=EX.zebraAt(n,e2.to);
+  if(Z&&rand()<.6){const ow=e2.w/2+.45,q1=pAt(N,e2,Z.d,c.o2x,c.o2z,ow),q2=pAt(N,e2,Z.d,c.o2x,c.o2z,-ow);let tail=null,after=null;
+    // on the other side: round the next corner, or along the street just crossed
+    const c3=pedCorner(n,e2.to,side,e2.w);
+    if(!c3.dead&&rand()<.5&&okTo(c3.e2.to)&&sideOK(n,c3.e2.to,side)){tail=[pAt(N,e2,c3.t1,c.o2x,c.o2z,-c.r2),pAt(N,c3.e2,c3.t2,c3.o2x,c3.o2z,c3.r2)];after={a:n,b:c3.e2.to,side,s:c3.t2}}
+    else if(okTo(e2.to)&&sideOK(n,e2.to,-side)){const t=Math.min(Z.d+1.6,e2.L-.4);tail=[pAt(N,e2,t,c.o2x,c.o2z,-c.r2)];after={a:n,b:e2.to,side:-side,s:t}}
+    if(after&&dryWalk(p.x,p.z,[q1])&&dryWalk(q2.x,q2.z,tail)){p.path=[{x:q1.x,z:q1.z,hold:true,n,o:e2.to},{x:q2.x,z:q2.z,cross:true,n,o:e2.to},...tail];p.pk=0;p.hold=false;p.after=after;return}}
+  if(okTo(e2.to)&&sideOK(n,e2.to,side)){const q=pAt(N,e2,c.t2,c.o2x,c.o2z,c.r2);if(dryWalk(p.x,p.z,[q])){p.path=[q];p.pk=0;p.hold=false;p.after={a:n,b:e2.to,side,s:c.t2};return}}
+  back()}
+// one step of a walker: 0 walking, 1 crossing the street, 2 standing (waiting for the green man)
+function pedStep(p,step,res){
+  if(p.path){let W=p.path[p.pk];
+    if(p.hold){if(!EX.pedGo(W.n,W.o))return 2;p.hold=false;W=p.path[++p.pk]}
+    if(W.cross)EX.zebraMark(W.n,W.o);
+    const dx=W.x-p.x,dz=W.z-p.z,d=Math.hypot(dx,dz);if(d>.05)p.ang=Math.atan2(dx,dz);
+    if(d>step){p.x+=dx/d*step;p.z+=dz/d*step;return W.cross?1:0}
+    p.x=W.x;p.z=W.z;
+    if(W.hold){p.hold=true;const nx=p.path[p.pk+1];p.ang=Math.atan2(nx.x-p.x,nx.z-p.z);return 2}
+    if(++p.pk>=p.path.length){const a=p.after;pedEdge(p,a.a,a.b,a.side,a.s)}return W.cross?1:0}
+  p.s+=step;if(p.s>=p.se)pedArrive(p,res);return 0}
+// a walker put somewhere new: a street near the spot, on a side with a sidewalk, somewhere along it
+function pedSet(p,n,adj,res){const q=pick(adj);let side=rand()<.5?1:-1;if(!sideOK(n,q.to,side)){side=-side;if(!sideOK(n,q.to,side))return false}
+  const l=pnb(n),jw=l.length>=3?Math.max(...l.map(e=>e.w/2))+1.2:0;pedEdge(p,n,q.to,side,0);p.s=rr(Math.min(jw,p.se),p.se);pedPos(p);p.yawS=p.ang;
+  if(res&&!CENTRO_SET.has(q.to))return false;return onLand(p.x,p.z)&&!solidAt(p.x,p.z)&&!otherRoadAt(p.x,p.z,null)}
+function placePed(p,minD,maxD,hidden){p.path=null;p.hold=false;for(let t=0;t<8;t++){const n=nodeNear(minD,maxD,hidden);if(n<0||CENTRO_SET.has(n))continue;const N=GRAPH.nodes[n];if(rand()>pedDens(N.x,N.z))continue;
+    if(pedSet(p,n,PADJ.get(n),false))return true}p.from=-1;return false}
 // walkers (only the closest ones get a full skinned model, built on demand)
 const NPED=Math.max(QL.alta.peds,QL.media.peds,QL.baja.peds);
 for(let i=0;i<NPED;i++){const p=makePed('local',0,0);if(!placePed(p,12,Q.crowdD-10,false)){peds.push(p);continue}const k=rand()<.09?'nino':zoneKind(p.x,p.z);
-  if(k!=='local'){const q=makePed(k,p.x,p.z);Object.assign(q,{from:p.from,to:p.to,side:p.side,w:p.w,s:p.s,L:p.L,x:p.x,z:p.z,ang:p.ang,yawS:p.ang});peds.push(q)}else peds.push(p)}
+  if(k!=='local'){const q=makePed(k,p.x,p.z);for(const f of ['from','to','side','w','s','L','se','cn','path','pk','hold','after','x','z','ang'])q[f]=p[f];q.yawS=p.ang;peds.push(q)}else peds.push(p)}
 /* residents of the Centro (Centro Histórico, San Diego, Getsemaní): about 1000 people who always live and walk there,
    simulated everywhere and drawn when near (Q.res says how many exist at each quality level) */
 const RES=[],NRES=3000;
-function resPlace(p){p.xing=null;p.flipAt=undefined;p.okN=-1;for(let t=0;t<10;t++){const n=pick(CENTRO_NODES);const adj=(PADJ.get(n)||[]).filter(q=>CENTRO_SET.has(q.to));if(!adj.length)continue;const q=pick(adj);
-    p.from=n;p.to=q.to;p.side=rand()<.5?1:-1;p.w=RW[q.ty];const A=GRAPH.nodes[n],B=GRAPH.nodes[q.to];p.L=dist2(A.x,A.z,B.x,B.z);p.s=rr(0,p.L);pedPos(p);p.yawS=p.ang;if(onLand(p.x,p.z)&&!solidAt(p.x,p.z))return true}return false}
+function resPlace(p){p.path=null;p.hold=false;for(let t=0;t<10;t++){const n=pick(CENTRO_NODES);const adj=(PADJ.get(n)||[]).filter(q=>CENTRO_SET.has(q.to));if(!adj.length)continue;if(pedSet(p,n,adj,true))return true}return false}
 if(CENTRO_NODES.length)for(let i=0;i<NRES;i++){const p=makePed('local',0,0);const k=(()=>{const r=rand();return r<.28?'tourist':r<.34?'palenquera':r<.41?'vendor':r<.46?'police':'local'})();
   const q=k==='local'?(rand()<.08?makePed('nino',0,0):p):makePed(k,0,0);q.res=true;if(resPlace(q))RES.push(q)}
 
@@ -3374,8 +3449,8 @@ function updatePeds(dt){lodT-=dt;if(lodT<=0){lodT=.25;relod()}updatePeds.budget=
     if(p.kind==='police'&&(p.chasing||chaseCops&&d<38)){if(!chaseCops){p.chasing=false;p.from=-1;continue}p.chasing=true;
       const dx=player.x-p.x,dz=player.z-p.z;const run=d>1.3?5.2:0;if(run){const nx=p.x+dx/d*run*dt,nz=p.z+dz/d*run*dt;moveOnLand(p,nx,nz);collide(p,.35)}
       p.ang=angLerp(p.ang,Math.atan2(dx,dz),Math.min(1,dt*8));if(d<1.7&&!player.car)copFootNear=true;showPed(p,dt,run,'',d);continue}
-    const rule=pedRule(p,dt);if(rule===2)speed=0;
-    if(rule===0){speed*=hurry;p.s+=p.spd*hurry*dt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from);if(!opts.length)opts=adj;if(!opts.length){p.from=-1;continue}const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);pedTurn(p)}}
+    // (crossing the street they hurry a little)
+    const rule=pedStep(p,p.spd*(p.path&&p.path[p.pk]&&p.path[p.pk].cross?hurry*1.25:hurry)*dt,false);if(rule===2)speed=0;else speed*=hurry;
     pedPos(p);const ang=p.ang;p.ang=p.yawS===undefined?ang:angLerp(p.yawS,ang,Math.min(1,dt*6));p.yawS=p.ang;
     showPed(p,dt,speed,p.kind==='vendor'?'cooler':p.kind==='palenquera'&&p.look.phase<3?'bowl':'',d)}
   // residents: all of them keep walking (far ones in cheap steps), only the near ones are drawn
@@ -3384,9 +3459,7 @@ function updatePeds(dt){lodT-=dt;if(lodT<=0){lodT=.25;relod()}updatePeds.budget=
     let d=Math.abs(p.x-player.x)+Math.abs(p.z-player.z);const near=d<Q.crowdD*1.42;
     if(!near&&(i&3)!==rStep){if(p.vis){p.vis=false;showPed(p,dt,0,'',999)}continue}const sdt=near?dt:dt*4;
     if(p.down>0){d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;showPed(p,dt,0,'',d);continue}
-    const rule=pedRule(p,sdt);
-    if(rule===0){p.s+=p.spd*sdt;if(p.s>=p.L){const adj=PADJ.get(p.to)||[];let opts=adj.filter(q=>q.to!==p.from&&CENTRO_SET.has(q.to));if(!opts.length)opts=adj.filter(q=>CENTRO_SET.has(q.to));if(!opts.length){resPlace(p);continue}
-      const q=pick(opts);p.from=p.to;p.to=q.to;p.w=RW[q.ty];p.s=0;const A=GRAPH.nodes[p.from],B=GRAPH.nodes[p.to];p.L=dist2(A.x,A.z,B.x,B.z);pedTurn(p)}}
+    const rule=pedStep(p,p.spd*(p.path&&p.path[p.pk]&&p.path[p.pk].cross?1.25:1)*sdt,true);
     pedPos(p);if(!near){p.yawS=p.ang;if(p.vis){p.vis=false;showPed(p,dt,0,'',999)}continue}
     d=dist2(p.x,p.z,player.x,player.z);p.vis=d<Q.crowdD;if(!p.vis){showPed(p,dt,0,'',d);continue}
     p.ang=angLerp(p.yawS===undefined?p.ang:p.yawS,p.ang,Math.min(1,dt*6));p.yawS=p.ang;
@@ -3505,6 +3578,8 @@ function updateAI(v,dt){const e=GRAPH.edges[v.e];
       else tgt=Math.min(tgt,Math.max(0,(left-v.len/2-6)*.8))}}
   // red and yellow lights: stop at the line (a car already too close to stop on yellow goes through)
   {const L=lightAhead(v,e,left);if(L&&L.c!=='G'&&L.d>-.8&&L.d<60){if(isRebel(v)&&v.runRed){tgt=Math.min(tgt,Math.max(5,L.d*.5));v.tlStop=false}else if(L.c==='R'||v.tlStop||L.d>v.speed*.55){v.tlStop=true;tgt=Math.min(tgt,Math.max(0,L.d*.75))}}else v.tlStop=false}
+  // people still on a zebra of the junction ahead (the one before it, or the one of the street it turns into): wait at the line until they are across
+  {const T=EX.tlAt(e.b);if(T&&left<45){const dl=left-(T.off+v.len/2+.4);if(dl>-1.5&&(EX.zebraBusy(e.b,e.a)||v.next>=0&&EX.zebraBusy(e.b,GRAPH.edges[v.next].b)))tgt=Math.min(tgt,Math.max(0,dl*.75))}}
   // a hailed taxi / buseta: pull over and stop where the passenger waits (or at the destination)
   const H=v.hail;if(H){if(H.hold){tgt=0}else if(H.stop){const S=H.stop;let rem=-1;if(v.e===S.e)rem=S.t-v.t;else if(v.next===S.e)rem=left+S.t;
       if(H.halt)tgt=0;else if(rem>=0){tgt=Math.min(tgt,Math.max(0,rem*.7));v.pullT=rem<35?1:0}

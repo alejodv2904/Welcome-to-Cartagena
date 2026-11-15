@@ -247,7 +247,7 @@ function generarReal(C){const t0=Date.now();const roads=[],segs=[];
   for(const r of OSM.roads){const [ty,ow,lanes,br,name,p]=r;
     if(ty>=4&&inAirport(p[0],p[1])&&inAirport(p[p.length-2],p[p.length-1]))continue;
     if(ty<=2){roads.push([ty,ow,lanes,br,name,p.slice()]);continue}
-    const nb=nearestBarrio(p[0],p[1]),bi=nb.d>nb.b[5]*1.75?-1:BARRIOS.indexOf(nb.b);const pl={pts:p,ty,ow,lanes,name};let own=true;
+    const nb=nearestBarrio(p[0],p[1]),bi=nb.d>nb.b[5]*1.75?-1:BARRIOS.indexOf(nb.b);const pl={pts:p,ty,ow,lanes,name,br};let own=true;
     for(let i=0;i<p.length-2;i+=2){if(Math.hypot(p[i+2]-p[i],p[i+3]-p[i+1])<.05)continue;segs.push({ax:p[i],az:p[i+1],bx:p[i+2],bz:p[i+3],ty,name,barrio:bi,ow,lanes,pl,own});own=false}}
   // tránsito solo por lo que está conectado con el resto de la ciudad (no por calles sueltas ni por Tierra Bomba)
   const key=(x,z)=>Math.round(x*10)+','+Math.round(z*10);const par=new Map();

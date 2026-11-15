@@ -937,38 +937,72 @@ function updateGroups(dt){if(!gPool)return;gT-=dt;if(gT<=0){gT=.7;for(const g of
   const wm=new THREE.LineBasicMaterial({color:'#1b1b1b'});
   for(const [k,a] of wires){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));const l=new THREE.LineSegments(g,wm);l.frustumCulled=true;g.computeBoundingSphere();C.scene.add(l);const [tx,tz]=k.split('|').map(Number);C.tiles.push({m:l,x:(tx+.5)*C.TILE,z:(tz+.5)*C.TILE,cat:'lamp'})}})();
 
-const TL={mats:[],t:0};
+const TL={mats:[],t:0,clock:0,occ:new Map(),zeb:new Map(),ped:[]};
+/* semáforos: cada cruce reparte sus brazos en dos grupos (los de una vía y los de la que la cruza); ciclo de 36 s por grupo:
+   verde 14 s, amarillo 3 s, rojo 19 s (con un segundo en rojo para todos). Los peatones cruzan un brazo mientras sus carros
+   tienen rojo: muñeco verde 9 s, verde titilando 6 s (ya no se empieza a cruzar) y rojo 3 s antes de que los carros arranquen. */
+const TLC=36;
+const tlPh=g=>(TL.t+g*18)%TLC;
 (function trafficLights(){const G=C.GRAPH;const deg=new Map();G.edges.forEach((e,i)=>{for(const n of [e.a,e.b]){let l=deg.get(n);if(!l){l=[];deg.set(n,l)}l.push(i)}});
-  const groups=[[],[]];const housing=[],poles=[];let count=0;TL.nodes=new Map();const zeb=new Map(),zseen=new Set();
+  const groups=[[],[]],pedH=[[],[]];const poles=[],small=[];let count=0;TL.nodes=new Map();const zeb=new Map();
   for(const [n,list] of deg){if(count>3200)break;const main=list.filter(i=>G.edges[i].ty<=2);if(list.length<3||main.length<2)continue;const N=G.nodes[n];
     // in the generated barrios only where avenues cross or an avenue meets a main street (not at every corner)
     if(C.outer&&C.outer(N.x,N.z)&&!list.some(i=>G.edges[i].ty===3)&&main.length<6)continue;
-    let wInt=0;for(const i of list)wInt=Math.max(wInt,C.RW[G.edges[i].ty]/2);
-    for(const i of list){const e=G.edges[i];const o=e.a===n?G.nodes[e.b]:G.nodes[e.a];let dx=o.x-N.x,dz=o.z-N.z;const L=Math.hypot(dx,dz);if(L<wInt+6)continue;dx/=L;dz/=L;
-      const mx=-dx,mz=-dz;const rx=-mz,rz=mx;const w=C.RW[e.ty]/2;const x=N.x+dx*(wInt+1.5)+rx*(w+1.1),z=N.z+dz*(wInt+1.5)+rz*(w+1.1);if(!C.onLand(x,z)||C.solidAt(x,z))continue;
-      const y=C.ground(x,z),yaw=Math.atan2(dx,dz);const grp=Math.abs(dx)>Math.abs(dz)?0:1;
-      poles.push({x,z,m:C.place(x,y,z,0,yaw,0)});groups[grp].push({x,z,y,yaw});count++;TL.nodes.set(n,{off:wInt+3.2,w:wInt,x:N.x,z:N.z});
+    // the arms of the junction (a two-way street gives two edges per arm), with the real width of each street
+    const arms=new Map();for(const i of list){const e=G.edges[i];const o=e.a===n?e.b:e.a;const w=e.w||C.RW[e.ty];const q=arms.get(o);if(!q||w>q.w)arms.set(o,{o,ty:e.ty,w})}
+    let wInt=0,sx=0,sz=0;for(const q of arms.values()){wInt=Math.max(wInt,q.w/2);const O=G.nodes[q.o];const L=Math.hypot(O.x-N.x,O.z-N.z)||1;q.dx=(O.x-N.x)/L;q.dz=(O.z-N.z)/L;q.L=L;
+      const a=Math.atan2(q.dz,q.dx)*4;sx+=Math.cos(a)*q.w;sz+=Math.sin(a)*q.w}
+    // the arms along the main axis of the junction go together, the ones across it in the other group (the axis is the same for
+    // the nodes of both carriageways of an avenue, so the whole crossing changes at once; on a grid along x it is the old x/z split)
+    const ph=Math.atan2(sz,sx)/4,grp=new Map();for(const q of arms.values()){q.g=Math.abs(Math.cos(Math.atan2(q.dz,q.dx)-ph))>=.7071?0:1;grp.set(q.o,q.g)}
+    let any=false;
+    for(const q of arms.values()){const {dx,dz,L}=q;if(L<wInt+6)continue;const rx=dz,rz=-dx;const w=q.w/2;
       // zebra crossing on this arm, where the sidewalks of the cross street meet it (cars stop behind it)
-      const ok=e.a===n?e.b:e.a;if(!zseen.has(n+'>'+ok)){zseen.add(n+'>'+ok);const W=Math.max(4,Math.round(C.RW[e.ty]));const zx=N.x+dx*(wInt+1.3),zz=N.z+dz*(wInt+1.3);
-        let a2=zeb.get(W);if(!a2){a2=[];zeb.set(W,a2)}a2.push({x:zx,z:zz,m:C.place(zx,C.ground(zx,zz)+C.RLIFT[e.ty]+.018,zz,0,yaw,0)})}}}
+      const zd=wInt+1.3,zx=N.x+dx*zd,zz=N.z+dz*zd;if(!C.onLand(zx,zz))continue;any=true;
+      const W=Math.max(4,Math.round(q.w));let a2=zeb.get(W);if(!a2){a2=[];zeb.set(W,a2)}a2.push({x:zx,z:zz,m:C.place(zx,C.ground(zx,zz)+C.RLIFT[q.ty]+.018,zz,0,Math.atan2(dx,dz),0)});
+      TL.zeb.set(n+'>'+q.o,{d:zd,W:q.w,g:q.g});
+      // the car light, on the right of the cars that come in by this arm
+      const x=N.x+dx*(wInt+1.5)+rx*(w+1.1),z=N.z+dz*(wInt+1.5)+rz*(w+1.1);
+      if(C.onLand(x,z)&&!C.solidAt(x,z)){const y=C.ground(x,z),yaw=Math.atan2(dx,dz);poles.push({x,z,m:C.place(x,y,z,0,yaw,0)});groups[q.g].push({x,z,y,yaw});count++}
+      // a pedestrian light at each end of the zebra, facing the people waiting on the other side
+      for(const sd of [1,-1]){const off=w+.75,px=zx+dx*1.75+rx*off*sd,pz=zz+dz*1.75+rz*off*sd;if(!C.onLand(px,pz)||C.solidAt(px,pz))continue;
+        const py=C.ground(px,pz)+C.RLIFT[q.ty]+.17,yaw=Math.atan2(-rx*sd,-rz*sd);small.push({x:px,z:pz,m:C.place(px,py,pz,0,yaw,0)});pedH[q.g].push({x:px,z:pz,m:C.place(px,py,pz,0,yaw,0)})}}
+    if(any)TL.nodes.set(n,{off:wInt+3.2,w:wInt,x:N.x,z:N.z,grp})}
   const zm=new THREE.MeshLambertMaterial({color:'#f2f0e8',polygonOffset:true,polygonOffsetFactor:-3});
   for(const [W,items] of zeb){const P=[];const n=Math.max(3,Math.round(W/1.05));for(let k=0;k<n;k++){const x=-W/2+(k+.5)*W/n;const g=new THREE.PlaneGeometry(W/n*.52,2.6);g.rotateX(-Math.PI/2);g.translate(x,0,0);P.push(...g.toNonIndexed().attributes.position.array)}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();C.instChunks(g,zm,items,'lamp',false)}
-  const pg=(function(){const parts=[new THREE.CylinderGeometry(.08,.1,4.2,6).translate(0,2.1,0),new THREE.BoxGeometry(.38,1.1,.3).translate(0,4.1,0)];const P=[];parts.forEach(g=>P.push(...g.toNonIndexed().attributes.position.array));
-    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();return g})();
+  const merge=parts=>{const P=[];parts.forEach(g=>P.push(...g.toNonIndexed().attributes.position.array));const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();return g};
+  const pg=merge([new THREE.CylinderGeometry(.08,.1,4.2,6).translate(0,2.1,0),new THREE.BoxGeometry(.38,1.1,.3).translate(0,4.1,0)]);
   C.instChunks(pg,lm('#2a2c2e'),poles,'lamp',false);
   const bulb=new THREE.SphereGeometry(.11,10,6);const cols=[0xff2a1a,0xffb300,0x2bff6a];
   groups.forEach((list,gi)=>cols.forEach((c,ci)=>{const m=new THREE.MeshBasicMaterial({color:0x222222});TL.mats.push({m,gi,ci,c:new THREE.Color(c)});
-    C.instChunks(bulb,m,list.map(q=>{const ox=Math.sin(q.yaw)*.17,oz=Math.cos(q.yaw)*.17;return{x:q.x,z:q.z,m:C.place(q.x+ox,q.y+4.45-ci*.33,q.z+oz)}}),'lamp',false)}))})();
-// the light a car approaching along edge e sees (same grouping as the poles: by the axis of the street)
+    C.instChunks(bulb,m,list.map(q=>{const ox=Math.sin(q.yaw)*.17,oz=Math.cos(q.yaw)*.17;return{x:q.x,z:q.z,m:C.place(q.x+ox,q.y+4.45-ci*.33,q.z+oz)}}),'lamp',false)}));
+  // semáforo peatonal: poste delgado, caja negra y dos lentes, arriba el muñeco rojo quieto y abajo el verde caminando
+  C.instChunks(merge([new THREE.CylinderGeometry(.045,.055,2.2,6).translate(0,1.1,0),new THREE.BoxGeometry(.3,.64,.2).translate(0,2.48,0),new THREE.BoxGeometry(.3,.04,.14).translate(0,2.64,.15),new THREE.BoxGeometry(.3,.04,.14).translate(0,2.33,.15)]),lm('#1f2123'),small,'lamp',false);
+  const man=walk=>{const c=document.createElement('canvas');c.width=c.height=64;const q=c.getContext('2d');q.fillStyle='#000';q.fillRect(0,0,64,64);q.fillStyle='#fff';q.strokeStyle='#fff';q.lineCap='round';q.lineWidth=7;
+    q.beginPath();q.arc(32,12,6.5,0,TAU);q.fill();
+    if(walk){q.beginPath();q.moveTo(31,22);q.lineTo(28,40);q.stroke();q.beginPath();q.moveTo(28,40);q.lineTo(19,56);q.moveTo(28,40);q.lineTo(38,48);q.lineTo(40,58);q.moveTo(30,25);q.lineTo(20,36);q.moveTo(30,25);q.lineTo(41,33);q.stroke()}
+    else{q.beginPath();q.moveTo(32,22);q.lineTo(32,40);q.stroke();q.beginPath();q.moveTo(28,40);q.lineTo(27,58);q.moveTo(36,40);q.lineTo(37,58);q.moveTo(26,24);q.lineTo(23,40);q.moveTo(38,24);q.lineTo(41,40);q.stroke()}
+    const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t};
+  const lens=new THREE.PlaneGeometry(.24,.24);
+  [[0,'stop',0xff3a24,2.64],[1,'walk',0x3dff7a,2.33]].forEach(([k,kind,col,y])=>{const map=man(kind==='walk');const g=lens.clone().translate(0,y,.101);
+    for(const gi of [0,1]){const m=new THREE.MeshBasicMaterial({map,color:0x333333});TL.ped.push({m,gi,kind,c:new THREE.Color(col)});C.instChunks(g,m,pedH[gi],'lamp',false)}})})();
+// the light a car approaching along edge e sees: the group of the arm it comes in by (by the axis of the street where the junction is unknown)
 function tlAt(n){return TL.nodes.get(n)||null}
-function tlColor(e){const g=Math.abs(e.dx)>Math.abs(e.dz)?0:1;const t=(TL.t+g*12)%24;return t<10?'G':t<12?'Y':'R'}
-// pedestrians: walking along (dx,dz) they may cross the perpendicular street while their own direction has green (and time to cross);
-// crossing the street that runs along (dx,dz) only while its cars have red
-function pedAlong(dx,dz){const g=Math.abs(dx)>Math.abs(dz)?0:1;const t=(TL.t+g*12)%24;return t<7.5}
-function pedAcross(dx,dz){const g=Math.abs(dx)>Math.abs(dz)?0:1;const t=(TL.t+g*12)%24;return t>12.5&&t<20}
-function updateTL(dt){TL.t=(TL.t+dt)%24;const ph=g=>{const t=(TL.t+g*12)%24;return t<10?2:t<12?1:0};const dark=new THREE.Color(0x2a2a2a);
-  for(const q of TL.mats){const on=ph(q.gi)===q.ci;q.m.color.copy(on?q.c:dark)}}
+function armG(n,o){const T=TL.nodes.get(n);if(T&&T.grp.has(o))return T.grp.get(o);const N=C.GRAPH.nodes[n],O=C.GRAPH.nodes[o];return Math.abs(O.x-N.x)>Math.abs(O.z-N.z)?0:1}
+function tlColor(e){const t=tlPh(armG(e.b,e.a));return t<14?'G':t<17?'Y':'R'}
+// pedestrians crossing the arm n→o: 'walk' (they may start), 'flash' (whoever is crossing finishes) or 'stop'
+function pedPhase(n,o){const t=tlPh(armG(n,o));return t>=18&&t<27?'walk':t>=27&&t<33?'flash':'stop'}
+function pedGo(n,o){return pedPhase(n,o)==='walk'}
+function zebraAt(n,o){return TL.zeb.get(n+'>'+o)||null}
+// someone is on the zebra: the cars that would go over it wait at the line
+function zebraMark(n,o){TL.occ.set(n+'>'+o,TL.clock)}
+function zebraBusy(n,o){const t=TL.occ.get(n+'>'+o);return t!==undefined&&TL.clock-t<.3}
+function updateTL(dt){TL.t=(TL.t+dt)%TLC;TL.clock+=dt;if(TL.occ.size>4000)for(const [k,t] of TL.occ)if(TL.clock-t>1)TL.occ.delete(k);
+  const ph=g=>{const t=tlPh(g);return t<14?2:t<17?1:0};const dark=new THREE.Color(0x2a2a2a);
+  for(const q of TL.mats){const on=ph(q.gi)===q.ci;q.m.color.copy(on?q.c:dark)}
+  const blink=(TL.clock%1)<.55;
+  for(const q of TL.ped){const t=tlPh(q.gi),k=t>=18&&t<27?'walk':t>=27&&t<33?'flash':'stop';const on=q.kind==='walk'?(k==='walk'||k==='flash'&&blink):k==='stop';q.m.color.copy(on?q.c:dark)}}
 
 /* =========================================================================================
    9. RADIO DEL CARRO: música generada en vivo (champeta, vallenato, salsa, dembow)
@@ -1059,7 +1093,7 @@ const API={
   get inside(){return inside},get shopDef(){return CUR.def},get shop(){return CUR.shop},IS,SHOPS,seatZ,buildFacades,typeFor,openMenuAt(m){openMenu(m)},
   setSpec(spec){P.spec=Object.assign({},spec);rebuildPlayer();if(inside)IS.add(player.mesh)},
   init(){makeGroups()},
-  act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,pedAlong,pedAcross,get tlNodes(){return TL.nodes},
+  act,jump,punch,radioNext,canSprint,footPost,enterCar,exitCar,tween,get entering(){return !!ENT},get busy(){return FADE.busy},fade,tlAt,tlColor,pedPhase,pedGo,zebraAt,zebraMark,zebraBusy,get tlNodes(){return TL.nodes},
   updateInside,outPrompt,carPrompt,mini,TYPES,HOURS,isOpen,fmtH,brandOf,charge,funds,HOOK,SPOTS,
   setMenu(k,fn){MENUS[k]=fn},addUI(f){UIS.push(f)},closeMenu,refreshMenu(){if(menuOpen)openMenu(menuOpen,menuOpen.sub&&menuOpen.sub.again?menuOpen.sub.again():menuOpen.sub)},
   update(dt,now){const nv=C.NIGHT.value;C.nightMats[0].emissive.setRGB(nv*.75,nv*.75,nv*.75);C.nightMats[1].emissive.setRGB(nv*.55,nv*.38,nv*.2);updateMarkers(dt,now);updatePlates(dt);updateGroups(dt);updateTL(dt);updateDoors(dt);updateVictims(dt);radioUpdate(dt);hud()},
