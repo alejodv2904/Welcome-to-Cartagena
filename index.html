@@ -149,9 +149,71 @@ function triH(A,x,z){const gx=clamp((x-RG.x0)/RG.c,0,RG.NX-1.001),gz=clamp((z-RG
 // sin relieve.js: la ciudad plana con La Popa como una elipse
 function groundRaw(x,z){if(RG)return triH(RG.H,x,z);const r=hillR(x,z);if(r>=1)return 0;const k=1-r;return 105*k*k}
 const HILLBOOST=0.35;
-function ground(x,z){if(RG)return triH(RG.HB,x,z);const r=hillR(x,z);if(r>=1.25)return 0;const k=r>=1?0:1-r;const t=clamp((1.25-r)/.35,0,1);return 105*k*k+HILLBOOST*t*t*(3-2*t)}
+function groundT(x,z){if(RG)return triH(RG.HB,x,z);const r=hillR(x,z);if(r>=1.25)return 0;const k=r>=1?0:1-r;const t=clamp((1.25-r)/.35,0,1);return 105*k*k+HILLBOOST*t*t*(3-2*t)}
+// lo que pisa todo (calles, andenes, vehículos, gente): el terreno, o el tablero del puente donde lo hay
+// (donde un puente pasa por encima de otra calle hay dos pisos: con ref, la altura de antes, se queda en el piso más cercano;
+//  sin ref, abajo; GB_FORCE: arriba, mientras se arma la calzada del puente)
+let GB_FORCE=false;
+function ground(x,z,ref){const g=groundT(x,z);if(BRG===null)bridgeInit();const k=bcell(x,z);if(BRG.flag[k]){const b=bridgeY(x,z);
+    if(b>g){if(BRG.zflag[k]&&underZone(x,z)){if(GB_FORCE)return b;if(ref===undefined)return g;return Math.abs(ref-b)<Math.abs(ref-g)?b:g}return b}}return g}
 // ¿hay pendiente aquí? (celda de la cuadrícula que no está toda a nivel 0)
-function hilly(x,z){if(!RG)return hillR(x,z)<1.3;const a=Math.floor((x-RG.x0)/RG.c),b=Math.floor((z-RG.z0)/RG.c);if(a<0||b<0||a>=RG.NX-1||b>=RG.NZ-1)return false;return!RG.FLAT[b*RG.NX+a]}
+function hilly(x,z){if(BRG&&BRG.flag[bcell(x,z)])return true;if(!RG)return hillR(x,z)<1.3;const a=Math.floor((x-RG.x0)/RG.c),b=Math.floor((z-RG.z0)/RG.c);if(a<0||b<0||a>=RG.NX-1||b>=RG.NZ-1)return false;return!RG.FLAT[b*RG.NX+a]}
+
+/* ---------- puentes: los tramos que OpenStreetMap marca como puente (bridge=yes) se levantan sobre el agua y los caños
+   (Puente Román, Puente de Heredia, Puente de Manga, el de la Avenida del Lago, El Bosque, el Viaducto del Gran Manglar
+   hacia La Boquilla, los de la Vía Mamonal y la Variante…): rampa suave de subida (máx. ~6,5 %), tablero alto en el medio y
+   rampa de bajada, más alto cuanto más largo es el puente. Las alcantarillas cortas (menos de 25 m) quedan a ras, y los
+   cruces por debajo (intercambios de la Vía Mamonal, la Variante, El Bosque, la punta del Viaducto) tienen dos pisos: la calle de
+   abajo sigue a ras y la de arriba pasa por encima. */
+let BRG=null;const BRIDGES=[];
+const bcell=(x,z)=>{const a=Math.floor((x-BRG.x0)/20),b=Math.floor((z-BRG.z0)/20);return a<0||b<0||a>=BRG.nx||b>=BRG.nz?0:b*BRG.nx+a};
+function bridgeInit(){const WB0=CD.WORLD,x0=WB0[0]-200,z0=WB0[1]-200,nx=Math.ceil((WB0[2]-WB0[0]+400)/20),nz=Math.ceil((WB0[3]-WB0[1]+400)/20);
+  BRG={x0,z0,nx,nz,flag:new Uint8Array(nx*nz),zflag:new Uint8Array(nx*nz),cells:new Map(),zones:new Map()};
+  const W=[15,12,10,9,7,4.5,5,2.2],wOf=(ty,ow,lanes,name)=>name==='Avenida Pedro de Heredia'&&ow===1&&ty===0?clamp(3.3*Math.max(2,lanes)+1.2,7.8,12):W[ty]+(lanes>=4?3:0);
+  const all=MAP.roads.filter(r=>r[6]!==1).concat((window.CIUDAD_OSM&&window.CIUDAD_OSM.roads)||[]);
+  const pcs=[];for(const r of all)if(r[3]&&r[0]!==6&&r[5].length>=4)pcs.push({ty:r[0],w:wOf(r[0],r[1],r[2],r[4]),name:r[4]||'',p:r[5]});
+  // los tramos de un mismo puente vienen cortados cada ~200 m: se encadenan por sus puntas
+  const key=(x,z)=>Math.round(x*2)+','+Math.round(z*2),byStart=new Map();for(const q of pcs){const k=key(q.p[0],q.p[1]);if(!byStart.has(k))byStart.set(k,[]);byStart.get(k).push(q)}
+  const succ=q=>{const n=q.p.length;return(byStart.get(key(q.p[n-2],q.p[n-1]))||[]).find(o=>o!==q&&o.ty===q.ty&&!o.used)};
+  const hasPrev=new Set();for(const q of pcs){const o=succ(q);if(o)hasPrev.add(o)}
+  const chains=[];for(const start of pcs.filter(q=>!hasPrev.has(q)).concat(pcs)){if(start.used)continue;const P=[];let q=start;
+    while(q&&!q.used){q.used=true;for(let i=P.length?2:0;i<q.p.length;i++)P.push(q.p[i]);q=succ(q)}chains.push({ty:start.ty,w:start.w,name:start.name,P})}
+  // ¿pasa por encima de otra calle? (cruce de verdad, no la calle que empalma en la punta del puente)
+  const cross=(ax,az,bx,bz,cx,cz,dx,dz)=>{const d=(bx-ax)*(dz-cz)-(bz-az)*(dx-cx);if(Math.abs(d)<1e-9)return false;const t=((cx-ax)*(dz-cz)-(cz-az)*(dx-cx))/d,u=((cx-ax)*(bz-az)-(cz-az)*(bx-ax))/d;return t>0&&t<1&&u>0&&u<1};
+  // puntas de las calles normales, para seguir la vía que llega a un puente elevado (su rampa de acceso)
+  const ends=new Map();for(const r of all){if(r[3]||r[0]>5)continue;const p=r[5],n=p.length;for(const [i,dir] of [[0,1],[n-2,-1]]){const k=key(p[i],p[i+1]);if(!ends.has(k))ends.set(k,[]);ends.get(k).push({p,i,dir})}}
+  const approach=(x,z,dx,dz,need)=>{const out=[];let acc=0;for(let g=0;g<12&&acc<need;g++){let best=null,bd=.6;
+      for(const c of ends.get(key(x,z))||[]){const j=c.i+2*c.dir,ex=c.p[j]-x,ez=c.p[j+1]-z,l=Math.hypot(ex,ez);if(l<.01)continue;const d=(ex*dx+ez*dz)/l;if(d>bd){bd=d;best=c}}
+      if(!best)break;let i=best.i;while(acc<need){const j=i+2*best.dir;if(j<0||j>=best.p.length)break;const ex=best.p[j]-x,ez=best.p[j+1]-z,l=Math.hypot(ex,ez);if(l<.01){i=j;continue}
+        if(acc+l>need){const f=(need-acc)/l;out.push(x+ex*f,z+ez*f);acc=need;break}out.push(best.p[j],best.p[j+1]);acc+=l;dx=ex/l;dz=ez/l;x=best.p[j];z=best.p[j+1];i=j}}
+    return out};
+  for(const c of chains){let P=c.P,S=[0];for(let i=2;i<P.length;i+=2)S.push(S[S.length-1]+Math.hypot(P[i]-P[i-2],P[i+1]-P[i-1]));let L=S[S.length-1];if(L<25)continue;
+    let bx0=1e9,bz0=1e9,bx1=-1e9,bz1=-1e9;for(let i=0;i<P.length;i+=2){bx0=Math.min(bx0,P[i]);bx1=Math.max(bx1,P[i]);bz0=Math.min(bz0,P[i+1]);bz1=Math.max(bz1,P[i+1])}
+    const unders=[];for(const r of all){if(r[3]||r[0]>5)continue;const p=r[5];let rx0=1e9,rx1=-1e9,rz0=1e9,rz1=-1e9;for(let i=0;i<p.length;i+=2){rx0=Math.min(rx0,p[i]);rx1=Math.max(rx1,p[i]);rz0=Math.min(rz0,p[i+1]);rz1=Math.max(rz1,p[i+1])}
+      if(rx1<bx0||rx0>bx1||rz1<bz0||rz0>bz1)continue;const lw=wOf(r[0],r[1],r[2],r[4])/2+2.6;
+      for(let j=0;j<p.length-2;j+=2){const mx=(p[j]+p[j+2])/2,mz=(p[j+1]+p[j+3])/2;if(Math.hypot(mx-P[0],mz-P[1])<12||Math.hypot(mx-P[P.length-2],mz-P[P.length-1])<12)continue;
+        for(let i=0;i<P.length-2;i+=2)if(cross(P[i],P[i+1],P[i+2],P[i+3],p[j],p[j+1],p[j+2],p[j+3])){
+          const ax=P[i+2]-P[i],az=P[i+3]-P[i+1],cx=p[j+2]-p[j],cz=p[j+3]-p[j+1],d=ax*cz-az*cx,t=((p[j]-P[i])*cz-(p[j+1]-P[i+1])*cx)/d,sn=Math.abs(d)/Math.hypot(ax,az)/Math.hypot(cx,cz);
+          unders.push({x:P[i]+ax*t,z:P[i+1]+az*t,r:Math.max(lw,c.w/2+2.6)/Math.max(.35,sn)+2})}}}
+    let H=L>600?6.5:clamp(L*.03,.9,5);
+    // paso elevado: gálibo de 6 m sobre la calle de abajo, con rampas de acceso sobre las vías que llegan (el terraplén)
+    if(unders.length){H=Math.max(H,6);const need=H/.065,n=P.length;
+      const a=approach(P[0],P[1],P[0]-P[2],P[1]-P[3],need),b=approach(P[n-2],P[n-1],P[n-2]-P[n-4],P[n-1]-P[n-3],need);const pre=[];for(let i=a.length-2;i>=0;i-=2)pre.push(a[i],a[i+1]);
+      P=pre.concat(P,b);S=[0];for(let i=2;i<P.length;i+=2)S.push(S[S.length-1]+Math.hypot(P[i]-P[i-2],P[i+1]-P[i-1]));L=S[S.length-1]}
+    const Lr=Math.min(L/2,H/.065),g0=groundT(P[0],P[1]),g1=groundT(P[P.length-2],P[P.length-1]);
+    const B={name:c.name,ty:c.ty,w:c.w,P,S,L,H,Lr,g0,g1,hw:c.w/2+(c.ty===7?.45:2.6),unders};BRIDGES.push(B);
+    for(const u of unders)for(let a=Math.floor((u.x-u.r-x0)/20);a<=Math.floor((u.x+u.r-x0)/20);a++)for(let b=Math.floor((u.z-u.r-z0)/20);b<=Math.floor((u.z+u.r-z0)/20);b++){
+      if(a<0||b<0||a>=nx||b>=nz)continue;const k=b*nx+a;BRG.zflag[k]=1;let l=BRG.zones.get(k);if(!l){l=[];BRG.zones.set(k,l)}l.push(u)}
+    for(let i=0;i<P.length-2;i+=2){const sg={B,ax:P[i],az:P[i+1],bx:P[i+2],bz:P[i+3],s0:S[i/2],len:S[i/2+1]-S[i/2]};if(sg.len<.01)continue;const m=B.hw+1;
+      for(let a=Math.floor((Math.min(sg.ax,sg.bx)-m-x0)/20);a<=Math.floor((Math.max(sg.ax,sg.bx)+m-x0)/20);a++)for(let b=Math.floor((Math.min(sg.az,sg.bz)-m-z0)/20);b<=Math.floor((Math.max(sg.az,sg.bz)+m-z0)/20);b++){
+        if(a<0||b<0||a>=nx||b>=nz)continue;const k=b*nx+a;BRG.flag[k]=1;let l=BRG.cells.get(k);if(!l){l=[];BRG.cells.set(k,l)}l.push(sg)}}}}
+function underZone(x,z){const l=BRG.zones.get(bcell(x,z));if(l)for(const u of l)if((x-u.x)**2+(z-u.z)**2<u.r*u.r)return true;return false}
+// altura del tablero en la distancia s del puente
+function bridgeAt(B,s){const u=clamp(Math.min(s,B.L-s)/B.Lr,0,1);return B.g0+(B.g1-B.g0)*clamp(s/B.L,0,1)+B.H*(1-Math.cos(Math.PI*u))/2}
+// el tablero bajo (x,z), o -1e9 si no hay puente (con margen m se busca más afuera del borde: barandas, lámparas)
+function bridgeY(x,z,m){const l=BRG.cells.get(bcell(x,z));if(!l)return -1e9;let y=-1e9;m=m||0;
+  for(const sg of l){const ex=sg.bx-sg.ax,ez=sg.bz-sg.az;let t=((x-sg.ax)*ex+(z-sg.az)*ez)/(sg.len*sg.len);t=t<0?0:t>1?1:t;const dx=x-sg.ax-ex*t,dz=z-sg.az-ez*t;
+    if(dx*dx+dz*dz<=(sg.B.hw+m)*(sg.B.hw+m)){const h=bridgeAt(sg.B,sg.s0+t*sg.len);if(h>y)y=h}}return y}
 
 /* ---------- land / water mask ---------- */
 const MK=MAP.mask,MW=MK.w,MH=MK.h,water=new Uint8Array(MW*MH);
@@ -435,7 +497,7 @@ function surfLift(x,z){const k=Math.round(x*2)*1e6+Math.round(z*2);let v=SLC.get
     if(s.ty>=1&&s.ty<=4&&d<=hw+2.45){const L=Math.sqrt(l2),at=t*L,tr=s.w*.7;if((at<tr&&isJunction(s.ax,s.az))||(L-at<tr&&isJunction(s.bx,s.bz)))continue;walk=Math.max(walk,RLIFT[s.ty]+.17)}}}
   if(!v&&walk)v=walk;for(const st of TC_ST){const dx=x-st.x,dz=z-st.z;const al=dx*st.tx+dz*st.tz,pp=Math.abs(-dx*st.tz+dz*st.tx);if(pp>=st.hw)continue;if(Math.abs(al)<st.hl)v=Math.max(v,st.top);else if(st.rl){const e=-al-st.hl;if(e>=0&&e<st.rl)v=Math.max(v,st.base+(st.top-st.base)*(1-e/st.rl))}}
   if(SLC.size>80000)SLC.clear();SLC.set(k,v);return v}
-const standY=(x,z)=>ground(x,z)+surfLift(x,z);
+const standY=(x,z,ref)=>ground(x,z,ref)+surfLift(x,z);
 const colObj=c=>new THREE.Color(c);
 // expand a polyline into points, subdividing where the terrain bends so ribbons follow it (on a steady slope, or flat ground, nothing is added)
 function densSeg(ax,az,ga,bx,bz,gb,P,dep){const L=Math.hypot(bx-ax,bz-az);if(L<5||dep>9)return;const n=Math.ceil(L/3);let bd=0,bt=0;
@@ -455,7 +517,7 @@ function ribbonP(P,w,lift,mkey,col,off,uScale,joints){if(P.length<2)return;const
   if(joints)for(let i=1;i<P.length-1;i++){const b=bucket(mkey,P[i][0],P[i][1]);const y=ground(P[i][0],P[i][1])+lift;const c=[P[i][0],y,P[i][1]];const gp=(x,z)=>[x,ground(x,z)+lift,z];for(let k=0;k<8;k++){const a0=k/8*TAU,a1=(k+1)/8*TAU;triW(b,c,gp(P[i][0]+Math.cos(a1)*h,P[i][1]+Math.sin(a1)*h),gp(P[i][0]+Math.cos(a0)*h,P[i][1]+Math.sin(a0)*h),8,col)}}}
 const GRAPH={nodes:[],edges:[],idx:new Map()};
 function gnode(x,z){const k=Math.round(x*10)+','+Math.round(z*10);let n=GRAPH.idx.get(k);if(n===undefined){n=GRAPH.nodes.length;GRAPH.nodes.push({x,z,out:[]});GRAPH.idx.set(k,n)}return n}
-function gedge(a,b,ty,two,name,w){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,hw:(w||RW[ty])/2,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
+function gedge(a,b,ty,two,name,w,br){const A=GRAPH.nodes[a],B=GRAPH.nodes[b];const len=Math.hypot(B.x-A.x,B.z-A.z);if(len<.3)return;const e={a,b,ty,two,len,name,br:!!br,hw:(w||RW[ty])/2,dx:(B.x-A.x)/len,dz:(B.z-A.z)/len};GRAPH.edges.push(e);A.out.push(GRAPH.edges.length-1)}
 // how many street segments meet at each vertex (to keep sidewalks and paint out of junctions)
 const vdeg=new Map();const vk=(x,z)=>Math.round(x*10)+','+Math.round(z*10);
 MAP.roads.forEach(r=>{if(r[0]>5)return;const p=r[5];for(let i=0;i<p.length;i+=2){const k=vk(p[i],p[i+1]);vdeg.set(k,(vdeg.get(k)||0)+((i===0||i===p.length-2)?1:2))}});
@@ -490,14 +552,32 @@ function roadGeo(ty,ow,w,pts){const P=densify(pts);
           // curb face
           const C=[];for(let i=0;i<D.length;i++){const a=D[Math.max(0,i-1)],b=D[Math.min(D.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const l=Math.hypot(dx,dz)||1;C.push([D[i][0]-dz/l*sgn*w/2,D[i][1]+dx/l*sgn*w/2])}
           for(let i=0;i<C.length-1;i++){const y0=ground(C[i][0],C[i][1])+RLIFT[ty],y1=ground(C[i+1][0],C[i+1][1])+RLIFT[ty];quad(bucket('plain',C[i][0],C[i][1]),[C[i][0],y0,C[i][1]],[C[i+1][0],y1,C[i+1][1]],[C[i+1][0],y1+.17,C[i+1][1]],[C[i][0],y0+.17,C[i][1]],null,CURB)}}}}}}
-MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);roadGeo(ty,ow,w,pts);
+if(BRG===null)bridgeInit();
+MAP.roads.forEach(r=>{const [ty,ow,lanes,br,name,pts]=r;const w=roadW(ty,ow,lanes,name);GB_FORCE=!!br;roadGeo(ty,ow,w,pts);GB_FORCE=false;
   if(ty<=5)for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,outerAv:r[6]===1});
   else for(let i=0;i<pts.length-2;i+=2)addRoadSeg({ax:pts[i],az:pts[i+1],bx:pts[i+2],bz:pts[i+3],ty,name,w,walk:true});
-  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name,w);if(ow<=0)gedge(b,a,ty,two,name,w)}}});
+  if(ty<=4&&!r[7]){const two=ow===0;for(let i=0;i<pts.length-2;i+=2){const a=gnode(pts[i],pts[i+1]),b=gnode(pts[i+2],pts[i+3]);if(ow>=0)gedge(a,b,ty,two,name,w,br);if(ow<=0)gedge(b,a,ty,two,name,w,br)}}});
 // streets of the generated barrios: in the street index and the traffic graph now; their pavement and houses are built near the player
 // (con ciudad-osm.js son las calles reales: respetan el sentido único y las de servicio no llevan tránsito)
 const GSEGS=GEN.segs;for(const s of GSEGS){s.w=s.pl?roadW(s.ty,s.ow,s.lanes,s.name):RW[s.ty];s.grid=true;s.ja=isJunction(s.ax,s.az);s.jb=isJunction(s.bx,s.bz);addRoadSeg(s);
   if(s.ty>4||s.nograph)continue;const two=s.ow!==1,a=gnode(s.ax,s.az),b=gnode(s.bx,s.bz);gedge(a,b,s.ty,two,s.name,s.w);if(two)gedge(b,a,s.ty,two,s.name,s.w)}
+// los puentes levantados: losa con su borde, barandas de concreto (de metal en los peatonales) y pilas que bajan al agua
+(function bridgeDecks(){const conc=colObj('#d8d3c8'),slab=colObj('#9f998e'),pier=colObj('#b9b2a5'),rail=colObj('#4f5458'),M=new THREE.Matrix4(),R=new THREE.Matrix4();
+  const put=(geo,col,x,y,z,yaw,pitch)=>{M.makeRotationY(yaw);R.makeRotationX(pitch||0);M.multiply(R);M.setPosition(x,y,z);geoInto('plain',geo,col,M)};
+  for(const B of BRIDGES){const P=B.P,step=5,foot=B.ty===7;let lastPier=-1e9;
+    const pt=d=>{let i=0;while(i<B.S.length-2&&B.S[i+1]<d)i++;const f=(d-B.S[i])/((B.S[i+1]-B.S[i])||1);return[P[i*2]+(P[i*2+2]-P[i*2])*f,P[i*2+1]+(P[i*2+3]-P[i*2+1])*f]};
+    for(let s0=0;s0<B.L-.01;s0+=step){const s1=Math.min(B.L,s0+step),ds=s1-s0,a=pt(s0),b=pt(s1),dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz)||1,ux=dx/L,uz=dz/L,nx=-uz,nz=ux;
+      const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2,y=bridgeAt(B,(s0+s1)/2),gt=groundT(mx,mz),lift=y-Math.max(gt,0);if(lift<.3)continue;
+      const yaw=Math.atan2(ux,uz),pitch=-Math.atan2(bridgeAt(B,s1)-bridgeAt(B,s0),ds),w=B.hw*2;
+      put(new THREE.BoxGeometry(w,.75,ds+.06),slab,mx,y-.48,mz,yaw,pitch);
+      for(const sd of [-1,1]){const o=B.hw-(foot?.05:.16),px=mx+nx*o*sd,pz=mz+nz*o*sd;
+        if(foot){put(new THREE.BoxGeometry(.07,.07,ds+.05),rail,px,y+1.05,pz,yaw,pitch);put(new THREE.BoxGeometry(.05,1,.05),rail,px,y+.55,pz,yaw,0)}
+        else put(new THREE.BoxGeometry(.32,1.5,ds+.05),conc,px,y+.48,pz,yaw,pitch);
+        if(lift>.5)addSolidPoly(rectPts(px,pz,.35,ds+.05,yaw))}
+      // pilas cada ~24 m donde el tablero va alto (hasta el fondo del agua o el piso)
+      if(lift>1.3&&s0-lastPier>=22){lastPier=s0;const yb=Math.min(gt,-.7)-1.5,h=y-.8-yb;
+        if(B.L>600)for(const sd of [-1,1])put(new THREE.CylinderGeometry(.6,.7,h,10),pier,mx+nx*sd*w*.28,yb+h/2,mz+nz*sd*w*.28,yaw,0);
+        else put(new THREE.BoxGeometry(w*.8,h,foot?.5:1.1),pier,mx,yb+h/2,mz,yaw,0)}}}})();
 /* ---------- Transcaribe: exclusive two-way busway down the middle of Avenida Pedro de Heredia, with raised stations ---------- */
 const TCW={path:null,S:null,L:0,stations:[]};
 (function(){const segs=CD.OSM
@@ -2436,9 +2516,9 @@ function construirSitios(){
     if(k==='puente'){
       // Puente Román: pretiles de concreto, borde del tablero y pilas sobre el agua
       // (los lados largos llevan pretil aunque el agua de la máscara no llegue hasta el puente; las pilas, solo sobre el agua)
-      for(const e of edges(P)){if(e.L<40)continue;const m=Math.max(1,Math.round(e.L/3));for(let q=0;q<m;q++){const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t,z=e.az+(e.bz-e.az)*t,sl=e.L/m,y=ground(x,z);
-        if(!roadClear(x,z,-.4))continue;box(sl+.05,1,.35,'#e6e2da',x,y+.6,z,rot(e));box(sl+.05,1.6,.6,'#bdb7ac',x+e.nx*.3,y-.75,z+e.nz*.3,rot(e));addSolidPoly(rectPts(x,z,sl,.4,rot(e)));
-          if(q%6===3){cyl(.07,.07,6,'#9aa0a6',x,y+3.6,z,6);XGLOW.push([x-e.nx*.8,y+6.5,z-e.nz*.8,0xffe9b0,.6]);if(isWater(x+e.nx*3,z+e.nz*3))cyl(.9,.9,7,'#a9a398',x-e.nx*2,-4.2,z-e.nz*2,10)}}}
+      // (las barandas, la losa y las pilas las pone el puente levantado; aquí van los faroles a la altura del tablero)
+      for(const e of edges(P)){if(e.L<40)continue;const m=Math.max(1,Math.round(e.L/3));for(let q=0;q<m;q++){if(q%6!==3)continue;const t=(q+.5)/m,x=e.ax+(e.bx-e.ax)*t,z=e.az+(e.bz-e.az)*t,y=Math.max(ground(x,z),bridgeY(x,z,8));
+        if(!roadClear(x,z,-.4))continue;cyl(.07,.07,6,'#9aa0a6',x,y+3.6,z,6);XGLOW.push([x-e.nx*.8,y+6.5,z-e.nz*.8,0xffe9b0,.6])}}
       addLM(s.n,s.x,s.z,8,0);continue}
     if(k==='mercado'){
       // Mercado de Bazurto: galpones bajos con techo de zinc y toldos de colores; puestos con sombrillas en las calles de alrededor
@@ -3243,12 +3323,14 @@ let VID=0;function newVehicle(x,z,yaw,type,color){type=type||'car';const col=col
   const design=type==='police'?'motopol':type==='transito'?'mototra':type==='mototaxi'?'moto':type==='car'?pick(['car','car','hatch','hatch','suv']):type==='camion'?pick(['camion','estacas']):type==='camioneta'?pick(['pickup','pickup','suv']):type;const alt=type==='buseta'?[pick(['#e4572e','#1f9aa6','#f0b429','#2e7d32']),pick(['#d32f2f','#1565c0','#7b1fa2','#f57c00'])]:null;
   const rig=VK.build(design,col,alt);rig.root.rotation.order='YXZ';if(rig.horse)addHorse(rig);scene.add(rig.root);const S=VSPEC[type];
   const v={vid:VID++,mesh:rig.root,rig,x,z,yaw,py:yaw,speed:0,ai:false,r:S.r,len:S.len,type,taxi:type==='taxi',bus:type==='bus'||type==='busart'||type==='buseta'||type==='chiva'||type==='camion',hp:100,spec:S,col};vehicles.push(v);syncCar(v);return v}
-const vehY=v=>v.tc?ground(v.x,v.z)+RLIFT[0]+.03:v.ai&&v.e>=0&&GRAPH.edges[v.e]&&!v.chase?ground(v.x,v.z)+RLIFT[GRAPH.edges[v.e].ty]:standY(v.x,v.z);
+// (en un cruce por debajo de un puente: los del puente van arriba, los de la calle de abajo van abajo, y los demás siguen en su piso)
+const vehY=v=>{if(v.tc)return ground(v.x,v.z)+RLIFT[0]+.03;const e=v.ai&&v.e>=0&&!v.chase?GRAPH.edges[v.e]:null;if(e)return ground(v.x,v.z,e.br?1e9:-1e9)+RLIFT[e.ty];const y=standY(v.x,v.z,v.gy);v.gy=y;return y};
 // on slopes the vehicle tilts with the ground: pitch from the wheels in front and behind, roll from both sides (motorcycles stay upright)
 function syncCar(v){let y=vehY(v),pitch=0,roll=0;
   if(hilly(v.x,v.z)){const sn=Math.sin(v.yaw),cs=Math.cos(v.yaw),h=v.len*.4,w=Math.max(.3,(v.rig.wid||1.6)*.42);
-    const gC=ground(v.x,v.z),gF=ground(v.x+sn*h,v.z+cs*h),gB=ground(v.x-sn*h,v.z-cs*h);pitch=-Math.atan2(gF-gB,2*h);
-    if(!v.rig.moto){const gL=ground(v.x+cs*w,v.z-sn*w),gR=ground(v.x-cs*w,v.z+sn*w);roll=Math.atan2(gL-gR,2*w)}
+    // (con la altura del vehículo como referencia: en un cruce bajo un puente mide en su mismo piso)
+    const gC=ground(v.x,v.z,y),gF=ground(v.x+sn*h,v.z+cs*h,y),gB=ground(v.x-sn*h,v.z-cs*h,y);pitch=-Math.atan2(gF-gB,2*h);
+    if(!v.rig.moto){const gL=ground(v.x+cs*w,v.z-sn*w,y),gR=ground(v.x-cs*w,v.z+sn*w,y);roll=Math.atan2(gL-gR,2*w)}
     y+=Math.max(0,(gF+gB)/2-gC)}
   v.mesh.position.set(v.x,y,v.z);v.mesh.rotation.set(pitch,v.yaw,roll)}
 const CRUISE={0:15,1:13,2:12,3:10.5,4:8,5:7,6:6};
